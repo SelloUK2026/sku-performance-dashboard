@@ -5,13 +5,13 @@ import math
 import os
 import re
 import time
-from datetime import datetime
+import csv
+from datetime import datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlparse
-
-import pandas as pd
+from urllib.request import urlopen
 
 
 ROOT = Path(__file__).resolve().parent
@@ -40,11 +40,23 @@ class DataSourceError(RuntimeError):
     pass
 
 
+pd = None
+
+
+def get_pandas():
+    global pd
+    if pd is None:
+        import pandas as pandas_module
+        pd = pandas_module
+    return pd
+
+
 def clean_number(value, default=0.0):
     if value is None:
         return default
     try:
-        if pd.isna(value):
+        pandas_module = pd
+        if pandas_module is not None and pandas_module.isna(value):
             return default
     except TypeError:
         pass
@@ -61,11 +73,13 @@ def clean_value(value):
     if value is None:
         return None
     try:
-        if pd.isna(value):
+        pandas_module = pd
+        if pandas_module is not None and pandas_module.isna(value):
             return None
     except TypeError:
         pass
-    if isinstance(value, pd.Timestamp):
+    pandas_module = pd
+    if pandas_module is not None and isinstance(value, pandas_module.Timestamp):
         return value.strftime("%Y-%m-%d")
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d")
@@ -80,6 +94,27 @@ def simplify_columns(df):
     return df
 
 
+def simplify_key(key):
+    return str(key).split("/")[0].strip()
+
+
+def parse_date(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(text.split(" ")[0])
+    except ValueError:
+        return None
+
+
 def normalize_sku(value):
     if value is None:
         return ""
@@ -90,13 +125,30 @@ def first_image_url(value):
     if not isinstance(value, str):
         return ""
     match = re.search(r"https?://[^,\s]+", value)
-    return match.group(0) if match else ""
+    return match.group(0).strip() if match else ""
+
+
+def image_urls_from_row(row):
+    urls = []
+    for column in ("White bg image", "Picture URLs"):
+        value = row.get(column)
+        if isinstance(value, str):
+            urls.extend(re.findall(r"https?://[^,\s]+", value))
+    cleaned = []
+    seen = set()
+    for url in urls:
+        url = url.strip()
+        if url and url not in seen:
+            cleaned.append(url)
+            seen.add(url)
+    return cleaned
 
 
 def table_records(df):
+    pandas_module = get_pandas()
     return [
         {key: clean_value(value) for key, value in row.items()}
-        for row in df.replace({pd.NA: None}).to_dict(orient="records")
+        for row in df.replace({pandas_module.NA: None}).to_dict(orient="records")
     ]
 
 
@@ -127,18 +179,54 @@ class DataStore:
             gid = DEFAULT_GOOGLE_GIDS[sheet_name]
             url = f"https://docs.google.com/spreadsheets/d/{self.google_sheet_id}/export?format=csv&gid={gid}"
             try:
-                return pd.read_csv(url, **kwargs)
+                pandas_module = get_pandas()
+                return pandas_module.read_csv(url, **kwargs)
             except HTTPError as exc:
                 if exc.code in (401, 403):
                     raise DataSourceError(
                         "Google Sheet is not publicly readable. Set sharing to 'Anyone with the link can view', then redeploy or wait for the cache to refresh."
                     ) from exc
                 raise
-        return pd.read_excel(self.workbook_path, sheet_name=sheet_name, **kwargs)
+        pandas_module = get_pandas()
+        return pandas_module.read_excel(self.workbook_path, sheet_name=sheet_name, **kwargs)
+
+    def google_csv_url(self, sheet_name):
+        gid = DEFAULT_GOOGLE_GIDS[sheet_name]
+        return f"https://docs.google.com/spreadsheets/d/{self.google_sheet_id}/export?format=csv&gid={gid}"
+
+    def read_google_dicts(self, sheet_name):
+        try:
+            with urlopen(self.google_csv_url(sheet_name), timeout=60) as response:
+                text = response.read().decode("utf-8-sig", errors="replace").splitlines()
+        except HTTPError as exc:
+            if exc.code in (401, 403):
+                raise DataSourceError(
+                    "Google Sheet is not publicly readable. Set sharing to 'Anyone with the link can view', then redeploy or wait for the cache to refresh."
+                ) from exc
+            raise
+        return list(csv.DictReader(text))
+
+    def read_google_rows(self, sheet_name):
+        try:
+            with urlopen(self.google_csv_url(sheet_name), timeout=60) as response:
+                text = response.read().decode("utf-8-sig", errors="replace").splitlines()
+        except HTTPError as exc:
+            if exc.code in (401, 403):
+                raise DataSourceError(
+                    "Google Sheet is not publicly readable. Set sharing to 'Anyone with the link can view', then redeploy or wait for the cache to refresh."
+                ) from exc
+            raise
+        return list(csv.reader(text))
 
     def load(self):
+        if self.source_mode == "google":
+            return self.load_google()
+        return self.load_excel()
+
+    def load_excel(self):
+        pandas_module = get_pandas()
         powerbi = self.read_sheet("PowerBI")
-        powerbi["Date"] = pd.to_datetime(powerbi["Date"], errors="coerce")
+        powerbi["Date"] = pandas_module.to_datetime(powerbi["Date"], errors="coerce")
         powerbi["sku_norm"] = powerbi["sku_code"].map(normalize_sku)
         powerbi = powerbi[powerbi["sku_norm"] != ""].copy()
 
@@ -150,12 +238,13 @@ class DataStore:
 
         container = self.read_sheet("Container report")
         container["sku_norm"] = container["SKU"].map(normalize_sku)
-        container["Inbound Time"] = pd.to_datetime(container["Inbound Time"], errors="coerce")
-        container["Latest Batch Arrival Date"] = pd.to_datetime(container["Latest Batch Arrival Date"], errors="coerce")
+        container["Inbound Time"] = pandas_module.to_datetime(container["Inbound Time"], errors="coerce")
+        container["Latest Batch Arrival Date"] = pandas_module.to_datetime(container["Latest Batch Arrival Date"], errors="coerce")
 
         image = self.read_sheet("Image")
         image["sku_norm"] = image["Unnamed: 25"].map(normalize_sku)
         image["image_url"] = image["White bg image"].fillna("").astype(str)
+        image["image_url"] = image["image_url"].str.strip()
         missing = image["image_url"].str.strip().eq("")
         image.loc[missing, "image_url"] = image.loc[missing, "Picture URLs"].map(first_image_url)
 
@@ -187,6 +276,151 @@ class DataStore:
             "skuOptions": sku_options,
         }
 
+    def group_sales_by_sku(self, powerbi):
+        grouped = {}
+        for row in powerbi:
+            grouped.setdefault(row["sku"], []).append(row)
+        return grouped
+
+    def load_google(self):
+        powerbi = []
+        min_date = None
+        max_date = None
+        for row in self.read_google_dicts("PowerBI"):
+            sku_norm = normalize_sku(row.get("sku_code"))
+            date_value = parse_date(row.get("Date"))
+            if not sku_norm or date_value is None:
+                continue
+            min_date = date_value if min_date is None or date_value < min_date else min_date
+            max_date = date_value if max_date is None or date_value > max_date else max_date
+            powerbi.append({
+                "date": date_value,
+                "platform": row.get("platform name") or "",
+                "sku": sku_norm,
+                "sku_qty": clean_number(row.get("sku_qty")),
+                "sales_amt": clean_number(row.get("sales_amt")),
+                "selling_fee": clean_number(row.get("selling_fee")),
+                "ads_fee": clean_number(row.get("ads_fee")),
+                "refund_amt": clean_number(row.get("refund_amt")),
+                "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
+                "postage": clean_number(row.get("postage")),
+            })
+
+        sku = {}
+        for row in self.read_google_dicts("SKU"):
+            simplified = {simplify_key(key): value for key, value in row.items()}
+            sku_norm = normalize_sku(simplified.get("sku_Master"))
+            if sku_norm:
+                sku[sku_norm] = simplified
+
+        inventory = {}
+        for row in self.read_google_dicts("Inventory Report"):
+            simplified = {simplify_key(key): value for key, value in row.items()}
+            sku_norm = normalize_sku(simplified.get("Product SKU"))
+            if sku_norm:
+                inventory[sku_norm] = simplified
+
+        container = {}
+        for row in self.read_google_dicts("Container report"):
+            sku_norm = normalize_sku(row.get("SKU"))
+            inbound_time = parse_date(row.get("Inbound Time"))
+            if sku_norm and inbound_time is not None:
+                current = container.get(sku_norm)
+                if current is None or inbound_time > current["inbound_time"]:
+                    container[sku_norm] = {"inbound_time": inbound_time, "row": row}
+
+        image = {}
+        for row in self.read_google_dicts("Image"):
+            sku_norm = normalize_sku(row.get("Unnamed: 25") or row.get("") or row.get("Inventory Number"))
+            if sku_norm and not sku_norm.endswith("-UK"):
+                maybe_uk = f"{sku_norm}-UK"
+                sku_norm = maybe_uk
+            if sku_norm:
+                image_url = str(row.get("White bg image") or "").strip()
+                if not image_url:
+                    image_url = first_image_url(row.get("Picture URLs"))
+                row["image_url"] = image_url
+                row["sku_norm"] = sku_norm
+                image[sku_norm] = row
+
+        price_history = self.load_google_price_history()
+        last_update = self.read_google_last_update()
+        sku_options = self.build_google_sku_options(powerbi, sku, inventory, image)
+
+        return {
+            "powerbi": powerbi,
+            "salesBySku": self.group_sales_by_sku(powerbi),
+            "maxDate": max_date,
+            "sku": sku,
+            "inventory": inventory,
+            "container": container,
+            "image": image,
+            "price_history": price_history,
+            "meta": {
+                "source": "Google Sheets",
+                "workbook": f"https://docs.google.com/spreadsheets/d/{self.google_sheet_id}",
+                "lastUpdate": last_update,
+                "dataStart": clean_value(min_date),
+                "dataEnd": clean_value(max_date),
+                "skuCount": len(sku_options),
+                "salesRows": int(len(powerbi)),
+                "cacheSeconds": CACHE_SECONDS,
+            },
+            "skuOptions": sku_options,
+        }
+
+    def read_google_last_update(self):
+        try:
+            rows = self.read_google_rows("Sheet1")
+            if rows and len(rows[0]) > 1:
+                return rows[0][1]
+        except Exception:
+            pass
+        return clean_value(datetime.now())
+
+    def build_google_sku_options(self, powerbi, sku, inventory, image):
+        sku_values = sorted({row["sku"] for row in powerbi} | set(sku) | set(inventory))
+        result = []
+        for sku_code in sku_values:
+            img = image.get(sku_code, {})
+            inv = inventory.get(sku_code, {})
+            title = clean_value(img.get("Auction Title")) or ""
+            category = clean_value(inv.get("Main Category")) or ""
+            label = f"{sku_code} - {title}" if title else sku_code
+            result.append({"sku": sku_code, "label": label, "title": title, "category": category})
+        return result
+
+    def load_google_price_history(self):
+        raw = self.read_google_rows("Price Change")
+        records = {}
+        if len(raw) < 3:
+            return records
+        date_row = raw[0]
+        label_row = raw[1]
+        for row in raw[2:]:
+            sku_code = normalize_sku(row[0] if row else "")
+            if not sku_code:
+                continue
+            points = []
+            col = 5
+            while col < len(date_row):
+                date_label = date_row[col] if col < len(date_row) else ""
+                stock_label = (label_row[col] if col < len(label_row) else "").strip().lower()
+                price_label = (label_row[col + 1] if col + 1 < len(label_row) else "").strip().lower()
+                if date_label and stock_label == "stock":
+                    stock_value = row[col] if col < len(row) else None
+                    price_value = row[col + 1] if col + 1 < len(row) else None
+                    points.append({
+                        "label": str(date_label),
+                        "stock": clean_number(stock_value, None),
+                        "price": clean_number(price_value, None) if price_label == "price" else None,
+                    })
+                    col += 2
+                else:
+                    col += 1
+            records[sku_code] = points
+        return records
+
     def read_last_update(self):
         try:
             sheet1 = self.read_sheet("Sheet1", header=None, nrows=2, usecols=[0, 1])
@@ -211,6 +445,7 @@ class DataStore:
         return result
 
     def load_price_history(self):
+        pandas_module = get_pandas()
         raw = self.read_sheet("Price Change", header=None)
         records = {}
         if raw.shape[0] < 3:
@@ -227,7 +462,7 @@ class DataStore:
                 date_label = date_row.iat[col]
                 stock_label = str(label_row.iat[col]).strip().lower()
                 price_label = str(label_row.iat[col + 1]).strip().lower() if col + 1 < raw.shape[1] else ""
-                if pd.notna(date_label) and stock_label == "stock":
+                if pandas_module.notna(date_label) and stock_label == "stock":
                     points.append({
                         "label": str(date_label),
                         "stock": clean_number(raw.iat[row_idx, col], None),
@@ -244,6 +479,7 @@ store = DataStore(WORKBOOK_PATH)
 
 
 def aggregate_sales(df):
+    pandas_module = get_pandas()
     if df.empty:
         return []
     grouped = df.groupby("platform name", dropna=False).agg(
@@ -278,7 +514,48 @@ def aggregate_sales(df):
     total["unit_price"] = sales / qty * 1.2 if qty else None
 
     grouped = grouped.sort_values(["sales_amt"], ascending=False)
-    return table_records(pd.concat([grouped, pd.DataFrame([total])], ignore_index=True))
+    return table_records(pandas_module.concat([grouped, pandas_module.DataFrame([total])], ignore_index=True))
+
+
+def aggregate_sales_rows(rows):
+    grouped = {}
+    for row in rows:
+        platform = row["platform"] or "-"
+        item = grouped.setdefault(platform, {
+            "platform name": platform,
+            "sku_qty": 0.0,
+            "sales_amt": 0.0,
+            "selling_fee": 0.0,
+            "ads_fee": 0.0,
+            "refund_amt": 0.0,
+            "profit_incl_rn": 0.0,
+        })
+        item["sku_qty"] += clean_number(row.get("sku_qty"))
+        item["sales_amt"] += clean_number(row.get("sales_amt"))
+        item["selling_fee"] += clean_number(row.get("selling_fee"))
+        item["ads_fee"] += clean_number(row.get("ads_fee"))
+        item["refund_amt"] += clean_number(row.get("refund_amt"))
+        item["profit_incl_rn"] += clean_number(row.get("profit_incl_rn"))
+
+    records = sorted(grouped.values(), key=lambda item: item["sales_amt"], reverse=True)
+    total = {
+        "platform name": "Grand Total",
+        "sku_qty": sum(item["sku_qty"] for item in records),
+        "sales_amt": sum(item["sales_amt"] for item in records),
+        "selling_fee": sum(item["selling_fee"] for item in records),
+        "ads_fee": sum(item["ads_fee"] for item in records),
+        "refund_amt": sum(item["refund_amt"] for item in records),
+        "profit_incl_rn": sum(item["profit_incl_rn"] for item in records),
+    }
+    for item in records + [total]:
+        sales = clean_number(item["sales_amt"])
+        qty = clean_number(item["sku_qty"])
+        item["selling_fee_pct"] = clean_number(item["selling_fee"]) / sales if sales else None
+        item["ads_fee_pct"] = clean_number(item["ads_fee"]) / sales if sales else None
+        item["return_pct"] = clean_number(item["refund_amt"]) / sales if sales else None
+        item["profit_margin"] = clean_number(item["profit_incl_rn"]) / sales if sales else None
+        item["unit_price"] = sales / qty * 1.2 if qty else None
+    return records + [total]
 
 
 def numeric_summary(df):
@@ -297,13 +574,117 @@ def numeric_summary(df):
     }
 
 
+def numeric_summary_rows(rows):
+    sales = sum(clean_number(row.get("sales_amt")) for row in rows)
+    qty = sum(clean_number(row.get("sku_qty")) for row in rows)
+    profit = sum(clean_number(row.get("profit_incl_rn")) for row in rows)
+    ads = sum(clean_number(row.get("ads_fee")) for row in rows)
+    return {
+        "qty": qty,
+        "sales": sales,
+        "profit": profit,
+        "profitMargin": profit / sales if sales else None,
+        "adsFee": ads,
+        "adsFeeRate": ads / sales if sales else None,
+        "unitPrice": sales / qty * 1.2 if qty else None,
+    }
+
+
+def detail_payload_google(sku_code):
+    data = store.get()
+    sku_norm = normalize_sku(sku_code)
+    sales = data.get("salesBySku", {}).get(sku_norm, [])
+    max_date = data.get("maxDate") or datetime.now()
+    recent_start = max_date - timedelta(days=30)
+    recent = [row for row in sales if recent_start <= row["date"] <= max_date]
+    current_year = [row for row in sales if row["date"].year == max_date.year]
+
+    inv = data["inventory"].get(sku_norm, {})
+    sku_row = data["sku"].get(sku_norm, {})
+    img = data["image"].get(sku_norm, {})
+    inbound = data["container"].get(sku_norm, {})
+
+    cogs = clean_number(inv.get("COGS"), None)
+    if cogs is None:
+        cogs = clean_number(sku_row.get("COGS"), None)
+
+    snapshot = {
+        "sku": sku_norm,
+        "title": clean_value(img.get("Auction Title")) or "",
+        "imageUrl": clean_value(img.get("image_url")) or "",
+        "imageUrls": image_urls_from_row(img) if img else [],
+        "grade": clean_value(inv.get("Grade Level")),
+        "estimatedMonthsToSell": clean_number(inv.get("Estimated Months to Sell"), None),
+        "dailyAverageSales": clean_number(inv.get("Daily Average Sales"), None),
+        "stockOnHand": clean_number(inv.get("Total Inventory Qty"), None),
+        "cogs": cogs,
+        "firstArrival": clean_value(sku_row.get("First Arrival Date")),
+        "lastArrival": clean_value(inbound.get("inbound_time")) if inbound else None,
+        "category": clean_value(inv.get("Main Category")),
+        "subcategory": clean_value(inv.get("Subcategory")),
+        "brand": clean_value(inv.get("Brand")),
+    }
+
+    monthly_map = {}
+    for row in sales:
+        month = row["date"].strftime("%Y-%m")
+        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "profit": 0.0})
+        item["qty"] += clean_number(row.get("sku_qty"))
+        item["sales"] += clean_number(row.get("sales_amt"))
+        item["profit"] += clean_number(row.get("profit_incl_rn"))
+    monthly = []
+    for month in sorted(monthly_map):
+        item = monthly_map[month]
+        item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
+        monthly.append(item)
+
+    freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
+    avg_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+    current_price = None
+    for point in reversed(data["price_history"].get(sku_norm, [])):
+        if point.get("price") is not None:
+            current_price = point["price"]
+            break
+    if current_price is None:
+        current_price = clean_number(snapshot["cogs"], 0) * 1.2
+
+    price_test = calculate_price_test(current_price, cogs or 0, avg_freight)
+    return {
+        "meta": data["meta"],
+        "snapshot": snapshot,
+        "periods": {
+            "recent": {
+                "label": f"{recent_start:%Y-%m-%d} to {max_date:%Y-%m-%d}",
+                "summary": numeric_summary_rows(recent),
+                "platforms": aggregate_sales_rows(recent),
+            },
+            "year": {
+                "label": str(max_date.year),
+                "summary": numeric_summary_rows(current_year),
+                "platforms": aggregate_sales_rows(current_year),
+            },
+            "lifetime": {
+                "label": "Lifetime",
+                "summary": numeric_summary_rows(sales),
+                "platforms": aggregate_sales_rows(sales),
+            },
+        },
+        "monthlyTrend": monthly[-18:],
+        "priceHistory": data["price_history"].get(sku_norm, [])[-18:],
+        "priceTest": price_test,
+    }
+
+
 def detail_payload(sku_code):
+    if store.source_mode == "google":
+        return detail_payload_google(sku_code)
+    pandas_module = get_pandas()
     data = store.get()
     sku_norm = normalize_sku(sku_code)
     sales = data["powerbi"][data["powerbi"]["sku_norm"] == sku_norm].copy()
 
     max_date = data["powerbi"]["Date"].max()
-    recent_start = max_date - pd.Timedelta(days=30)
+    recent_start = max_date - pandas_module.Timedelta(days=30)
     recent = sales[(sales["Date"] >= recent_start) & (sales["Date"] <= max_date)]
     current_year = sales[sales["Date"].dt.year == max_date.year]
 
@@ -319,6 +700,7 @@ def detail_payload(sku_code):
 
     title = clean_value(img.iloc[0].get("Auction Title")) if not img.empty else ""
     image_url = clean_value(img.iloc[0].get("image_url")) if not img.empty else ""
+    image_urls = image_urls_from_row(img.iloc[0]) if not img.empty else []
     stock_on_hand = clean_number(inv.iloc[0]["Total Inventory Qty"], None) if not inv.empty else None
     daily_average = clean_number(inv.iloc[0]["Daily Average Sales"], None) if not inv.empty else None
 
@@ -326,6 +708,7 @@ def detail_payload(sku_code):
         "sku": sku_norm,
         "title": title,
         "imageUrl": image_url,
+        "imageUrls": image_urls,
         "grade": clean_value(inv.iloc[0]["Grade Level"]) if not inv.empty else None,
         "estimatedMonthsToSell": clean_number(inv.iloc[0]["Estimated Months to Sell"], None) if not inv.empty else None,
         "dailyAverageSales": daily_average,
@@ -348,7 +731,7 @@ def detail_payload(sku_code):
         ).reset_index()
         month_group["profitMargin"] = month_group.apply(lambda r: clean_number(r["profit"]) / clean_number(r["sales"]) if clean_number(r["sales"]) else None, axis=1)
     else:
-        month_group = pd.DataFrame(columns=["month", "qty", "sales", "profit", "profitMargin"])
+        month_group = pandas_module.DataFrame(columns=["month", "qty", "sales", "profit", "profitMargin"])
 
     freight_sales = sales[(sales["postage"] != 0) & (sales["platform name"] != "Amazon(UK) FBM")]
     avg_freight = clean_number(freight_sales["postage"].mean(), 0)

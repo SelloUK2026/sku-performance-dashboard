@@ -1,8 +1,10 @@
 const state = {
   selectedSku: "",
-  selectedPeriod: "recent",
+  platformPeriods: ["recent", "year", "lifetime"],
   currentData: null,
   initialPriceTest: null,
+  imageUrls: [],
+  imageIndex: 0,
 };
 
 const elements = {
@@ -14,17 +16,16 @@ const elements = {
   productTitle: document.querySelector("#productTitle"),
   productMeta: document.querySelector("#productMeta"),
   kpiGrid: document.querySelector("#kpiGrid"),
-  periodTabs: document.querySelector("#periodTabs"),
-  periodLabel: document.querySelector("#periodLabel"),
-  platformRows: document.querySelector("#platformRows"),
+  platformGrid: document.querySelector("#platformGrid"),
   priceInput: document.querySelector("#priceInput"),
   cogsInput: document.querySelector("#cogsInput"),
   freightInput: document.querySelector("#freightInput"),
+  commissionInput: document.querySelector("#commissionInput"),
   resetPrice: document.querySelector("#resetPrice"),
   testProfit: document.querySelector("#testProfit"),
   testMargin: document.querySelector("#testMargin"),
-  priceChart: document.querySelector("#priceChart"),
-  monthChart: document.querySelector("#monthChart"),
+  priceHistoryRows: document.querySelector("#priceHistoryRows"),
+  monthRows: document.querySelector("#monthRows"),
 };
 
 function currency(value) {
@@ -42,6 +43,16 @@ function percent(value) {
   return new Intl.NumberFormat("en-GB", { style: "percent", maximumFractionDigits: 1 }).format(value);
 }
 
+function percentInput(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "";
+  return (Number(value) * 100).toFixed(2);
+}
+
+function parsePercentInput(value) {
+  const numeric = Number(value || 0);
+  return numeric > 1 ? numeric / 100 : numeric;
+}
+
 async function getJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(await response.text());
@@ -51,7 +62,7 @@ async function getJson(url) {
 async function loadSkus(query = "") {
   const payload = await getJson(`/api/skus?q=${encodeURIComponent(query)}`);
   elements.skuSelect.innerHTML = payload.items.map((item) => (
-    `<option value="${escapeHtml(item.sku)}">${escapeHtml(item.label)}</option>`
+    `<option value="${escapeHtml(item.sku)}">${escapeHtml(item.sku)}</option>`
   )).join("");
   if (!state.selectedSku && payload.items.length) {
     state.selectedSku = payload.items[0].sku;
@@ -72,8 +83,9 @@ async function loadSku(sku) {
 function renderDashboard(payload) {
   const { snapshot, meta } = payload;
   elements.metaLine.textContent = `Last update ${meta.lastUpdate || "-"} · ${meta.skuCount} SKUs · ${meta.salesRows.toLocaleString("en-GB")} sales rows`;
-  elements.productImage.src = snapshot.imageUrl || "";
-  elements.productImage.style.display = snapshot.imageUrl ? "block" : "none";
+  state.imageUrls = (snapshot.imageUrls && snapshot.imageUrls.length ? snapshot.imageUrls : [snapshot.imageUrl]).filter(Boolean);
+  state.imageIndex = 0;
+  showProductImage();
   elements.skuCode.textContent = snapshot.sku || "";
   elements.productTitle.textContent = snapshot.title || snapshot.sku || "SKU";
   elements.productMeta.textContent = [snapshot.brand, snapshot.category, snapshot.subcategory].filter(Boolean).join(" · ");
@@ -98,15 +110,64 @@ function renderDashboard(payload) {
   )).join("");
 
   fillPriceForm(payload.priceTest);
-  renderPeriod();
-  drawPriceChart(payload.priceHistory);
-  drawMonthChart(payload.monthlyTrend);
+  renderPlatformPanels();
+  renderPriceHistory(payload.priceHistory);
+  renderMonthRows(payload.monthlyTrend);
 }
 
-function renderPeriod() {
-  const period = state.currentData.periods[state.selectedPeriod];
-  elements.periodLabel.textContent = period.label;
-  elements.platformRows.innerHTML = period.platforms.map((row) => {
+function showProductImage() {
+  const url = state.imageUrls[state.imageIndex];
+  if (!url) {
+    elements.productImage.removeAttribute("src");
+    elements.productImage.style.display = "none";
+    return;
+  }
+  elements.productImage.style.display = "block";
+  elements.productImage.src = encodeURI(url);
+}
+
+function renderPlatformPanels() {
+  const titles = ["Platform Performance 1", "Platform Performance 2", "Platform Performance 3"];
+  elements.platformGrid.innerHTML = state.platformPeriods.map((periodKey, index) => {
+    const period = state.currentData.periods[periodKey];
+    return `<div class="panel platform-panel" data-panel="${index}">
+      <div class="panel-head">
+        <h3>${titles[index]}</h3>
+        <div class="tabs">
+          ${periodButton(index, "recent", "Recent", periodKey)}
+          ${periodButton(index, "year", "Year", periodKey)}
+          ${periodButton(index, "lifetime", "Lifetime", periodKey)}
+        </div>
+      </div>
+      <p class="subtle">${escapeHtml(period.label)}</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Platform</th>
+              <th>Qty</th>
+              <th>Sales</th>
+              <th>Selling Fee</th>
+              <th>Ads</th>
+              <th>Return</th>
+              <th>Profit</th>
+              <th>PM</th>
+              <th>Unit Price</th>
+            </tr>
+          </thead>
+          <tbody>${platformRows(period.platforms)}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function periodButton(index, key, label, activeKey) {
+  return `<button data-panel="${index}" data-period="${key}" class="${key === activeKey ? "active" : ""}">${label}</button>`;
+}
+
+function platformRows(rows) {
+  return rows.map((row) => {
     const isTotal = row["platform name"] === "Grand Total";
     return `<tr class="${isTotal ? "total-row" : ""}">
       <td>${escapeHtml(row["platform name"] || "-")}</td>
@@ -126,6 +187,7 @@ function fillPriceForm(priceTest) {
   elements.priceInput.value = fixedInput(priceTest.price);
   elements.cogsInput.value = fixedInput(priceTest.cogs);
   elements.freightInput.value = fixedInput(priceTest.freight);
+  elements.commissionInput.value = percentInput(priceTest.sellingCostRate);
   renderPriceTest(priceTest);
 }
 
@@ -138,6 +200,7 @@ async function updatePriceTest() {
     price: elements.priceInput.value || "0",
     cogs: elements.cogsInput.value || "0",
     freight: elements.freightInput.value || "0",
+    sellingCostRate: parsePercentInput(elements.commissionInput.value || "25"),
   });
   const payload = await getJson(`/api/price-test?${params}`);
   renderPriceTest(payload);
@@ -150,127 +213,47 @@ function renderPriceTest(payload) {
   elements.testMargin.className = payload.margin < 0 ? "bad" : "good";
 }
 
-function drawPriceChart(points) {
-  const canvas = elements.priceChart;
-  const ctx = canvas.getContext("2d");
-  setupCanvas(canvas, ctx);
-  drawAxes(ctx, canvas);
+function renderPriceHistory(points) {
   if (!points || !points.length) {
-    drawEmpty(ctx, canvas, "No price history");
+    elements.priceHistoryRows.innerHTML = `<tr><td colspan="3">No price history</td></tr>`;
     return;
   }
-  const labels = points.map((p) => p.label);
-  const stock = points.map((p) => Number(p.stock || 0));
-  const price = points.map((p) => Number(p.price || 0));
-  drawLine(ctx, canvas, stock, "#0f766e", 0.18);
-  drawLine(ctx, canvas, price, "#b45309", 0.72);
-  drawChartLabels(ctx, canvas, labels);
-  drawLegend(ctx, [["Stock", "#0f766e"], ["Price", "#b45309"]]);
+  const descending = [...points].reverse();
+  elements.priceHistoryRows.innerHTML = descending.map((point, index) => {
+    const previous = descending[index + 1];
+    const priceClass = valueChangeClass(point.price, previous && previous.price, true);
+    const stockClass = valueChangeClass(point.stock, previous && previous.stock, false);
+    return `<tr>
+      <td>${escapeHtml(String(point.label || "-"))}</td>
+      <td class="${stockClass}">${number(point.stock)}</td>
+      <td class="${priceClass}">${currency(point.price)}</td>
+    </tr>`;
+  }).join("");
 }
 
-function drawMonthChart(points) {
-  const canvas = elements.monthChart;
-  const ctx = canvas.getContext("2d");
-  setupCanvas(canvas, ctx);
-  drawAxes(ctx, canvas);
+function valueChangeClass(current, previous, redWhenDown) {
+  if (current === null || current === undefined || previous === null || previous === undefined) return "";
+  const now = Number(current);
+  const before = Number(previous);
+  if (Number.isNaN(now) || Number.isNaN(before) || now === before) return "";
+  if (now > before) return "good";
+  return redWhenDown ? "bad" : "";
+}
+
+function renderMonthRows(points) {
   if (!points || !points.length) {
-    drawEmpty(ctx, canvas, "No monthly sales");
+    elements.monthRows.innerHTML = `<tr><td colspan="5">No monthly sales</td></tr>`;
     return;
   }
-  const labels = points.map((p) => p.month);
-  const qty = points.map((p) => Number(p.qty || 0));
-  const margin = points.map((p) => Number(p.profitMargin || 0) * 100);
-  drawBars(ctx, canvas, qty, "#0f766e");
-  drawLine(ctx, canvas, margin, "#7c3aed", 0.72);
-  drawChartLabels(ctx, canvas, labels);
-  drawLegend(ctx, [["Qty", "#0f766e"], ["PM %", "#7c3aed"]]);
-}
-
-function setupCanvas(canvas, ctx) {
-  const rect = canvas.getBoundingClientRect();
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = rect.width * ratio;
-  canvas.height = canvas.height * ratio;
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  ctx.clearRect(0, 0, rect.width, rect.height);
-  ctx.font = "12px Segoe UI, Arial";
-}
-
-function chartArea(canvas) {
-  const rect = canvas.getBoundingClientRect();
-  return { left: 42, top: 18, right: rect.width - 16, bottom: rect.height - 34, width: rect.width - 58, height: rect.height - 52 };
-}
-
-function drawAxes(ctx, canvas) {
-  const area = chartArea(canvas);
-  ctx.strokeStyle = "#dde3ea";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(area.left, area.top);
-  ctx.lineTo(area.left, area.bottom);
-  ctx.lineTo(area.right, area.bottom);
-  ctx.stroke();
-}
-
-function drawLine(ctx, canvas, values, color, scaleOffset = 0) {
-  const area = chartArea(canvas);
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const span = max - min || 1;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  values.forEach((value, index) => {
-    const x = area.left + (index / Math.max(values.length - 1, 1)) * area.width;
-    const y = area.bottom - ((value - min) / span) * area.height * 0.82 - area.height * scaleOffset;
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-}
-
-function drawBars(ctx, canvas, values, color) {
-  const area = chartArea(canvas);
-  const max = Math.max(...values, 1);
-  const barWidth = Math.max(5, area.width / Math.max(values.length, 1) - 6);
-  ctx.fillStyle = color;
-  values.forEach((value, index) => {
-    const x = area.left + index * (area.width / Math.max(values.length, 1)) + 3;
-    const height = (value / max) * area.height * 0.82;
-    ctx.fillRect(x, area.bottom - height, barWidth, height);
-  });
-}
-
-function drawChartLabels(ctx, canvas, labels) {
-  const area = chartArea(canvas);
-  ctx.fillStyle = "#697386";
-  const step = Math.max(1, Math.ceil(labels.length / 6));
-  labels.forEach((label, index) => {
-    if (index % step !== 0 && index !== labels.length - 1) return;
-    const x = area.left + (index / Math.max(labels.length - 1, 1)) * area.width;
-    ctx.save();
-    ctx.translate(x, area.bottom + 16);
-    ctx.rotate(-0.35);
-    ctx.fillText(String(label).slice(0, 10), 0, 0);
-    ctx.restore();
-  });
-}
-
-function drawLegend(ctx, items) {
-  let x = 48;
-  items.forEach(([label, color]) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, 4, 10, 10);
-    ctx.fillStyle = "#475569";
-    ctx.fillText(label, x + 14, 13);
-    x += 80;
-  });
-}
-
-function drawEmpty(ctx, canvas, text) {
-  const rect = canvas.getBoundingClientRect();
-  ctx.fillStyle = "#697386";
-  ctx.fillText(text, rect.width / 2 - 42, rect.height / 2);
+  elements.monthRows.innerHTML = [...points].reverse().map((row) => (
+    `<tr>
+      <td>${escapeHtml(String(row.month || "-"))}</td>
+      <td>${number(row.qty)}</td>
+      <td>${currency(row.sales)}</td>
+      <td class="${row.profit < 0 ? "bad" : "good"}">${currency(row.profit)}</td>
+      <td class="${row.profitMargin < 0 ? "bad" : "good"}">${percent(row.profitMargin)}</td>
+    </tr>`
+  )).join("");
 }
 
 function escapeHtml(value) {
@@ -291,25 +274,23 @@ elements.skuSearch.addEventListener("input", () => {
 
 elements.skuSelect.addEventListener("change", () => loadSku(elements.skuSelect.value));
 
-elements.periodTabs.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-period]");
-  if (!button) return;
-  state.selectedPeriod = button.dataset.period;
-  document.querySelectorAll("#periodTabs button").forEach((item) => item.classList.toggle("active", item === button));
-  renderPeriod();
+elements.productImage.addEventListener("error", () => {
+  state.imageIndex += 1;
+  showProductImage();
 });
 
-[elements.priceInput, elements.cogsInput, elements.freightInput].forEach((input) => {
+elements.platformGrid.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-period][data-panel]");
+  if (!button) return;
+  state.platformPeriods[Number(button.dataset.panel)] = button.dataset.period;
+  renderPlatformPanels();
+});
+
+[elements.priceInput, elements.cogsInput, elements.freightInput, elements.commissionInput].forEach((input) => {
   input.addEventListener("input", () => updatePriceTest());
 });
 
 elements.resetPrice.addEventListener("click", () => fillPriceForm(state.initialPriceTest));
-
-window.addEventListener("resize", () => {
-  if (!state.currentData) return;
-  drawPriceChart(state.currentData.priceHistory);
-  drawMonthChart(state.currentData.monthlyTrend);
-});
 
 loadSkus().catch((error) => {
   elements.metaLine.textContent = error.message;

@@ -354,3 +354,114 @@ canvas {
     font-size: 18px;
   }
 }
+
+/* Dashboard density refinements */
+.topbar {
+  padding: 14px 24px;
+}
+
+main {
+  padding: 14px 24px 32px;
+  gap: 12px;
+}
+
+.product-strip {
+  grid-template-columns: 76px 1fr;
+  gap: 14px;
+  padding: 10px 14px;
+  min-height: 94px;
+}
+
+.image-frame {
+  width: 76px;
+  height: 76px;
+}
+
+.product-strip h2 {
+  font-size: 18px;
+}
+
+.eyebrow {
+  margin-bottom: 4px;
+}
+
+.kpi-grid {
+  gap: 8px;
+}
+
+.kpi-card {
+  padding: 10px 12px;
+  min-height: 64px;
+}
+
+.kpi-card span {
+  margin-bottom: 5px;
+}
+
+.kpi-card strong {
+  font-size: 18px;
+}
+
+.split {
+  gap: 12px;
+}
+
+.platform-price-row {
+  grid-template-columns: minmax(0, 1.95fr) minmax(300px, 0.7fr);
+}
+
+.platform-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.panel {
+  padding: 14px;
+}
+
+.table-wrap {
+  max-height: 260px;
+}
+
+table {
+  min-width: 780px;
+}
+
+th,
+td {
+  padding: 7px 9px;
+}
+
+.history-table {
+  min-width: 0;
+}
+
+.compact-wrap {
+  max-height: 320px;
+}
+
+.platform-panel table {
+  min-width: 760px;
+}
+
+.price-form {
+  gap: 8px;
+}
+
+.price-form input {
+  margin-top: 4px;
+}
+
+.price-result {
+  margin-top: 10px;
+}
+
+.price-result strong {
+  font-size: 20px;
+}
+
+@media (max-width: 1080px) {
+  .platform-price-row {
+    grid-template-columns: 1fr;
+  }
+}
