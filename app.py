@@ -22,7 +22,9 @@ WORKBOOK_PATH = Path(os.environ.get("SKU_APP_WORKBOOK", DEFAULT_WORKBOOK))
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "17fj9gaoE4U5_Ks_EkI68CPBBPIjjbDYMkifG1SqbBAg")
 SOURCE_MODE = os.environ.get("SKU_APP_SOURCE", "excel").strip().lower()
 CACHE_SECONDS = int(os.environ.get("SKU_APP_CACHE_SECONDS", "900"))
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+if SUPABASE_URL.endswith("/rest/v1"):
+    SUPABASE_URL = SUPABASE_URL[:-8].rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 DEFAULT_GOOGLE_GIDS = {
@@ -145,6 +147,27 @@ def image_urls_from_row(row):
             cleaned.append(url)
             seen.add(url)
     return cleaned
+
+
+def merge_price_history_points(points):
+    merged = {}
+    order = []
+    for point in points or []:
+        label = str(point.get("label") or "").strip()
+        if not label:
+            continue
+        stock = clean_number(point.get("stock"), None)
+        price = clean_number(point.get("price"), None)
+        existing = merged.get(label)
+        if existing is None:
+            merged[label] = {"label": label, "stock": stock, "price": price}
+            order.append(label)
+            continue
+        if existing.get("stock") is None and stock is not None:
+            existing["stock"] = stock
+        if existing.get("price") is None and price is not None:
+            existing["price"] = price
+    return [merged[label] for label in order]
 
 
 def supabase_enabled():
@@ -534,7 +557,7 @@ class DataStore:
                     col += 2
                 else:
                     col += 1
-            records[sku_code] = points
+            records[sku_code] = merge_price_history_points(points)
         return records
 
     def read_last_update(self):
@@ -587,7 +610,7 @@ class DataStore:
                     col += 2
                 else:
                     col += 1
-            records[sku_code] = points
+            records[sku_code] = merge_price_history_points(points)
         return records
 
 
@@ -745,6 +768,10 @@ def detail_payload_supabase(sku_code):
         f"container_report?select=inbound_time,latest_batch_arrival_date&sku=eq.{sku_filter}&order=inbound_time.desc&limit=1"
     )
     inbound = container_rows[0] if container_rows else {}
+    first_container_rows = supabase_request(
+        f"container_report?select=inbound_time&sku=eq.{sku_filter}&order=inbound_time.asc&limit=1"
+    )
+    first_inbound = first_container_rows[0] if first_container_rows else {}
     price_history = supabase_request(
         f"price_history?select=label,stock,price&sku=eq.{sku_filter}&order=sequence.asc"
     )
@@ -753,6 +780,7 @@ def detail_payload_supabase(sku_code):
     if cogs is None:
         cogs = clean_number(sku_row.get("cogs"), None)
     image_urls = img.get("image_urls") if isinstance(img.get("image_urls"), list) else []
+    first_arrival = supabase_date(sku_row.get("first_arrival_date")) or supabase_date(first_inbound.get("inbound_time"))
 
     snapshot = {
         "sku": sku_norm,
@@ -764,7 +792,7 @@ def detail_payload_supabase(sku_code):
         "dailyAverageSales": clean_number(inv.get("daily_average_sales"), None),
         "stockOnHand": clean_number(inv.get("stock_on_hand"), None),
         "cogs": cogs,
-        "firstArrival": clean_value(supabase_date(sku_row.get("first_arrival_date"))),
+        "firstArrival": clean_value(first_arrival),
         "lastArrival": clean_value(supabase_date(inbound.get("inbound_time"))),
         "category": clean_value(inv.get("main_category")),
         "subcategory": clean_value(inv.get("subcategory")),
@@ -828,7 +856,7 @@ def detail_payload_supabase(sku_code):
             },
         },
         "monthlyTrend": monthly[-18:],
-        "priceHistory": price_history[-18:],
+        "priceHistory": merge_price_history_points(price_history)[-18:],
         "priceTest": calculate_price_test(current_price, cogs or 0, avg_freight),
     }
 
@@ -1123,6 +1151,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return
         except DataSourceError as exc:
             self.send_json({"error": str(exc)}, status=503)
+            return
+        except Exception as exc:
+            self.send_json({"error": f"Dashboard API error: {exc}"}, status=500)
             return
         super().do_GET()
 

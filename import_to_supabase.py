@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
 import os
@@ -7,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -15,9 +17,14 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK = ROOT.parent / "Lastest Data Analyse - Codex.xlsx"
 WORKBOOK_PATH = Path(os.environ.get("SKU_APP_WORKBOOK", DEFAULT_WORKBOOK))
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+if SUPABASE_URL.endswith("/rest/v1"):
+    SUPABASE_URL = SUPABASE_URL[:-8].rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 BATCH_SIZE = int(os.environ.get("SUPABASE_IMPORT_BATCH_SIZE", "1000"))
+ARRIVAL_SHEET_ID = os.environ.get("ARRIVAL_SHEET_ID", "1yJZc8YnlqftOOP4mF1cfQ_FovfsrNBWzTMzaJYuySpk")
+ARRIVAL_SHEET_GID = os.environ.get("ARRIVAL_SHEET_GID", "1184624748")
+ARRIVAL_STATUS = os.environ.get("ARRIVAL_STATUS", "Arrived").strip().lower()
 
 
 def require_env():
@@ -54,6 +61,15 @@ def clean_text(value):
 def clean_date(value):
     if value is None or pd.isna(value):
         return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d", "%Y/%m/%d %H:%M:%S", "%d/%m/%Y", "%d/%m/%y"):
+            try:
+                return pd.to_datetime(text, format=fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                pass
     date = pd.to_datetime(value, errors="coerce")
     if pd.isna(date):
         return None
@@ -81,6 +97,29 @@ def image_urls(value):
             urls.append(url)
             seen.add(url)
     return urls
+
+
+def merge_price_history_points(points):
+    merged = {}
+    order = []
+    for point in points:
+        label = clean_text(point.get("label"))
+        if not label:
+            continue
+        existing = merged.get(label)
+        if existing is None:
+            merged[label] = {
+                "label": label,
+                "stock": point.get("stock"),
+                "price": point.get("price"),
+            }
+            order.append(label)
+            continue
+        if existing.get("stock") is None and point.get("stock") is not None:
+            existing["stock"] = point.get("stock")
+        if existing.get("price") is None and point.get("price") is not None:
+            existing["price"] = point.get("price")
+    return [merged[label] for label in order]
 
 
 def supabase_request(method, table, rows=None, query=""):
@@ -111,6 +150,21 @@ def insert_rows(table, rows):
         batch = rows[start:start + BATCH_SIZE]
         supabase_request("POST", table, rows=batch)
         print(f"{table}: inserted {min(start + BATCH_SIZE, total):,}/{total:,}")
+
+
+def read_google_csv(sheet_id, gid):
+    query = urlencode({"format": "csv", "gid": gid})
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?{query}"
+    try:
+        with urlopen(url, timeout=90) as response:
+            text = response.read().decode("utf-8-sig", errors="replace").splitlines()
+    except HTTPError as exc:
+        if exc.code in (401, 403):
+            raise RuntimeError(
+                "Arrival Google Sheet is not publicly readable. Share it as 'Anyone with the link can view' or leave ARRIVAL_SHEET_ID blank."
+            ) from exc
+        raise
+    return list(csv.DictReader(text))
 
 
 def build_sales():
@@ -175,19 +229,47 @@ def build_inventory():
 
 def build_container_report():
     df = pd.read_excel(WORKBOOK_PATH, sheet_name="Container report")
-    rows = []
+    rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("SKU"))
         if not sku:
             continue
-        rows.append({
+        item = {
+            "invoice_number": clean_text(row.get("Invoice number")),
             "sku": sku,
             "inbound_time": clean_date(row.get("Inbound Time")),
             "latest_batch_arrival_date": clean_date(row.get("Latest Batch Arrival Date")),
             "qty": clean_number(row.get("QTY")),
             "product_type": clean_text(row.get("Product Type")),
-        })
-    return rows
+            "status": clean_text(row.get("Status")),
+            "source": "workbook",
+        }
+        key = (item["invoice_number"] or "workbook", item["sku"], item["inbound_time"] or "", item["qty"])
+        rows[key] = item
+
+    if ARRIVAL_SHEET_ID:
+        for row in read_google_csv(ARRIVAL_SHEET_ID, ARRIVAL_SHEET_GID):
+            status = clean_text(row.get("Status"))
+            if (status or "").strip().lower() != ARRIVAL_STATUS:
+                continue
+            sku = normalize_sku(row.get("SKU"))
+            inbound_time = clean_date(row.get("Inbound Time"))
+            invoice_number = clean_text(row.get("Invoice number"))
+            if not sku or not inbound_time:
+                continue
+            item = {
+                "invoice_number": invoice_number,
+                "sku": sku,
+                "inbound_time": inbound_time,
+                "latest_batch_arrival_date": clean_date(row.get("Latest Batch Arrival Date")),
+                "qty": clean_number(row.get("QTY")),
+                "product_type": clean_text(row.get("Product Type")),
+                "status": status,
+                "source": "库存到货",
+            }
+            key = (item["invoice_number"] or "arrival_sheet", item["sku"], item["inbound_time"], item["qty"])
+            rows[key] = item
+    return list(rows.values())
 
 
 def build_price_history():
@@ -201,24 +283,29 @@ def build_price_history():
         sku = normalize_sku(raw.iat[row_idx, 0])
         if not sku:
             continue
-        sequence = 0
+        points = []
         col = 5
         while col < raw.shape[1]:
             label = clean_text(date_row.iat[col])
             stock_label = str(label_row.iat[col]).strip().lower()
             price_label = str(label_row.iat[col + 1]).strip().lower() if col + 1 < raw.shape[1] else ""
             if label and stock_label == "stock":
-                rows.append({
-                    "sku": sku,
+                points.append({
                     "label": label,
-                    "sequence": sequence,
                     "stock": clean_number(raw.iat[row_idx, col]),
                     "price": clean_number(raw.iat[row_idx, col + 1]) if price_label == "price" else None,
                 })
-                sequence += 1
                 col += 2
             else:
                 col += 1
+        for sequence, point in enumerate(merge_price_history_points(points)):
+            rows.append({
+                "sku": sku,
+                "label": point["label"],
+                "sequence": sequence,
+                "stock": point["stock"],
+                "price": point["price"],
+            })
     return rows
 
 
