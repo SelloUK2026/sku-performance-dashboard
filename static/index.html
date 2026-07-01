@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SKU Performance</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>SKU Performance</h1>
+        <p id="metaLine">Loading workbook...</p>
+      </div>
+      <div class="search">
+        <input id="skuSearch" type="search" placeholder="Search SKU or title" autocomplete="off">
+        <select id="skuSelect" aria-label="SKU"></select>
+      </div>
+    </header>
+
+    <main>
+      <section class="product-strip">
+        <div class="image-frame">
+          <img id="productImage" alt="">
+        </div>
+        <div class="product-copy">
+          <p id="skuCode" class="eyebrow"></p>
+          <h2 id="productTitle">Select a SKU</h2>
+          <p id="productMeta"></p>
+        </div>
+      </section>
+
+      <section class="kpi-grid" id="kpiGrid"></section>
+
+      <section class="split">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Platform Performance</h3>
+            <div class="tabs" id="periodTabs">
+              <button data-period="recent" class="active">Recent</button>
+              <button data-period="year">Year</button>
+              <button data-period="lifetime">Lifetime</button>
+            </div>
+          </div>
+          <p class="subtle" id="periodLabel"></p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Qty</th>
+                  <th>Sales</th>
+                  <th>Selling Fee</th>
+                  <th>Ads</th>
+                  <th>Return</th>
+                  <th>Profit</th>
+                  <th>PM</th>
+                  <th>Unit Price</th>
+                </tr>
+              </thead>
+              <tbody id="platformRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <h3>Price Test</h3>
+            <button id="resetPrice">Reset</button>
+          </div>
+          <div class="price-form">
+            <label>Price <input id="priceInput" type="number" step="0.01"></label>
+            <label>COGS <input id="cogsInput" type="number" step="0.01"></label>
+            <label>Freight <input id="freightInput" type="number" step="0.01"></label>
+          </div>
+          <div class="price-result">
+            <div><span>Profit</span><strong id="testProfit">-</strong></div>
+            <div><span>Margin</span><strong id="testMargin">-</strong></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="split">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Stock And Price History</h3>
+          </div>
+          <canvas id="priceChart" height="220"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Monthly Sales And Margin</h3>
+          </div>
+          <canvas id="monthChart" height="220"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
