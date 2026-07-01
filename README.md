@@ -6,6 +6,7 @@ It can read from either:
 
 - a local Excel workbook for testing
 - the Google Sheet data source for Render hosting
+- Supabase for faster hosted product loading
 
 ## What It Reads
 
@@ -58,6 +59,50 @@ http://127.0.0.1:8765
 ```
 
 Google Sheets mode caches data for 15 minutes by default. Change `SKU_APP_CACHE_SECONDS` if needed.
+
+## Faster Hosting With Supabase
+
+Supabase is the recommended free database option for faster SKU switching. Google Sheets is still fine for editing the source data, but the dashboard should read from Supabase after import.
+
+### 1. Create The Tables
+
+In Supabase:
+
+1. Open your project.
+2. Go to `SQL Editor`.
+3. Create a new query.
+4. Paste everything from `supabase_schema.sql`.
+5. Click `Run`.
+
+### 2. Import The Workbook
+
+Do this on your computer only. Use the private `service_role` key for this import, but do not upload that key to GitHub and do not put it in Render.
+
+```powershell
+cd "C:\Users\SELLOCP92-1\Documents\Overall\sku-performance-app"
+$env:SUPABASE_URL="https://YOUR-PROJECT-REF.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="YOUR-SERVICE-ROLE-KEY"
+$env:SKU_APP_WORKBOOK="C:\Users\SELLOCP92-1\Documents\Overall\Lastest Data Analyse - Codex.xlsx"
+& "C:\Users\SELLOCP92-1\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m pip install -r requirements-import.txt
+& "C:\Users\SELLOCP92-1\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" import_to_supabase.py
+```
+
+### 3. Switch Render To Supabase
+
+In Render, update environment variables:
+
+- `SKU_APP_SOURCE=supabase`
+- `SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co`
+- `SUPABASE_ANON_KEY=YOUR-ANON-PUBLIC-KEY`
+- `SKU_APP_CACHE_SECONDS=900`
+
+Keep the start command as:
+
+```text
+python app.py
+```
+
+After saving environment variables, redeploy the service.
 
 ## Free Render Deployment
 

@@ -11,8 +11,8 @@ from email.utils import parsedate_to_datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.parse import parse_qs, urlparse
-from urllib.request import urlopen
+from urllib.parse import parse_qs, quote, urlparse
+from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parent
@@ -22,6 +22,8 @@ WORKBOOK_PATH = Path(os.environ.get("SKU_APP_WORKBOOK", DEFAULT_WORKBOOK))
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "17fj9gaoE4U5_Ks_EkI68CPBBPIjjbDYMkifG1SqbBAg")
 SOURCE_MODE = os.environ.get("SKU_APP_SOURCE", "excel").strip().lower()
 CACHE_SECONDS = int(os.environ.get("SKU_APP_CACHE_SECONDS", "900"))
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 DEFAULT_GOOGLE_GIDS = {
     "Sheet1": "1716425068",
@@ -145,6 +147,72 @@ def image_urls_from_row(row):
     return cleaned
 
 
+def supabase_enabled():
+    return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+
+
+def supabase_headers(extra=None):
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Accept": "application/json",
+    }
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def supabase_request(path, headers=None):
+    if not supabase_enabled():
+        raise DataSourceError("Supabase is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY in Render.")
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    request = Request(url, headers=supabase_headers(headers))
+    try:
+        with urlopen(request, timeout=60) as response:
+            body = response.read().decode("utf-8")
+            return json.loads(body) if body else []
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise DataSourceError(f"Supabase request failed: {exc.code} {detail}") from exc
+
+
+def supabase_select_all(table, select="*", query=""):
+    rows = []
+    offset = 0
+    page_size = 1000
+    while True:
+        page = supabase_request(
+            f"{table}?select={quote(select, safe='*,()')}{query}&limit={page_size}&offset={offset}"
+        )
+        rows.extend(page)
+        if len(page) < page_size:
+            return rows
+        offset += page_size
+
+
+def supabase_count(table):
+    if not supabase_enabled():
+        return 0
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select=id&limit=1"
+    request = Request(url, headers=supabase_headers({"Prefer": "count=exact", "Range": "0-0"}))
+    try:
+        with urlopen(request, timeout=30) as response:
+            content_range = response.headers.get("Content-Range", "")
+    except Exception:
+        return 0
+    if "/" in content_range:
+        try:
+            return int(content_range.rsplit("/", 1)[1])
+        except ValueError:
+            return 0
+    return 0
+
+
+def supabase_date(value):
+    parsed = parse_date(value)
+    return parsed.strftime("%Y-%m-%d") if parsed else None
+
+
 def table_records(df):
     pandas_module = get_pandas()
     return [
@@ -171,7 +239,7 @@ class DataStore:
         return self.data
 
     def current_version(self):
-        if self.source_mode == "google":
+        if self.source_mode in ("google", "supabase"):
             return int(time.time() / max(CACHE_SECONDS, 60))
         return self.workbook_path.stat().st_mtime
 
@@ -226,9 +294,59 @@ class DataStore:
         return list(csv.reader(text))
 
     def load(self):
+        if self.source_mode == "supabase":
+            return self.load_supabase()
         if self.source_mode == "google":
             return self.load_google()
         return self.load_excel()
+
+    def load_supabase(self):
+        inventory_rows = supabase_select_all("inventory")
+        sku_rows = supabase_select_all("sku_master")
+        image_rows = supabase_select_all("product_images")
+
+        inventory = {normalize_sku(row.get("sku")): row for row in inventory_rows if normalize_sku(row.get("sku"))}
+        sku = {normalize_sku(row.get("sku")): row for row in sku_rows if normalize_sku(row.get("sku"))}
+        image = {normalize_sku(row.get("sku")): row for row in image_rows if normalize_sku(row.get("sku"))}
+        sku_options = self.build_supabase_sku_options(sku, inventory, image)
+
+        oldest = supabase_request("sales?select=sale_date&order=sale_date.asc&limit=1")
+        newest = supabase_request("sales?select=sale_date&order=sale_date.desc&limit=1")
+        min_date = parse_date(oldest[0].get("sale_date")) if oldest else None
+        max_date = parse_date(newest[0].get("sale_date")) if newest else None
+
+        return {
+            "powerbi": None,
+            "maxDate": max_date,
+            "sku": sku,
+            "inventory": inventory,
+            "container": {},
+            "image": image,
+            "price_history": {},
+            "meta": {
+                "source": "Supabase",
+                "workbook": SUPABASE_URL,
+                "lastUpdate": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                "dataStart": clean_value(min_date),
+                "dataEnd": clean_value(max_date),
+                "skuCount": len(sku_options),
+                "salesRows": supabase_count("sales"),
+                "cacheSeconds": CACHE_SECONDS,
+            },
+            "skuOptions": sku_options,
+        }
+
+    def build_supabase_sku_options(self, sku, inventory, image):
+        sku_values = sorted(set(sku) | set(inventory) | set(image))
+        result = []
+        for sku_code in sku_values:
+            img = image.get(sku_code, {})
+            inv = inventory.get(sku_code, {})
+            title = clean_value(img.get("title")) or ""
+            category = clean_value(inv.get("main_category")) or ""
+            label = f"{sku_code} - {title}" if title else sku_code
+            result.append({"sku": sku_code, "label": label, "title": title, "category": category})
+        return result
 
     def load_excel(self):
         pandas_module = get_pandas()
@@ -588,6 +706,133 @@ def numeric_summary_rows(rows):
     }
 
 
+def detail_payload_supabase(sku_code):
+    data = store.get()
+    sku_norm = normalize_sku(sku_code)
+    sku_filter = quote(sku_norm, safe="")
+    sales_rows = supabase_select_all(
+        "sales",
+        "sale_date,platform,sku_qty,sales_amt,selling_fee,ads_fee,refund_amt,profit_incl_rn,postage",
+        f"&sku=eq.{sku_filter}&order=sale_date.asc",
+    )
+    sales = []
+    for row in sales_rows:
+        date_value = parse_date(row.get("sale_date"))
+        if date_value is None:
+            continue
+        sales.append({
+            "date": date_value,
+            "platform": row.get("platform") or "",
+            "sku": sku_norm,
+            "sku_qty": clean_number(row.get("sku_qty")),
+            "sales_amt": clean_number(row.get("sales_amt")),
+            "selling_fee": clean_number(row.get("selling_fee")),
+            "ads_fee": clean_number(row.get("ads_fee")),
+            "refund_amt": clean_number(row.get("refund_amt")),
+            "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
+            "postage": clean_number(row.get("postage")),
+        })
+
+    max_date = max((row["date"] for row in sales), default=data.get("maxDate") or datetime.now())
+    recent_start = max_date - timedelta(days=30)
+    recent = [row for row in sales if recent_start <= row["date"] <= max_date]
+    current_year = [row for row in sales if row["date"].year == max_date.year]
+
+    inv = data["inventory"].get(sku_norm, {})
+    sku_row = data["sku"].get(sku_norm, {})
+    img = data["image"].get(sku_norm, {})
+    container_rows = supabase_request(
+        f"container_report?select=inbound_time,latest_batch_arrival_date&sku=eq.{sku_filter}&order=inbound_time.desc&limit=1"
+    )
+    inbound = container_rows[0] if container_rows else {}
+    price_history = supabase_request(
+        f"price_history?select=label,stock,price&sku=eq.{sku_filter}&order=sequence.asc"
+    )
+
+    cogs = clean_number(inv.get("cogs"), None)
+    if cogs is None:
+        cogs = clean_number(sku_row.get("cogs"), None)
+    image_urls = img.get("image_urls") if isinstance(img.get("image_urls"), list) else []
+
+    snapshot = {
+        "sku": sku_norm,
+        "title": clean_value(img.get("title")) or "",
+        "imageUrl": clean_value(img.get("image_url")) or "",
+        "imageUrls": image_urls,
+        "grade": clean_value(inv.get("grade_level") or sku_row.get("grade")),
+        "estimatedMonthsToSell": clean_number(inv.get("estimated_months_to_sell"), None),
+        "dailyAverageSales": clean_number(inv.get("daily_average_sales"), None),
+        "stockOnHand": clean_number(inv.get("stock_on_hand"), None),
+        "cogs": cogs,
+        "firstArrival": clean_value(supabase_date(sku_row.get("first_arrival_date"))),
+        "lastArrival": clean_value(supabase_date(inbound.get("inbound_time"))),
+        "category": clean_value(inv.get("main_category")),
+        "subcategory": clean_value(inv.get("subcategory")),
+        "brand": clean_value(inv.get("brand") or img.get("brand")),
+    }
+
+    monthly_map = {}
+    for row in sales:
+        month = row["date"].strftime("%Y-%m")
+        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "profit": 0.0})
+        item["qty"] += clean_number(row.get("sku_qty"))
+        item["sales"] += clean_number(row.get("sales_amt"))
+        item["profit"] += clean_number(row.get("profit_incl_rn"))
+    monthly = []
+    for month in sorted(monthly_map):
+        item = monthly_map[month]
+        item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
+        monthly.append(item)
+
+    freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
+    avg_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+    current_price = None
+    for point in reversed(price_history):
+        if point.get("price") is not None:
+            current_price = clean_number(point.get("price"), None)
+            break
+    if current_price is None:
+        current_price = clean_number(snapshot["cogs"], 0) * 1.2
+
+    return {
+        "meta": data["meta"],
+        "snapshot": snapshot,
+        "salesRows": [
+            {
+                "date": row["date"].strftime("%Y-%m-%d"),
+                "platform": row["platform"],
+                "sku_qty": row["sku_qty"],
+                "sales_amt": row["sales_amt"],
+                "selling_fee": row["selling_fee"],
+                "ads_fee": row["ads_fee"],
+                "refund_amt": row["refund_amt"],
+                "profit_incl_rn": row["profit_incl_rn"],
+            }
+            for row in sales
+        ],
+        "periods": {
+            "recent": {
+                "label": f"{recent_start:%Y-%m-%d} to {max_date:%Y-%m-%d}",
+                "summary": numeric_summary_rows(recent),
+                "platforms": aggregate_sales_rows(recent),
+            },
+            "year": {
+                "label": str(max_date.year),
+                "summary": numeric_summary_rows(current_year),
+                "platforms": aggregate_sales_rows(current_year),
+            },
+            "lifetime": {
+                "label": "Lifetime",
+                "summary": numeric_summary_rows(sales),
+                "platforms": aggregate_sales_rows(sales),
+            },
+        },
+        "monthlyTrend": monthly[-18:],
+        "priceHistory": price_history[-18:],
+        "priceTest": calculate_price_test(current_price, cogs or 0, avg_freight),
+    }
+
+
 def detail_payload_google(sku_code):
     data = store.get()
     sku_norm = normalize_sku(sku_code)
@@ -705,6 +950,8 @@ def detail_payload_google(sku_code):
 
 
 def detail_payload(sku_code):
+    if store.source_mode == "supabase":
+        return detail_payload_supabase(sku_code)
     if store.source_mode == "google":
         return detail_payload_google(sku_code)
     pandas_module = get_pandas()
@@ -881,7 +1128,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    if SOURCE_MODE != "google" and not WORKBOOK_PATH.exists():
+    if SOURCE_MODE == "supabase" and not supabase_enabled():
+        raise SystemExit("Supabase mode needs SUPABASE_URL and SUPABASE_ANON_KEY.")
+    if SOURCE_MODE not in ("google", "supabase") and not WORKBOOK_PATH.exists():
         raise SystemExit(f"Workbook not found: {WORKBOOK_PATH}")
     port = int(os.environ.get("PORT", "8765"))
     host = os.environ.get("HOST", "0.0.0.0" if os.environ.get("RENDER") else "127.0.0.1")
@@ -889,6 +1138,8 @@ def main():
     print(f"SKU Performance app running at http://{host}:{port}")
     if SOURCE_MODE == "google":
         print(f"Google Sheet: https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}")
+    elif SOURCE_MODE == "supabase":
+        print(f"Supabase: {SUPABASE_URL}")
     else:
         print(f"Workbook: {WORKBOOK_PATH}")
     server.serve_forever()
