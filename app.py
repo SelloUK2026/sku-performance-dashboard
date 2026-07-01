@@ -7,6 +7,7 @@ import re
 import time
 import csv
 from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
@@ -194,17 +195,23 @@ class DataStore:
         gid = DEFAULT_GOOGLE_GIDS[sheet_name]
         return f"https://docs.google.com/spreadsheets/d/{self.google_sheet_id}/export?format=csv&gid={gid}"
 
-    def read_google_dicts(self, sheet_name):
+    def iter_google_lines(self, sheet_name):
         try:
             with urlopen(self.google_csv_url(sheet_name), timeout=60) as response:
-                text = response.read().decode("utf-8-sig", errors="replace").splitlines()
+                for raw_line in response:
+                    yield raw_line.decode("utf-8-sig", errors="replace")
         except HTTPError as exc:
             if exc.code in (401, 403):
                 raise DataSourceError(
                     "Google Sheet is not publicly readable. Set sharing to 'Anyone with the link can view', then redeploy or wait for the cache to refresh."
                 ) from exc
             raise
-        return list(csv.DictReader(text))
+
+    def iter_google_dicts(self, sheet_name):
+        yield from csv.DictReader(self.iter_google_lines(sheet_name))
+
+    def read_google_dicts(self, sheet_name):
+        return list(self.iter_google_dicts(sheet_name))
 
     def read_google_rows(self, sheet_name):
         try:
@@ -283,28 +290,19 @@ class DataStore:
         return grouped
 
     def load_google(self):
-        powerbi = []
         min_date = None
         max_date = None
-        for row in self.read_google_dicts("PowerBI"):
+        sales_rows = 0
+        sales_skus = set()
+        for row in self.iter_google_dicts("PowerBI"):
             sku_norm = normalize_sku(row.get("sku_code"))
             date_value = parse_date(row.get("Date"))
             if not sku_norm or date_value is None:
                 continue
+            sales_rows += 1
+            sales_skus.add(sku_norm)
             min_date = date_value if min_date is None or date_value < min_date else min_date
             max_date = date_value if max_date is None or date_value > max_date else max_date
-            powerbi.append({
-                "date": date_value,
-                "platform": row.get("platform name") or "",
-                "sku": sku_norm,
-                "sku_qty": clean_number(row.get("sku_qty")),
-                "sales_amt": clean_number(row.get("sales_amt")),
-                "selling_fee": clean_number(row.get("selling_fee")),
-                "ads_fee": clean_number(row.get("ads_fee")),
-                "refund_amt": clean_number(row.get("refund_amt")),
-                "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
-                "postage": clean_number(row.get("postage")),
-            })
 
         sku = {}
         for row in self.read_google_dicts("SKU"):
@@ -345,11 +343,10 @@ class DataStore:
 
         price_history = self.load_google_price_history()
         last_update = self.read_google_last_update()
-        sku_options = self.build_google_sku_options(powerbi, sku, inventory, image)
+        sku_options = self.build_google_sku_options(sales_skus, sku, inventory, image)
 
         return {
-            "powerbi": powerbi,
-            "salesBySku": self.group_sales_by_sku(powerbi),
+            "powerbi": None,
             "maxDate": max_date,
             "sku": sku,
             "inventory": inventory,
@@ -363,7 +360,7 @@ class DataStore:
                 "dataStart": clean_value(min_date),
                 "dataEnd": clean_value(max_date),
                 "skuCount": len(sku_options),
-                "salesRows": int(len(powerbi)),
+                "salesRows": int(sales_rows),
                 "cacheSeconds": CACHE_SECONDS,
             },
             "skuOptions": sku_options,
@@ -371,15 +368,16 @@ class DataStore:
 
     def read_google_last_update(self):
         try:
-            rows = self.read_google_rows("Sheet1")
-            if rows and len(rows[0]) > 1:
-                return rows[0][1]
+            with urlopen(self.google_csv_url("PowerBI"), timeout=30) as response:
+                header_date = response.headers.get("Date")
+                if header_date:
+                    return parsedate_to_datetime(header_date).strftime("%Y-%m-%d %H:%M UTC")
         except Exception:
             pass
-        return clean_value(datetime.now())
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-    def build_google_sku_options(self, powerbi, sku, inventory, image):
-        sku_values = sorted({row["sku"] for row in powerbi} | set(sku) | set(inventory))
+    def build_google_sku_options(self, sales_skus, sku, inventory, image):
+        sku_values = sorted(set(sales_skus) | set(sku) | set(inventory))
         result = []
         for sku_code in sku_values:
             img = image.get(sku_code, {})
@@ -593,8 +591,26 @@ def numeric_summary_rows(rows):
 def detail_payload_google(sku_code):
     data = store.get()
     sku_norm = normalize_sku(sku_code)
-    sales = data.get("salesBySku", {}).get(sku_norm, [])
+    sales = []
     max_date = data.get("maxDate") or datetime.now()
+    for row in store.iter_google_dicts("PowerBI"):
+        row_sku = normalize_sku(row.get("sku_code"))
+        date_value = parse_date(row.get("Date"))
+        if date_value is None:
+            continue
+        if row_sku == sku_norm:
+            sales.append({
+                "date": date_value,
+                "platform": row.get("platform name") or "",
+                "sku": row_sku,
+                "sku_qty": clean_number(row.get("sku_qty")),
+                "sales_amt": clean_number(row.get("sales_amt")),
+                "selling_fee": clean_number(row.get("selling_fee")),
+                "ads_fee": clean_number(row.get("ads_fee")),
+                "refund_amt": clean_number(row.get("refund_amt")),
+                "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
+                "postage": clean_number(row.get("postage")),
+            })
     recent_start = max_date - timedelta(days=30)
     recent = [row for row in sales if recent_start <= row["date"] <= max_date]
     current_year = [row for row in sales if row["date"].year == max_date.year]
@@ -652,6 +668,19 @@ def detail_payload_google(sku_code):
     return {
         "meta": data["meta"],
         "snapshot": snapshot,
+        "salesRows": [
+            {
+                "date": row["date"].strftime("%Y-%m-%d"),
+                "platform": row["platform"],
+                "sku_qty": row["sku_qty"],
+                "sales_amt": row["sales_amt"],
+                "selling_fee": row["selling_fee"],
+                "ads_fee": row["ads_fee"],
+                "refund_amt": row["refund_amt"],
+                "profit_incl_rn": row["profit_incl_rn"],
+            }
+            for row in sales
+        ],
         "periods": {
             "recent": {
                 "label": f"{recent_start:%Y-%m-%d} to {max_date:%Y-%m-%d}",
@@ -748,6 +777,19 @@ def detail_payload(sku_code):
     return {
         "meta": data["meta"],
         "snapshot": snapshot,
+        "salesRows": [
+            {
+                "date": clean_value(row["Date"]),
+                "platform": row["platform name"],
+                "sku_qty": clean_number(row["sku_qty"]),
+                "sales_amt": clean_number(row["sales_amt"]),
+                "selling_fee": clean_number(row["selling_fee"]),
+                "ads_fee": clean_number(row["ads_fee"]),
+                "refund_amt": clean_number(row["refund_amt"]),
+                "profit_incl_rn": clean_number(row["profit_incl_rn"]),
+            }
+            for _, row in sales.iterrows()
+        ],
         "periods": {
             "recent": {
                 "label": f"{recent_start:%Y-%m-%d} to {max_date:%Y-%m-%d}",

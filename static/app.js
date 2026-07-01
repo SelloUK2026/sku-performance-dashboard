@@ -1,6 +1,7 @@
 const state = {
   selectedSku: "",
   platformPeriods: ["recent", "year", "lifetime"],
+  platformRanges: [],
   currentData: null,
   initialPriceTest: null,
   imageUrls: [],
@@ -25,7 +26,7 @@ const elements = {
   testProfit: document.querySelector("#testProfit"),
   testMargin: document.querySelector("#testMargin"),
   priceHistoryRows: document.querySelector("#priceHistoryRows"),
-  monthRows: document.querySelector("#monthRows"),
+  monthChart: document.querySelector("#monthChart"),
 };
 
 function currency(value) {
@@ -110,9 +111,10 @@ function renderDashboard(payload) {
   )).join("");
 
   fillPriceForm(payload.priceTest);
+  state.platformRanges = state.platformPeriods.map((periodKey) => dateRangeFromPeriod(payload.periods[periodKey]));
   renderPlatformPanels();
   renderPriceHistory(payload.priceHistory);
-  renderMonthRows(payload.monthlyTrend);
+  drawMonthChart(payload.monthlyTrend);
 }
 
 function showProductImage() {
@@ -129,7 +131,9 @@ function showProductImage() {
 function renderPlatformPanels() {
   const titles = ["Platform Performance 1", "Platform Performance 2", "Platform Performance 3"];
   elements.platformGrid.innerHTML = state.platformPeriods.map((periodKey, index) => {
-    const period = state.currentData.periods[periodKey];
+    const range = state.platformRanges[index] || dateRangeFromPeriod(state.currentData.periods[periodKey]);
+    const rows = filterSalesRows(range.start, range.end);
+    const platforms = aggregateClientSales(rows);
     return `<div class="panel platform-panel" data-panel="${index}">
       <div class="panel-head">
         <h3>${titles[index]}</h3>
@@ -139,7 +143,10 @@ function renderPlatformPanels() {
           ${periodButton(index, "lifetime", "Lifetime", periodKey)}
         </div>
       </div>
-      <p class="subtle">${escapeHtml(period.label)}</p>
+      <div class="date-range">
+        <label>Start <input type="date" data-panel="${index}" data-date-role="start" value="${escapeHtml(range.start)}"></label>
+        <label>End <input type="date" data-panel="${index}" data-date-role="end" value="${escapeHtml(range.end)}"></label>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -148,18 +155,82 @@ function renderPlatformPanels() {
               <th>Qty</th>
               <th>Sales</th>
               <th>Selling Fee</th>
-              <th>Ads</th>
+              <th>Ads Fee</th>
+              <th>Ads %</th>
               <th>Return</th>
               <th>Profit</th>
               <th>PM</th>
               <th>Unit Price</th>
             </tr>
           </thead>
-          <tbody>${platformRows(period.platforms)}</tbody>
+          <tbody>${platformRows(platforms)}</tbody>
         </table>
       </div>
     </div>`;
   }).join("");
+}
+
+function dateRangeFromPeriod(period) {
+  if (!period || !period.label) return { start: "", end: "" };
+  if (period.label === "Lifetime") {
+    const dates = (state.currentData.salesRows || []).map((row) => row.date).filter(Boolean).sort();
+    return { start: dates[0] || "", end: dates[dates.length - 1] || "" };
+  }
+  if (/^\d{4}$/.test(period.label)) {
+    return { start: `${period.label}-01-01`, end: `${period.label}-12-31` };
+  }
+  const parts = period.label.split(" to ");
+  return { start: parts[0] || "", end: parts[1] || "" };
+}
+
+function filterSalesRows(start, end) {
+  return (state.currentData.salesRows || []).filter((row) => {
+    if (!row.date) return false;
+    return (!start || row.date >= start) && (!end || row.date <= end);
+  });
+}
+
+function aggregateClientSales(rows) {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const platform = row.platform || "-";
+    if (!grouped.has(platform)) {
+      grouped.set(platform, {
+        "platform name": platform,
+        sku_qty: 0,
+        sales_amt: 0,
+        selling_fee: 0,
+        ads_fee: 0,
+        refund_amt: 0,
+        profit_incl_rn: 0,
+      });
+    }
+    const item = grouped.get(platform);
+    item.sku_qty += Number(row.sku_qty || 0);
+    item.sales_amt += Number(row.sales_amt || 0);
+    item.selling_fee += Number(row.selling_fee || 0);
+    item.ads_fee += Number(row.ads_fee || 0);
+    item.refund_amt += Number(row.refund_amt || 0);
+    item.profit_incl_rn += Number(row.profit_incl_rn || 0);
+  });
+  const records = [...grouped.values()].sort((a, b) => b.sales_amt - a.sales_amt);
+  const total = {
+    "platform name": "Grand Total",
+    sku_qty: records.reduce((sum, item) => sum + item.sku_qty, 0),
+    sales_amt: records.reduce((sum, item) => sum + item.sales_amt, 0),
+    selling_fee: records.reduce((sum, item) => sum + item.selling_fee, 0),
+    ads_fee: records.reduce((sum, item) => sum + item.ads_fee, 0),
+    refund_amt: records.reduce((sum, item) => sum + item.refund_amt, 0),
+    profit_incl_rn: records.reduce((sum, item) => sum + item.profit_incl_rn, 0),
+  };
+  [...records, total].forEach((item) => {
+    item.selling_fee_pct = item.sales_amt ? item.selling_fee / item.sales_amt : null;
+    item.ads_fee_pct = item.sales_amt ? item.ads_fee / item.sales_amt : null;
+    item.return_pct = item.sales_amt ? item.refund_amt / item.sales_amt : null;
+    item.profit_margin = item.sales_amt ? item.profit_incl_rn / item.sales_amt : null;
+    item.unit_price = item.sku_qty ? item.sales_amt / item.sku_qty * 1.2 : null;
+  });
+  return records.length ? [...records, total] : [];
 }
 
 function periodButton(index, key, label, activeKey) {
@@ -174,6 +245,7 @@ function platformRows(rows) {
       <td>${number(row.sku_qty)}</td>
       <td>${currency(row.sales_amt)}</td>
       <td>${percent(row.selling_fee_pct)}</td>
+      <td>${currency(row.ads_fee)}</td>
       <td>${percent(row.ads_fee_pct)}</td>
       <td>${percent(row.return_pct)}</td>
       <td class="${row.profit_incl_rn < 0 ? "bad" : "good"}">${currency(row.profit_incl_rn)}</td>
@@ -240,20 +312,109 @@ function valueChangeClass(current, previous, redWhenDown) {
   return redWhenDown ? "bad" : "";
 }
 
-function renderMonthRows(points) {
+function drawMonthChart(points) {
   if (!points || !points.length) {
-    elements.monthRows.innerHTML = `<tr><td colspan="5">No monthly sales</td></tr>`;
+    drawEmptyChart(elements.monthChart, "No monthly sales");
     return;
   }
-  elements.monthRows.innerHTML = [...points].reverse().map((row) => (
-    `<tr>
-      <td>${escapeHtml(String(row.month || "-"))}</td>
-      <td>${number(row.qty)}</td>
-      <td>${currency(row.sales)}</td>
-      <td class="${row.profit < 0 ? "bad" : "good"}">${currency(row.profit)}</td>
-      <td class="${row.profitMargin < 0 ? "bad" : "good"}">${percent(row.profitMargin)}</td>
-    </tr>`
-  )).join("");
+  const canvas = elements.monthChart;
+  const ctx = setupChart(canvas);
+  const rect = canvas.getBoundingClientRect();
+  const area = { left: 48, top: 26, right: rect.width - 24, bottom: rect.height - 46 };
+  const ordered = [...points].slice(-12);
+  const maxQty = Math.max(...ordered.map((row) => Number(row.qty || 0)), 1);
+  const pmValues = ordered.map((row) => Number(row.profitMargin || 0) * 100);
+  const minPm = Math.min(...pmValues, 0);
+  const maxPm = Math.max(...pmValues, 1);
+  const pmSpan = maxPm - minPm || 1;
+  const step = (area.right - area.left) / Math.max(ordered.length, 1);
+  const barWidth = Math.max(14, step * 0.48);
+
+  ctx.strokeStyle = "#dde3ea";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(area.left, area.top);
+  ctx.lineTo(area.left, area.bottom);
+  ctx.lineTo(area.right, area.bottom);
+  ctx.stroke();
+
+  ctx.fillStyle = "#0f766e";
+  ordered.forEach((row, index) => {
+    const x = area.left + index * step + (step - barWidth) / 2;
+    const height = (Number(row.qty || 0) / maxQty) * (area.bottom - area.top);
+    const y = area.bottom - height;
+    ctx.fillRect(x, y, barWidth, height);
+    ctx.fillStyle = "#17202a";
+    ctx.textAlign = "center";
+    ctx.fillText(number(row.qty), x + barWidth / 2, Math.max(area.top + 10, y - 5));
+    ctx.fillStyle = "#0f766e";
+  });
+
+  ctx.strokeStyle = "#7c3aed";
+  ctx.fillStyle = "#7c3aed";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const pointsOnLine = ordered.map((row, index) => {
+    const x = area.left + index * step + step / 2;
+    const pm = Number(row.profitMargin || 0) * 100;
+    const y = area.bottom - ((pm - minPm) / pmSpan) * (area.bottom - area.top);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    return { x, y, pm };
+  });
+  ctx.stroke();
+  pointsOnLine.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.textAlign = "center";
+    ctx.fillText(`${point.pm.toFixed(1)}%`, point.x, point.y - 8);
+  });
+
+  ctx.fillStyle = "#697386";
+  ordered.forEach((row, index) => {
+    const x = area.left + index * step + step / 2;
+    ctx.save();
+    ctx.translate(x, area.bottom + 18);
+    ctx.rotate(-0.25);
+    ctx.textAlign = "center";
+    ctx.fillText(String(row.month || "").slice(2), 0, 0);
+    ctx.restore();
+  });
+
+  drawLegend(ctx, area.left, 12, [["Qty", "#0f766e"], ["PM", "#7c3aed"]]);
+}
+
+function setupChart(canvas) {
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  ctx.font = "12px Segoe UI, Arial";
+  return ctx;
+}
+
+function drawLegend(ctx, x, y, items) {
+  let offset = 0;
+  items.forEach(([label, color]) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x + offset, y, 10, 10);
+    ctx.fillStyle = "#475569";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + offset + 14, y + 9);
+    offset += 70;
+  });
+}
+
+function drawEmptyChart(canvas, text) {
+  const ctx = setupChart(canvas);
+  const rect = canvas.getBoundingClientRect();
+  ctx.fillStyle = "#697386";
+  ctx.textAlign = "center";
+  ctx.fillText(text, rect.width / 2, rect.height / 2);
 }
 
 function escapeHtml(value) {
@@ -283,6 +444,17 @@ elements.platformGrid.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-period][data-panel]");
   if (!button) return;
   state.platformPeriods[Number(button.dataset.panel)] = button.dataset.period;
+  state.platformRanges[Number(button.dataset.panel)] = dateRangeFromPeriod(state.currentData.periods[button.dataset.period]);
+  renderPlatformPanels();
+});
+
+elements.platformGrid.addEventListener("change", (event) => {
+  const input = event.target.closest("input[type='date'][data-panel]");
+  if (!input) return;
+  const index = Number(input.dataset.panel);
+  const role = input.dataset.dateRole;
+  state.platformRanges[index] = state.platformRanges[index] || { start: "", end: "" };
+  state.platformRanges[index][role] = input.value;
   renderPlatformPanels();
 });
 
@@ -294,4 +466,8 @@ elements.resetPrice.addEventListener("click", () => fillPriceForm(state.initialP
 
 loadSkus().catch((error) => {
   elements.metaLine.textContent = error.message;
+});
+
+window.addEventListener("resize", () => {
+  if (state.currentData) drawMonthChart(state.currentData.monthlyTrend);
 });
