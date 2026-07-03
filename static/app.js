@@ -56,8 +56,17 @@ function parsePercentInput(value) {
 
 async function getJson(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
+  const text = await response.text();
+  let payload = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (error) {
+    payload = null;
+  }
+  if (!response.ok) {
+    throw new Error((payload && payload.error) || text.slice(0, 180) || "Request failed");
+  }
+  return payload;
 }
 
 async function loadSkus(query = "") {
@@ -91,20 +100,13 @@ function renderDashboard(payload) {
   elements.productTitle.textContent = snapshot.title || snapshot.sku || "SKU";
   elements.productMeta.textContent = [snapshot.brand, snapshot.category, snapshot.subcategory].filter(Boolean).join(" · ");
 
-  const lifetime = payload.periods.lifetime.summary;
   const kpis = [
     ["Grade Level", snapshot.grade],
     ["Est. Months To Sell", number(snapshot.estimatedMonthsToSell, 2)],
     ["Daily Avg Sales", number(snapshot.dailyAverageSales, 2)],
     ["SOH", number(snapshot.stockOnHand, 0)],
     ["COGS", currency(snapshot.cogs)],
-    ["Last Arrival", snapshot.lastArrival || "-"],
     ["First Arrival", snapshot.firstArrival || "-"],
-    ["Lifetime Qty", number(lifetime.qty, 0)],
-    ["Lifetime Sales", currency(lifetime.sales)],
-    ["Lifetime Profit", currency(lifetime.profit)],
-    ["Lifetime PM", percent(lifetime.profitMargin)],
-    ["Avg Unit Price", currency(lifetime.unitPrice)],
   ];
   elements.kpiGrid.innerHTML = kpis.map(([label, value]) => (
     `<article class="kpi-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value ?? "-"))}</strong></article>`
