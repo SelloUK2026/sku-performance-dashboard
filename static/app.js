@@ -71,9 +71,19 @@ async function getJson(url) {
 
 async function loadSkus(query = "") {
   const payload = await getJson(`/api/skus?q=${encodeURIComponent(query)}`);
+  const previousSku = state.selectedSku;
   elements.skuSelect.innerHTML = payload.items.map((item) => (
     `<option value="${escapeHtml(item.sku)}">${escapeHtml(item.sku)}</option>`
   )).join("");
+  const skus = payload.items.map((item) => item.sku);
+  if (previousSku && skus.includes(previousSku)) {
+    elements.skuSelect.value = previousSku;
+  }
+  if (query.trim() && payload.items.length === 1 && payload.items[0].sku !== previousSku) {
+    elements.skuSelect.value = payload.items[0].sku;
+    await loadSku(payload.items[0].sku);
+    return;
+  }
   if (!state.selectedSku && payload.items.length) {
     state.selectedSku = payload.items[0].sku;
     elements.skuSelect.value = state.selectedSku;
@@ -438,6 +448,13 @@ let searchTimer;
 elements.skuSearch.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadSkus(elements.skuSearch.value), 250);
+});
+
+elements.skuSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && elements.skuSelect.value) {
+    event.preventDefault();
+    loadSku(elements.skuSelect.value);
+  }
 });
 
 elements.skuSelect.addEventListener("change", () => loadSku(elements.skuSelect.value));
