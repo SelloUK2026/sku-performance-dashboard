@@ -31,19 +31,30 @@ create table if not exists public.inventory (
   estimated_months_to_sell numeric,
   daily_average_sales numeric,
   stock_on_hand numeric,
-  cogs numeric
+  cogs numeric,
+  suggested_freight numeric
 );
+
+alter table public.inventory add column if not exists suggested_freight numeric;
 
 create table if not exists public.container_report (
   id bigint generated always as identity primary key,
+  invoice_number text,
   sku text not null,
   inbound_time date,
   latest_batch_arrival_date date,
   qty numeric,
-  product_type text
+  product_type text,
+  status text,
+  source text
 );
 
+alter table public.container_report add column if not exists invoice_number text;
+alter table public.container_report add column if not exists status text;
+alter table public.container_report add column if not exists source text;
+
 create index if not exists container_report_sku_inbound_idx on public.container_report (sku, inbound_time desc);
+create index if not exists container_report_invoice_idx on public.container_report (invoice_number);
 
 create table if not exists public.price_history (
   id bigint generated always as identity primary key,

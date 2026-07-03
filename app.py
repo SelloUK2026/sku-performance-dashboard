@@ -252,6 +252,16 @@ def image_sku_from_row(row):
     return price_change_formula_sku(row.get("Inventory Number") if hasattr(row, "get") else None)
 
 
+def apply_freight_map_to_inventory(inventory, freight_by_sku):
+    if hasattr(inventory, "copy") and hasattr(inventory, "columns"):
+        inventory = inventory.copy()
+        inventory["suggested_freight"] = inventory["sku_norm"].map(lambda sku: freight_by_sku.get(sku))
+        return inventory
+    for sku, row in inventory.items():
+        row["suggested_freight"] = freight_by_sku.get(sku)
+    return inventory
+
+
 def supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
@@ -465,6 +475,10 @@ class DataStore:
 
         inventory = simplify_columns(self.read_sheet("Inventory Report"))
         inventory["sku_norm"] = inventory["Product SKU"].map(normalize_sku)
+        freight = simplify_columns(self.read_sheet("Freight"))
+        freight["sku_norm"] = freight["SKU"].map(normalize_sku)
+        freight_by_sku = freight.drop_duplicates("sku_norm").set_index("sku_norm")["Suggested Freight"].map(lambda value: clean_number(value, None)).to_dict()
+        inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
 
         container = self.read_sheet("Container report")
         container["sku_norm"] = container["SKU"].map(normalize_sku)
@@ -537,6 +551,14 @@ class DataStore:
             sku_norm = normalize_sku(simplified.get("Product SKU"))
             if sku_norm:
                 inventory[sku_norm] = simplified
+
+        freight_by_sku = {}
+        for row in self.read_google_dicts("Freight"):
+            simplified = {simplify_key(key): value for key, value in row.items()}
+            sku_norm = normalize_sku(simplified.get("SKU"))
+            if sku_norm:
+                freight_by_sku[sku_norm] = clean_number(simplified.get("Suggested Freight"), None)
+        inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
 
         container = {}
         for row in self.read_google_dicts("Container report"):
@@ -870,6 +892,7 @@ def detail_payload_supabase(sku_code):
         cogs = clean_number(sku_row.get("cogs"), None)
     image_urls = img.get("image_urls") if isinstance(img.get("image_urls"), list) else []
     first_arrival = supabase_date(sku_row.get("first_arrival_date")) or supabase_date(first_inbound.get("inbound_time"))
+    latest_arrival = supabase_date(inbound.get("latest_batch_arrival_date")) or supabase_date(inbound.get("inbound_time"))
 
     snapshot = {
         "sku": sku_norm,
@@ -882,7 +905,7 @@ def detail_payload_supabase(sku_code):
         "stockOnHand": clean_number(inv.get("stock_on_hand"), None),
         "cogs": cogs,
         "firstArrival": clean_value(first_arrival),
-        "lastArrival": clean_value(supabase_date(inbound.get("inbound_time"))),
+        "lastArrival": clean_value(latest_arrival),
         "category": clean_value(inv.get("main_category")),
         "subcategory": clean_value(inv.get("subcategory")),
         "brand": clean_value(inv.get("brand") or img.get("brand")),
@@ -901,8 +924,10 @@ def detail_payload_supabase(sku_code):
         item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
         monthly.append(item)
 
-    freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
-    avg_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+    suggested_freight = clean_number(inv.get("suggested_freight"), None)
+    if suggested_freight is None:
+        freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
+        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
     current_price = None
     for point in reversed(price_history):
         if point.get("price") is not None:
@@ -946,7 +971,7 @@ def detail_payload_supabase(sku_code):
         },
         "monthlyTrend": monthly[-18:],
         "priceHistory": merge_price_history_points(price_history)[-18:],
-        "priceTest": calculate_price_test(current_price, cogs or 0, avg_freight),
+        "priceTest": calculate_price_test(current_price, cogs or 0, suggested_freight),
     }
 
 
@@ -997,7 +1022,7 @@ def detail_payload_google(sku_code):
         "stockOnHand": clean_number(inv.get("Total Inventory Qty"), None),
         "cogs": cogs,
         "firstArrival": clean_value(sku_row.get("First Arrival Date")),
-        "lastArrival": clean_value(inbound.get("inbound_time")) if inbound else None,
+        "lastArrival": clean_value(inbound.get("Latest Batch Arrival Date") or inbound.get("inbound_time")) if inbound else None,
         "category": clean_value(inv.get("Main Category")),
         "subcategory": clean_value(inv.get("Subcategory")),
         "brand": clean_value(inv.get("Brand")),
@@ -1016,8 +1041,10 @@ def detail_payload_google(sku_code):
         item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
         monthly.append(item)
 
-    freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
-    avg_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+    suggested_freight = clean_number(inv.get("suggested_freight"), None)
+    if suggested_freight is None:
+        freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
+        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
     current_price = None
     for point in reversed(data["price_history"].get(sku_norm, [])):
         if point.get("price") is not None:
@@ -1026,7 +1053,7 @@ def detail_payload_google(sku_code):
     if current_price is None:
         current_price = clean_number(snapshot["cogs"], 0) * 1.2
 
-    price_test = calculate_price_test(current_price, cogs or 0, avg_freight)
+    price_test = calculate_price_test(current_price, cogs or 0, suggested_freight)
     return {
         "meta": data["meta"],
         "snapshot": snapshot,
@@ -1108,7 +1135,9 @@ def detail_payload(sku_code):
         "stockOnHand": stock_on_hand,
         "cogs": cogs,
         "firstArrival": clean_value(sku_row.iloc[0]["First Arrival Date"]) if not sku_row.empty else None,
-        "lastArrival": clean_value(inbound.iloc[0]["Inbound Time"]) if not inbound.empty else None,
+        "lastArrival": clean_value(
+            inbound.iloc[0].get("Latest Batch Arrival Date") or inbound.iloc[0].get("Inbound Time")
+        ) if not inbound.empty else None,
         "category": clean_value(inv.iloc[0]["Main Category"]) if not inv.empty else None,
         "subcategory": clean_value(inv.iloc[0]["Subcategory"]) if not inv.empty else None,
         "brand": clean_value(inv.iloc[0]["Brand"]) if not inv.empty else None,
@@ -1126,8 +1155,10 @@ def detail_payload(sku_code):
     else:
         month_group = pandas_module.DataFrame(columns=["month", "qty", "sales", "profit", "profitMargin"])
 
-    freight_sales = sales[(sales["postage"] != 0) & (sales["platform name"] != "Amazon(UK) FBM")]
-    avg_freight = clean_number(freight_sales["postage"].mean(), 0)
+    suggested_freight = clean_number(inv.iloc[0].get("suggested_freight"), None) if not inv.empty else None
+    if suggested_freight is None:
+        freight_sales = sales[(sales["postage"] != 0) & (sales["platform name"] != "Amazon(UK) FBM")]
+        suggested_freight = clean_number(freight_sales["postage"].mean(), 0)
     current_price = None
     for point in reversed(data["price_history"].get(sku_norm, [])):
         if point.get("price") is not None:
@@ -1136,7 +1167,7 @@ def detail_payload(sku_code):
     if current_price is None:
         current_price = clean_number(snapshot["cogs"], 0) * 1.2
 
-    price_test = calculate_price_test(current_price, cogs or 0, avg_freight)
+    price_test = calculate_price_test(current_price, cogs or 0, suggested_freight)
 
     return {
         "meta": data["meta"],

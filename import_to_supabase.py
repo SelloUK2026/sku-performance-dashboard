@@ -286,6 +286,12 @@ def build_sku_master():
 
 def build_inventory():
     df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
+    freight_df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
+    freight_by_sku = {}
+    for _, freight_row in freight_df.iterrows():
+        sku = normalize_sku(freight_row.get("SKU"))
+        if sku:
+            freight_by_sku[sku] = clean_number(freight_row.get("Suggested Freight"))
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("Product SKU"))
@@ -301,6 +307,7 @@ def build_inventory():
             "daily_average_sales": clean_number(row.get("Daily Average Sales")),
             "stock_on_hand": clean_number(row.get("Total Inventory Qty")),
             "cogs": clean_number(row.get("COGS")),
+            "suggested_freight": freight_by_sku.get(sku),
         }
     return list(rows.values())
 
