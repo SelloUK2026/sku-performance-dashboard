@@ -37,6 +37,14 @@ create table if not exists public.inventory (
 
 alter table public.inventory add column if not exists suggested_freight numeric;
 
+create table if not exists public.freight (
+  sku text primary key,
+  sello_tools_calculation numeric,
+  valid_qty numeric,
+  avg_actual_freight numeric,
+  suggested_freight numeric
+);
+
 create table if not exists public.container_report (
   id bigint generated always as identity primary key,
   invoice_number text,
@@ -78,6 +86,7 @@ create table if not exists public.product_images (
 alter table public.sales enable row level security;
 alter table public.sku_master enable row level security;
 alter table public.inventory enable row level security;
+alter table public.freight enable row level security;
 alter table public.container_report enable row level security;
 alter table public.price_history enable row level security;
 alter table public.product_images enable row level security;
@@ -85,6 +94,7 @@ alter table public.product_images enable row level security;
 drop policy if exists "dashboard read sales" on public.sales;
 drop policy if exists "dashboard read sku master" on public.sku_master;
 drop policy if exists "dashboard read inventory" on public.inventory;
+drop policy if exists "dashboard read freight" on public.freight;
 drop policy if exists "dashboard read container" on public.container_report;
 drop policy if exists "dashboard read price history" on public.price_history;
 drop policy if exists "dashboard read images" on public.product_images;
@@ -92,6 +102,7 @@ drop policy if exists "dashboard read images" on public.product_images;
 create policy "dashboard read sales" on public.sales for select using (true);
 create policy "dashboard read sku master" on public.sku_master for select using (true);
 create policy "dashboard read inventory" on public.inventory for select using (true);
+create policy "dashboard read freight" on public.freight for select using (true);
 create policy "dashboard read container" on public.container_report for select using (true);
 create policy "dashboard read price history" on public.price_history for select using (true);
 create policy "dashboard read images" on public.product_images for select using (true);

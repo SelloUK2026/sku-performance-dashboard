@@ -431,10 +431,15 @@ class DataStore:
         inventory_rows = supabase_select_all("inventory")
         sku_rows = supabase_select_all("sku_master")
         image_rows = supabase_select_all("product_images")
+        try:
+            freight_rows = supabase_select_all("freight")
+        except DataSourceError:
+            freight_rows = []
 
         inventory = {normalize_sku(row.get("sku")): row for row in inventory_rows if normalize_sku(row.get("sku"))}
         sku = {normalize_sku(row.get("sku")): row for row in sku_rows if normalize_sku(row.get("sku"))}
         image = {normalize_sku(row.get("sku")): row for row in image_rows if normalize_sku(row.get("sku"))}
+        freight = {normalize_sku(row.get("sku")): row for row in freight_rows if normalize_sku(row.get("sku"))}
         sku_options = self.build_supabase_sku_options(sku, inventory, image)
 
         oldest = supabase_request("sales?select=sale_date&order=sale_date.asc&limit=1")
@@ -447,6 +452,7 @@ class DataStore:
             "maxDate": max_date,
             "sku": sku,
             "inventory": inventory,
+            "freight": freight,
             "container": {},
             "image": image,
             "price_history": {},
@@ -889,6 +895,7 @@ def detail_payload_supabase(sku_code):
     current_year = [row for row in sales if row["date"].year == max_date.year]
 
     inv = data["inventory"].get(sku_norm, {})
+    freight = data.get("freight", {}).get(sku_norm, {})
     sku_row = data["sku"].get(sku_norm, {})
     img = data["image"].get(sku_norm, {})
     container_rows = supabase_request(
@@ -940,7 +947,9 @@ def detail_payload_supabase(sku_code):
         item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
         monthly.append(item)
 
-    suggested_freight = clean_number(inv.get("suggested_freight"), None)
+    suggested_freight = clean_number(freight.get("suggested_freight"), None)
+    if suggested_freight is None:
+        suggested_freight = clean_number(inv.get("suggested_freight"), None)
     if suggested_freight is None:
         freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
         suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0

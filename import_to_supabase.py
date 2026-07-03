@@ -324,6 +324,23 @@ def build_inventory():
     return list(rows.values())
 
 
+def build_freight():
+    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
+    rows = {}
+    for _, row in df.iterrows():
+        sku = normalize_sku(row.get("SKU"))
+        if not sku:
+            continue
+        rows[sku] = {
+            "sku": sku,
+            "sello_tools_calculation": clean_number(row.get("Sello Tools Calculation")),
+            "valid_qty": clean_number(row.get("Valid Qty")),
+            "avg_actual_freight": clean_number(row.get("Avg Actual Freight")),
+            "suggested_freight": suggested_freight_from_row(row),
+        }
+    return list(rows.values())
+
+
 def build_container_report():
     df = pd.read_excel(WORKBOOK_PATH, sheet_name="Container report")
     rows = {}
@@ -445,6 +462,7 @@ def main():
         ("sales", build_sales(), "?id=not.is.null"),
         ("sku_master", build_sku_master(), "?sku=not.is.null"),
         ("inventory", build_inventory(), "?sku=not.is.null"),
+        ("freight", build_freight(), "?sku=not.is.null"),
         ("container_report", build_container_report(), "?id=not.is.null"),
         ("price_history", build_price_history(), "?id=not.is.null"),
         ("product_images", build_product_images(), "?sku=not.is.null"),
