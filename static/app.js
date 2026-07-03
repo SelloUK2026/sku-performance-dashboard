@@ -106,11 +106,16 @@ function renderDashboard(payload) {
     ["Daily Avg Sales", number(snapshot.dailyAverageSales, 2)],
     ["SOH", number(snapshot.stockOnHand, 0)],
     ["COGS", currency(snapshot.cogs)],
-    ["First Arrival", snapshot.firstArrival || "-"],
   ];
   elements.kpiGrid.innerHTML = kpis.map(([label, value]) => (
     `<article class="kpi-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value ?? "-"))}</strong></article>`
-  )).join("");
+  )).join("") + `<article class="kpi-card arrival-card">
+    <span>Arrival Dates</span>
+    <div class="arrival-lines">
+      <div><em>First</em><strong>${escapeHtml(String(snapshot.firstArrival || "-"))}</strong></div>
+      <div><em>Latest</em><strong>${escapeHtml(String(snapshot.lastArrival || "-"))}</strong></div>
+    </div>
+  </article>`;
 
   fillPriceForm(payload.priceTest);
   state.platformRanges = state.platformPeriods.map((periodKey) => dateRangeFromPeriod(payload.periods[periodKey]));
