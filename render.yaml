@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: python -u app.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
@@ -14,3 +14,5 @@ services:
         value: 17fj9gaoE4U5_Ks_EkI68CPBBPIjjbDYMkifG1SqbBAg
       - key: SKU_APP_CACHE_SECONDS
         value: 900
+      - key: HOST
+        value: 0.0.0.0
