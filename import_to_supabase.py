@@ -109,6 +109,18 @@ def simplify_columns(df):
     return df
 
 
+def suggested_freight_from_row(row):
+    suggested = clean_number(row.get("Suggested Freight"), None)
+    if suggested is not None:
+        return suggested
+    valid_qty = clean_number(row.get("Valid Qty"), 0)
+    avg_actual = clean_number(row.get("Avg Actual Freight"), None)
+    sello_tools = clean_number(row.get("Sello Tools Calculation"), None)
+    if valid_qty > 5 and avg_actual is not None:
+        return avg_actual
+    return sello_tools
+
+
 def image_urls(value):
     if not isinstance(value, str):
         return []
@@ -291,7 +303,7 @@ def build_inventory():
     for _, freight_row in freight_df.iterrows():
         sku = normalize_sku(freight_row.get("SKU"))
         if sku:
-            freight_by_sku[sku] = clean_number(freight_row.get("Suggested Freight"))
+            freight_by_sku[sku] = suggested_freight_from_row(freight_row)
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("Product SKU"))

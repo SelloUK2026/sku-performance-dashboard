@@ -252,6 +252,18 @@ def image_sku_from_row(row):
     return price_change_formula_sku(row.get("Inventory Number") if hasattr(row, "get") else None)
 
 
+def suggested_freight_from_row(row):
+    suggested = clean_number(row.get("Suggested Freight"), None)
+    if suggested is not None:
+        return suggested
+    valid_qty = clean_number(row.get("Valid Qty"), 0)
+    avg_actual = clean_number(row.get("Avg Actual Freight"), None)
+    sello_tools = clean_number(row.get("Sello Tools Calculation"), None)
+    if valid_qty > 5 and avg_actual is not None:
+        return avg_actual
+    return sello_tools
+
+
 def apply_freight_map_to_inventory(inventory, freight_by_sku):
     if hasattr(inventory, "copy") and hasattr(inventory, "columns"):
         inventory = inventory.copy()
@@ -477,7 +489,11 @@ class DataStore:
         inventory["sku_norm"] = inventory["Product SKU"].map(normalize_sku)
         freight = simplify_columns(self.read_sheet("Freight"))
         freight["sku_norm"] = freight["SKU"].map(normalize_sku)
-        freight_by_sku = freight.drop_duplicates("sku_norm").set_index("sku_norm")["Suggested Freight"].map(lambda value: clean_number(value, None)).to_dict()
+        freight_by_sku = {}
+        for _, freight_row in freight.iterrows():
+            sku_norm = freight_row.get("sku_norm")
+            if sku_norm and sku_norm not in freight_by_sku:
+                freight_by_sku[sku_norm] = suggested_freight_from_row(freight_row)
         inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
 
         container = self.read_sheet("Container report")
@@ -557,7 +573,7 @@ class DataStore:
             simplified = {simplify_key(key): value for key, value in row.items()}
             sku_norm = normalize_sku(simplified.get("SKU"))
             if sku_norm:
-                freight_by_sku[sku_norm] = clean_number(simplified.get("Suggested Freight"), None)
+                freight_by_sku[sku_norm] = suggested_freight_from_row(simplified)
         inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
 
         container = {}
