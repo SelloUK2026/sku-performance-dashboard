@@ -9,9 +9,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.8
       - key: SKU_APP_SOURCE
-        value: google
-      - key: GOOGLE_SHEET_ID
-        value: 17fj9gaoE4U5_Ks_EkI68CPBBPIjjbDYMkifG1SqbBAg
+        value: supabase
       - key: SKU_APP_CACHE_SECONDS
         value: 900
       - key: HOST
