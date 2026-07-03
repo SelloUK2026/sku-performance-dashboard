@@ -133,8 +133,23 @@ def first_image_url(value):
     return match.group(0).strip() if match else ""
 
 
+def preferred_image_url_from_row(row):
+    white_bg = row.get("White bg image") if hasattr(row, "get") else None
+    white_bg_url = first_image_url(white_bg)
+    if white_bg_url:
+        return white_bg_url
+    picture_urls = row.get("Picture URLs") if hasattr(row, "get") else None
+    if isinstance(picture_urls, str):
+        for key in ("ITEMIMAGEURL12", "ITEMIMAGEURL41"):
+            match = re.search(rf"{key}=(https?://[^,\s]+)", picture_urls)
+            if match:
+                return match.group(1).strip()
+    return first_image_url(picture_urls)
+
+
 def image_urls_from_row(row):
-    urls = []
+    preferred = preferred_image_url_from_row(row)
+    urls = [preferred] if preferred else []
     for column in ("White bg image", "Picture URLs"):
         value = row.get(column)
         if isinstance(value, str):
@@ -149,11 +164,33 @@ def image_urls_from_row(row):
     return cleaned
 
 
+def excel_weeknum(date_value):
+    jan1 = datetime(date_value.year, 1, 1)
+    week1_start = jan1 - timedelta(days=(jan1.weekday() + 1) % 7)
+    return ((date_value - week1_start).days // 7) + 1
+
+
+def format_price_history_label(value):
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    formula_date = re.search(r"Date\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)", text, re.IGNORECASE)
+    if formula_date:
+        date_value = datetime(int(formula_date.group(1)), int(formula_date.group(2)), int(formula_date.group(3)))
+        return f"{date_value.day}/{date_value.month}/{date_value.year} ({excel_weeknum(date_value)})"
+    date_value = parse_date(clean_value(value))
+    if date_value:
+        return f"{date_value.day}/{date_value.month}/{date_value.year} ({excel_weeknum(date_value)})"
+    return text
+
+
 def merge_price_history_points(points):
     merged = {}
     order = []
     for point in points or []:
-        label = str(point.get("label") or "").strip()
+        label = format_price_history_label(point.get("label"))
         if not label:
             continue
         stock = clean_number(point.get("stock"), None)
@@ -168,6 +205,51 @@ def merge_price_history_points(points):
         if existing.get("price") is None and price is not None:
             existing["price"] = price
     return [merged[label] for label in order]
+
+
+def price_history_sku_column(label_row):
+    for idx, value in enumerate(label_row):
+        text = str(value or "").strip().lower()
+        if text in {"inventory number", "sku", "sku code", "inventory sku"}:
+            return idx
+    return 0
+
+
+def price_change_formula_sku(value):
+    text = clean_value(value)
+    if not text:
+        return None
+    text = str(text).replace(".", "D")
+    if "-UK" in text:
+        text = text[: text.find("-UK") + 3]
+    elif "_" in text:
+        text = f"{text.split('_', 1)[0]}-UK"
+    else:
+        text = f"{text}-UK"
+    return normalize_sku(text)
+
+
+def price_history_sku_from_excel_row(raw, row_idx):
+    sku = normalize_sku(raw.iat[row_idx, 0])
+    if sku:
+        return sku
+    if raw.shape[1] > 1:
+        return price_change_formula_sku(raw.iat[row_idx, 1])
+    return None
+
+
+def price_history_sku_from_google_row(row):
+    sku = normalize_sku(row[0] if row else "")
+    if sku:
+        return sku
+    return price_change_formula_sku(row[1] if len(row) > 1 else "")
+
+
+def image_sku_from_row(row):
+    sku = normalize_sku(row.get("Unnamed: 25") if hasattr(row, "get") else None)
+    if sku:
+        return sku
+    return price_change_formula_sku(row.get("Inventory Number") if hasattr(row, "get") else None)
 
 
 def supabase_enabled():
@@ -390,11 +472,8 @@ class DataStore:
         container["Latest Batch Arrival Date"] = pandas_module.to_datetime(container["Latest Batch Arrival Date"], errors="coerce")
 
         image = self.read_sheet("Image")
-        image["sku_norm"] = image["Unnamed: 25"].map(normalize_sku)
-        image["image_url"] = image["White bg image"].fillna("").astype(str)
-        image["image_url"] = image["image_url"].str.strip()
-        missing = image["image_url"].str.strip().eq("")
-        image.loc[missing, "image_url"] = image.loc[missing, "Picture URLs"].map(first_image_url)
+        image["sku_norm"] = image.apply(image_sku_from_row, axis=1)
+        image["image_url"] = image.apply(preferred_image_url_from_row, axis=1)
 
         price_history = self.load_price_history()
 
@@ -470,14 +549,9 @@ class DataStore:
 
         image = {}
         for row in self.read_google_dicts("Image"):
-            sku_norm = normalize_sku(row.get("Unnamed: 25") or row.get("") or row.get("Inventory Number"))
-            if sku_norm and not sku_norm.endswith("-UK"):
-                maybe_uk = f"{sku_norm}-UK"
-                sku_norm = maybe_uk
+            sku_norm = image_sku_from_row(row)
             if sku_norm:
-                image_url = str(row.get("White bg image") or "").strip()
-                if not image_url:
-                    image_url = first_image_url(row.get("Picture URLs"))
+                image_url = preferred_image_url_from_row(row)
                 row["image_url"] = image_url
                 row["sku_norm"] = sku_norm
                 image[sku_norm] = row
@@ -537,7 +611,7 @@ class DataStore:
         date_row = raw[0]
         label_row = raw[1]
         for row in raw[2:]:
-            sku_code = normalize_sku(row[0] if row else "")
+            sku_code = price_history_sku_from_google_row(row)
             if not sku_code:
                 continue
             points = []
@@ -555,6 +629,14 @@ class DataStore:
                         "price": clean_number(price_value, None) if price_label == "price" else None,
                     })
                     col += 2
+                elif date_label:
+                    price_value = row[col] if col < len(row) else None
+                    points.append({
+                        "label": str(date_label),
+                        "stock": None,
+                        "price": clean_number(price_value, None),
+                    })
+                    col += 1
                 else:
                     col += 1
             records[sku_code] = merge_price_history_points(points)
@@ -592,7 +674,7 @@ class DataStore:
         date_row = raw.iloc[0]
         label_row = raw.iloc[1]
         for row_idx in range(2, len(raw)):
-            sku_code = normalize_sku(raw.iat[row_idx, 0])
+            sku_code = price_history_sku_from_excel_row(raw, row_idx)
             if not sku_code:
                 continue
             points = []
@@ -603,11 +685,18 @@ class DataStore:
                 price_label = str(label_row.iat[col + 1]).strip().lower() if col + 1 < raw.shape[1] else ""
                 if pandas_module.notna(date_label) and stock_label == "stock":
                     points.append({
-                        "label": str(date_label),
+                        "label": format_price_history_label(date_label),
                         "stock": clean_number(raw.iat[row_idx, col], None),
                         "price": clean_number(raw.iat[row_idx, col + 1], None) if price_label == "price" else None,
                     })
                     col += 2
+                elif pandas_module.notna(date_label):
+                    points.append({
+                        "label": format_price_history_label(date_label),
+                        "stock": None,
+                        "price": clean_number(raw.iat[row_idx, col], None),
+                    })
+                    col += 1
                 else:
                     col += 1
             records[sku_code] = merge_price_history_points(points)

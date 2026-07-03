@@ -6,6 +6,7 @@ import math
 import os
 import re
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -76,6 +77,27 @@ def clean_date(value):
     return date.strftime("%Y-%m-%d")
 
 
+def excel_weeknum(date_value):
+    jan1 = datetime(date_value.year, 1, 1)
+    week1_start = jan1 - timedelta(days=(jan1.weekday() + 1) % 7)
+    return ((date_value - week1_start).days // 7) + 1
+
+
+def format_price_history_label(value):
+    text = clean_text(value)
+    if not text:
+        return None
+    formula_date = re.search(r"Date\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)", text, re.IGNORECASE)
+    if formula_date:
+        date_value = datetime(int(formula_date.group(1)), int(formula_date.group(2)), int(formula_date.group(3)))
+        return f"{date_value.day}/{date_value.month}/{date_value.year} ({excel_weeknum(date_value)})"
+    parsed = pd.to_datetime(text, errors="coerce")
+    if not pd.isna(parsed):
+        date_value = parsed.to_pydatetime()
+        return f"{date_value.day}/{date_value.month}/{date_value.year} ({excel_weeknum(date_value)})"
+    return text
+
+
 def normalize_sku(value):
     text = clean_text(value)
     return text.upper() if text else None
@@ -99,11 +121,36 @@ def image_urls(value):
     return urls
 
 
+def preferred_image_url(row):
+    white_bg = clean_text(row.get("White bg image"))
+    if white_bg:
+        urls = image_urls(white_bg)
+        if urls:
+            return urls[0]
+    picture_urls = row.get("Picture URLs")
+    if isinstance(picture_urls, str):
+        for key in ("ITEMIMAGEURL12", "ITEMIMAGEURL41"):
+            match = re.search(rf"{key}=(https?://[^,\s]+)", picture_urls)
+            if match:
+                return match.group(1).strip()
+        urls = image_urls(picture_urls)
+        if urls:
+            return urls[0]
+    return None
+
+
+def image_sku_from_row(row):
+    sku = normalize_sku(row.get("Unnamed: 25"))
+    if sku:
+        return sku
+    return price_change_formula_sku(row.get("Inventory Number"))
+
+
 def merge_price_history_points(points):
     merged = {}
     order = []
     for point in points:
-        label = clean_text(point.get("label"))
+        label = format_price_history_label(point.get("label"))
         if not label:
             continue
         existing = merged.get(label)
@@ -120,6 +167,37 @@ def merge_price_history_points(points):
         if existing.get("price") is None and point.get("price") is not None:
             existing["price"] = point.get("price")
     return [merged[label] for label in order]
+
+
+def price_history_sku_column(label_row):
+    for idx, value in enumerate(label_row):
+        text = str(value or "").strip().lower()
+        if text in {"inventory number", "sku", "sku code", "inventory sku"}:
+            return idx
+    return 0
+
+
+def price_change_formula_sku(value):
+    text = clean_text(value)
+    if not text:
+        return None
+    text = text.replace(".", "D")
+    if "-UK" in text:
+        text = text[: text.find("-UK") + 3]
+    elif "_" in text:
+        text = f"{text.split('_', 1)[0]}-UK"
+    else:
+        text = f"{text}-UK"
+    return normalize_sku(text)
+
+
+def price_history_sku_from_row(raw, row_idx):
+    sku = normalize_sku(raw.iat[row_idx, 0])
+    if sku:
+        return sku
+    if raw.shape[1] > 1:
+        return price_change_formula_sku(raw.iat[row_idx, 1])
+    return None
 
 
 def supabase_request(method, table, rows=None, query=""):
@@ -280,13 +358,13 @@ def build_price_history():
     date_row = raw.iloc[0]
     label_row = raw.iloc[1]
     for row_idx in range(2, len(raw)):
-        sku = normalize_sku(raw.iat[row_idx, 0])
+        sku = price_history_sku_from_row(raw, row_idx)
         if not sku:
             continue
         points = []
         col = 5
         while col < raw.shape[1]:
-            label = clean_text(date_row.iat[col])
+            label = format_price_history_label(date_row.iat[col])
             stock_label = str(label_row.iat[col]).strip().lower()
             price_label = str(label_row.iat[col + 1]).strip().lower() if col + 1 < raw.shape[1] else ""
             if label and stock_label == "stock":
@@ -296,6 +374,13 @@ def build_price_history():
                     "price": clean_number(raw.iat[row_idx, col + 1]) if price_label == "price" else None,
                 })
                 col += 2
+            elif label:
+                points.append({
+                    "label": label,
+                    "stock": None,
+                    "price": clean_number(raw.iat[row_idx, col]),
+                })
+                col += 1
             else:
                 col += 1
         for sequence, point in enumerate(merge_price_history_points(points)):
@@ -313,10 +398,11 @@ def build_product_images():
     df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image")
     rows = {}
     for _, row in df.iterrows():
-        sku = normalize_sku(row.get("Unnamed: 25"))
+        sku = image_sku_from_row(row)
         if not sku:
             continue
-        urls = image_urls(row.get("White bg image")) + image_urls(row.get("Picture URLs"))
+        preferred = preferred_image_url(row)
+        urls = ([preferred] if preferred else []) + image_urls(row.get("White bg image")) + image_urls(row.get("Picture URLs"))
         deduped = []
         seen = set()
         for url in urls:
