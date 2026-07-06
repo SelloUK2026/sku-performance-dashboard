@@ -995,7 +995,7 @@ def detail_payload_supabase(sku_code):
             },
         },
         "monthlyTrend": monthly[-18:],
-        "priceHistory": merge_price_history_points(price_history)[-18:],
+        "priceHistory": merge_price_history_points(price_history),
         "priceTest": calculate_price_test(current_price, cogs or 0, suggested_freight),
     }
 
@@ -1113,7 +1113,7 @@ def detail_payload_google(sku_code):
             },
         },
         "monthlyTrend": monthly[-18:],
-        "priceHistory": data["price_history"].get(sku_norm, [])[-18:],
+        "priceHistory": data["price_history"].get(sku_norm, []),
         "priceTest": price_test,
     }
 
@@ -1228,7 +1228,7 @@ def detail_payload(sku_code):
             },
         },
         "monthlyTrend": table_records(month_group.tail(18)),
-        "priceHistory": data["price_history"].get(sku_norm, [])[-18:],
+        "priceHistory": data["price_history"].get(sku_norm, []),
         "priceTest": price_test,
     }
 
