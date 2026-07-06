@@ -915,7 +915,7 @@ def detail_payload_supabase(sku_code):
         cogs = clean_number(sku_row.get("cogs"), None)
     image_urls = img.get("image_urls") if isinstance(img.get("image_urls"), list) else []
     first_arrival = supabase_date(sku_row.get("first_arrival_date")) or supabase_date(first_inbound.get("inbound_time"))
-    latest_arrival = supabase_date(inbound.get("latest_batch_arrival_date")) or supabase_date(inbound.get("inbound_time"))
+    latest_arrival = supabase_date(inbound.get("inbound_time")) or supabase_date(inbound.get("latest_batch_arrival_date"))
 
     snapshot = {
         "sku": sku_norm,
@@ -1047,7 +1047,7 @@ def detail_payload_google(sku_code):
         "stockOnHand": clean_number(inv.get("Total Inventory Qty"), None),
         "cogs": cogs,
         "firstArrival": clean_value(sku_row.get("First Arrival Date")),
-        "lastArrival": clean_value(inbound.get("Latest Batch Arrival Date") or inbound.get("inbound_time")) if inbound else None,
+        "lastArrival": clean_value(inbound.get("inbound_time") or inbound.get("Latest Batch Arrival Date")) if inbound else None,
         "category": clean_value(inv.get("Main Category")),
         "subcategory": clean_value(inv.get("Subcategory")),
         "brand": clean_value(inv.get("Brand")),
@@ -1161,7 +1161,7 @@ def detail_payload(sku_code):
         "cogs": cogs,
         "firstArrival": clean_value(sku_row.iloc[0]["First Arrival Date"]) if not sku_row.empty else None,
         "lastArrival": clean_value(
-            inbound.iloc[0].get("Latest Batch Arrival Date") or inbound.iloc[0].get("Inbound Time")
+            inbound.iloc[0].get("Inbound Time") or inbound.iloc[0].get("Latest Batch Arrival Date")
         ) if not inbound.empty else None,
         "category": clean_value(inv.iloc[0]["Main Category"]) if not inv.empty else None,
         "subcategory": clean_value(inv.iloc[0]["Subcategory"]) if not inv.empty else None,
