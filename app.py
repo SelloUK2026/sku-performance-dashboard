@@ -74,6 +74,10 @@ def clean_number(value, default=0.0):
     return result
 
 
+def return_amount(row):
+    return clean_number(row.get("refund_amt")) + clean_number(row.get("resend_amt"))
+
+
 def clean_value(value):
     if value is None:
         return None
@@ -487,6 +491,8 @@ class DataStore:
         powerbi["Date"] = pandas_module.to_datetime(powerbi["Date"], errors="coerce")
         powerbi["sku_norm"] = powerbi["sku_code"].map(normalize_sku)
         powerbi = powerbi[powerbi["sku_norm"] != ""].copy()
+        if "resend_amt" not in powerbi.columns:
+            powerbi["resend_amt"] = 0
 
         sku = simplify_columns(self.read_sheet("SKU"))
         sku["sku_norm"] = sku["sku_Master"].map(normalize_sku)
@@ -759,12 +765,13 @@ def aggregate_sales(df):
         sales_amt=("sales_amt", "sum"),
         selling_fee=("selling_fee", "sum"),
         ads_fee=("ads_fee", "sum"),
+        resend_amt=("resend_amt", "sum"),
         refund_amt=("refund_amt", "sum"),
         profit_incl_rn=("profit_incl_rn", "sum"),
     ).reset_index()
     grouped["selling_fee_pct"] = grouped.apply(lambda r: clean_number(r["selling_fee"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
     grouped["ads_fee_pct"] = grouped.apply(lambda r: clean_number(r["ads_fee"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
-    grouped["return_pct"] = grouped.apply(lambda r: clean_number(r["refund_amt"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
+    grouped["return_pct"] = grouped.apply(lambda r: return_amount(r) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
     grouped["profit_margin"] = grouped.apply(lambda r: clean_number(r["profit_incl_rn"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
     grouped["unit_price"] = grouped.apply(lambda r: clean_number(r["sales_amt"]) / clean_number(r["sku_qty"]) * 1.2 if clean_number(r["sku_qty"]) else None, axis=1)
 
@@ -774,6 +781,7 @@ def aggregate_sales(df):
         "sales_amt": grouped["sales_amt"].sum(),
         "selling_fee": grouped["selling_fee"].sum(),
         "ads_fee": grouped["ads_fee"].sum(),
+        "resend_amt": grouped["resend_amt"].sum(),
         "refund_amt": grouped["refund_amt"].sum(),
         "profit_incl_rn": grouped["profit_incl_rn"].sum(),
     }
@@ -781,7 +789,7 @@ def aggregate_sales(df):
     qty = clean_number(total["sku_qty"])
     total["selling_fee_pct"] = clean_number(total["selling_fee"]) / sales if sales else None
     total["ads_fee_pct"] = clean_number(total["ads_fee"]) / sales if sales else None
-    total["return_pct"] = clean_number(total["refund_amt"]) / sales if sales else None
+    total["return_pct"] = return_amount(total) / sales if sales else None
     total["profit_margin"] = clean_number(total["profit_incl_rn"]) / sales if sales else None
     total["unit_price"] = sales / qty * 1.2 if qty else None
 
@@ -799,6 +807,7 @@ def aggregate_sales_rows(rows):
             "sales_amt": 0.0,
             "selling_fee": 0.0,
             "ads_fee": 0.0,
+            "resend_amt": 0.0,
             "refund_amt": 0.0,
             "profit_incl_rn": 0.0,
         })
@@ -806,6 +815,7 @@ def aggregate_sales_rows(rows):
         item["sales_amt"] += clean_number(row.get("sales_amt"))
         item["selling_fee"] += clean_number(row.get("selling_fee"))
         item["ads_fee"] += clean_number(row.get("ads_fee"))
+        item["resend_amt"] += clean_number(row.get("resend_amt"))
         item["refund_amt"] += clean_number(row.get("refund_amt"))
         item["profit_incl_rn"] += clean_number(row.get("profit_incl_rn"))
 
@@ -816,6 +826,7 @@ def aggregate_sales_rows(rows):
         "sales_amt": sum(item["sales_amt"] for item in records),
         "selling_fee": sum(item["selling_fee"] for item in records),
         "ads_fee": sum(item["ads_fee"] for item in records),
+        "resend_amt": sum(item["resend_amt"] for item in records),
         "refund_amt": sum(item["refund_amt"] for item in records),
         "profit_incl_rn": sum(item["profit_incl_rn"] for item in records),
     }
@@ -824,7 +835,7 @@ def aggregate_sales_rows(rows):
         qty = clean_number(item["sku_qty"])
         item["selling_fee_pct"] = clean_number(item["selling_fee"]) / sales if sales else None
         item["ads_fee_pct"] = clean_number(item["ads_fee"]) / sales if sales else None
-        item["return_pct"] = clean_number(item["refund_amt"]) / sales if sales else None
+        item["return_pct"] = return_amount(item) / sales if sales else None
         item["profit_margin"] = clean_number(item["profit_incl_rn"]) / sales if sales else None
         item["unit_price"] = sales / qty * 1.2 if qty else None
     return records + [total]
@@ -866,11 +877,18 @@ def detail_payload_supabase(sku_code):
     data = store.get()
     sku_norm = normalize_sku(sku_code)
     sku_filter = quote(sku_norm, safe="")
-    sales_rows = supabase_select_all(
-        "sales",
-        "sale_date,platform,sku_qty,sales_amt,selling_fee,ads_fee,refund_amt,profit_incl_rn,postage",
-        f"&sku=eq.{sku_filter}&order=sale_date.asc",
-    )
+    try:
+        sales_rows = supabase_select_all(
+            "sales",
+            "sale_date,platform,sku_qty,sales_amt,selling_fee,ads_fee,resend_amt,refund_amt,profit_incl_rn,postage",
+            f"&sku=eq.{sku_filter}&order=sale_date.asc",
+        )
+    except DataSourceError:
+        sales_rows = supabase_select_all(
+            "sales",
+            "sale_date,platform,sku_qty,sales_amt,selling_fee,ads_fee,refund_amt,profit_incl_rn,postage",
+            f"&sku=eq.{sku_filter}&order=sale_date.asc",
+        )
     sales = []
     for row in sales_rows:
         date_value = parse_date(row.get("sale_date"))
@@ -884,6 +902,7 @@ def detail_payload_supabase(sku_code):
             "sales_amt": clean_number(row.get("sales_amt")),
             "selling_fee": clean_number(row.get("selling_fee")),
             "ads_fee": clean_number(row.get("ads_fee")),
+            "resend_amt": clean_number(row.get("resend_amt")),
             "refund_amt": clean_number(row.get("refund_amt")),
             "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
             "postage": clean_number(row.get("postage")),
@@ -972,6 +991,7 @@ def detail_payload_supabase(sku_code):
                 "sales_amt": row["sales_amt"],
                 "selling_fee": row["selling_fee"],
                 "ads_fee": row["ads_fee"],
+                "resend_amt": row["resend_amt"],
                 "refund_amt": row["refund_amt"],
                 "profit_incl_rn": row["profit_incl_rn"],
             }
@@ -1019,6 +1039,7 @@ def detail_payload_google(sku_code):
                 "sales_amt": clean_number(row.get("sales_amt")),
                 "selling_fee": clean_number(row.get("selling_fee")),
                 "ads_fee": clean_number(row.get("ads_fee")),
+                "resend_amt": clean_number(row.get("resend_amt")),
                 "refund_amt": clean_number(row.get("refund_amt")),
                 "profit_incl_rn": clean_number(row.get("profit_incl_rn")),
                 "postage": clean_number(row.get("postage")),
@@ -1090,6 +1111,7 @@ def detail_payload_google(sku_code):
                 "sales_amt": row["sales_amt"],
                 "selling_fee": row["selling_fee"],
                 "ads_fee": row["ads_fee"],
+                "resend_amt": row["resend_amt"],
                 "refund_amt": row["refund_amt"],
                 "profit_incl_rn": row["profit_incl_rn"],
             }
@@ -1205,6 +1227,7 @@ def detail_payload(sku_code):
                 "sales_amt": clean_number(row["sales_amt"]),
                 "selling_fee": clean_number(row["selling_fee"]),
                 "ads_fee": clean_number(row["ads_fee"]),
+                "resend_amt": clean_number(row.get("resend_amt")),
                 "refund_amt": clean_number(row["refund_amt"]),
                 "profit_incl_rn": clean_number(row["profit_incl_rn"]),
             }

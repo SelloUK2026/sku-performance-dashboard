@@ -121,6 +121,29 @@ def suggested_freight_from_row(row):
     return sello_tools
 
 
+def build_powerbi_freight_metrics():
+    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="PowerBI"))
+    required = {"sku_code", "platform name", "sku_qty", "postage"}
+    if not required.issubset(df.columns):
+        return {}
+    df = df.copy()
+    df["sku_norm"] = df["sku_code"].map(normalize_sku)
+    df["platform_norm"] = df["platform name"].map(lambda value: clean_text(value) or "")
+    df["qty_num"] = df["sku_qty"].map(lambda value: clean_number(value, 0))
+    df["postage_num"] = df["postage"].map(lambda value: clean_number(value, 0))
+    df = df[(df["sku_norm"].notna()) & (df["postage_num"] != 0) & (df["platform_norm"] != "Amazon(UK) FBA")]
+    metrics = {}
+    for sku, group in df.groupby("sku_norm", dropna=True):
+        valid_qty = float(group["qty_num"].sum())
+        postage_total = float(group["postage_num"].sum())
+        avg_actual = postage_total / valid_qty if valid_qty else None
+        metrics[sku] = {
+            "valid_qty": valid_qty,
+            "avg_actual_freight": avg_actual,
+        }
+    return metrics
+
+
 def image_urls(value):
     if not isinstance(value, str):
         return []
@@ -273,6 +296,7 @@ def build_sales():
             "sales_amt": clean_number(row.get("sales_amt"), 0),
             "selling_fee": clean_number(row.get("selling_fee"), 0),
             "ads_fee": clean_number(row.get("ads_fee"), 0),
+            "resend_amt": clean_number(row.get("resend_amt"), 0),
             "refund_amt": clean_number(row.get("refund_amt"), 0),
             "profit_incl_rn": clean_number(row.get("profit_incl_rn"), 0),
             "postage": clean_number(row.get("postage"), 0),
@@ -299,11 +323,23 @@ def build_sku_master():
 def build_inventory():
     df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
     freight_df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
+    powerbi_freight = build_powerbi_freight_metrics()
     freight_by_sku = {}
     for _, freight_row in freight_df.iterrows():
         sku = normalize_sku(freight_row.get("SKU"))
         if sku:
-            freight_by_sku[sku] = suggested_freight_from_row(freight_row)
+            metrics = powerbi_freight.get(sku, {})
+            valid_qty = clean_number(freight_row.get("Valid Qty"), None)
+            if valid_qty is None:
+                valid_qty = metrics.get("valid_qty")
+            avg_actual = clean_number(freight_row.get("Avg Actual Freight"), None)
+            if avg_actual is None:
+                avg_actual = metrics.get("avg_actual_freight")
+            sello_tools = clean_number(freight_row.get("Sello Tools Calculation"), None)
+            suggested = clean_number(freight_row.get("Suggested Freight"), None)
+            if suggested is None:
+                suggested = avg_actual if clean_number(valid_qty, 0) > 5 and avg_actual is not None else sello_tools
+            freight_by_sku[sku] = suggested
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("Product SKU"))
@@ -326,17 +362,29 @@ def build_inventory():
 
 def build_freight():
     df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
+    powerbi_freight = build_powerbi_freight_metrics()
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("SKU"))
         if not sku:
             continue
+        metrics = powerbi_freight.get(sku, {})
+        valid_qty = clean_number(row.get("Valid Qty"), None)
+        if valid_qty is None:
+            valid_qty = metrics.get("valid_qty")
+        avg_actual = clean_number(row.get("Avg Actual Freight"), None)
+        if avg_actual is None:
+            avg_actual = metrics.get("avg_actual_freight")
+        sello_tools = clean_number(row.get("Sello Tools Calculation"))
+        suggested = clean_number(row.get("Suggested Freight"), None)
+        if suggested is None:
+            suggested = avg_actual if clean_number(valid_qty, 0) > 5 and avg_actual is not None else sello_tools
         rows[sku] = {
             "sku": sku,
-            "sello_tools_calculation": clean_number(row.get("Sello Tools Calculation")),
-            "valid_qty": clean_number(row.get("Valid Qty")),
-            "avg_actual_freight": clean_number(row.get("Avg Actual Freight")),
-            "suggested_freight": suggested_freight_from_row(row),
+            "sello_tools_calculation": sello_tools,
+            "valid_qty": valid_qty,
+            "avg_actual_freight": avg_actual,
+            "suggested_freight": suggested,
         }
     return list(rows.values())
 

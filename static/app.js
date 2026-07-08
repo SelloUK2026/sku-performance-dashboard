@@ -218,6 +218,7 @@ function aggregateClientSales(rows) {
         sales_amt: 0,
         selling_fee: 0,
         ads_fee: 0,
+        resend_amt: 0,
         refund_amt: 0,
         profit_incl_rn: 0,
       });
@@ -227,6 +228,7 @@ function aggregateClientSales(rows) {
     item.sales_amt += Number(row.sales_amt || 0);
     item.selling_fee += Number(row.selling_fee || 0);
     item.ads_fee += Number(row.ads_fee || 0);
+    item.resend_amt += Number(row.resend_amt || 0);
     item.refund_amt += Number(row.refund_amt || 0);
     item.profit_incl_rn += Number(row.profit_incl_rn || 0);
   });
@@ -237,13 +239,14 @@ function aggregateClientSales(rows) {
     sales_amt: records.reduce((sum, item) => sum + item.sales_amt, 0),
     selling_fee: records.reduce((sum, item) => sum + item.selling_fee, 0),
     ads_fee: records.reduce((sum, item) => sum + item.ads_fee, 0),
+    resend_amt: records.reduce((sum, item) => sum + item.resend_amt, 0),
     refund_amt: records.reduce((sum, item) => sum + item.refund_amt, 0),
     profit_incl_rn: records.reduce((sum, item) => sum + item.profit_incl_rn, 0),
   };
   [...records, total].forEach((item) => {
     item.selling_fee_pct = item.sales_amt ? item.selling_fee / item.sales_amt : null;
     item.ads_fee_pct = item.sales_amt ? item.ads_fee / item.sales_amt : null;
-    item.return_pct = item.sales_amt ? item.refund_amt / item.sales_amt : null;
+    item.return_pct = item.sales_amt ? (item.refund_amt + item.resend_amt) / item.sales_amt : null;
     item.profit_margin = item.sales_amt ? item.profit_incl_rn / item.sales_amt : null;
     item.unit_price = item.sku_qty ? item.sales_amt / item.sku_qty * 1.2 : null;
   });

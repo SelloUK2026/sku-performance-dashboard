@@ -7,10 +7,13 @@ create table if not exists public.sales (
   sales_amt numeric default 0,
   selling_fee numeric default 0,
   ads_fee numeric default 0,
+  resend_amt numeric default 0,
   refund_amt numeric default 0,
   profit_incl_rn numeric default 0,
   postage numeric default 0
 );
+
+alter table public.sales add column if not exists resend_amt numeric default 0;
 
 create index if not exists sales_sku_date_idx on public.sales (sku, sale_date);
 create index if not exists sales_date_idx on public.sales (sale_date);
