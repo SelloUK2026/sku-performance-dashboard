@@ -207,6 +207,12 @@ function filterSalesRows(start, end) {
   });
 }
 
+function netSalesAmount(item) {
+  return Number(item.sales_amt || item.sales || 0)
+    + Number(item.extra_freight || 0)
+    - Number(item.promo_rebate || 0);
+}
+
 function aggregateClientSales(rows) {
   const grouped = new Map();
   rows.forEach((row) => {
@@ -216,6 +222,8 @@ function aggregateClientSales(rows) {
         "platform name": platform,
         sku_qty: 0,
         sales_amt: 0,
+        extra_freight: 0,
+        promo_rebate: 0,
         selling_fee: 0,
         ads_fee: 0,
         resend_amt: 0,
@@ -226,6 +234,8 @@ function aggregateClientSales(rows) {
     const item = grouped.get(platform);
     item.sku_qty += Number(row.sku_qty || 0);
     item.sales_amt += Number(row.sales_amt || 0);
+    item.extra_freight += Number(row.extra_freight || 0);
+    item.promo_rebate += Number(row.promo_rebate || 0);
     item.selling_fee += Number(row.selling_fee || 0);
     item.ads_fee += Number(row.ads_fee || 0);
     item.resend_amt += Number(row.resend_amt || 0);
@@ -237,6 +247,8 @@ function aggregateClientSales(rows) {
     "platform name": "Grand Total",
     sku_qty: records.reduce((sum, item) => sum + item.sku_qty, 0),
     sales_amt: records.reduce((sum, item) => sum + item.sales_amt, 0),
+    extra_freight: records.reduce((sum, item) => sum + item.extra_freight, 0),
+    promo_rebate: records.reduce((sum, item) => sum + item.promo_rebate, 0),
     selling_fee: records.reduce((sum, item) => sum + item.selling_fee, 0),
     ads_fee: records.reduce((sum, item) => sum + item.ads_fee, 0),
     resend_amt: records.reduce((sum, item) => sum + item.resend_amt, 0),
@@ -244,10 +256,11 @@ function aggregateClientSales(rows) {
     profit_incl_rn: records.reduce((sum, item) => sum + item.profit_incl_rn, 0),
   };
   [...records, total].forEach((item) => {
-    item.selling_fee_pct = item.sales_amt ? item.selling_fee / item.sales_amt : null;
-    item.ads_fee_pct = item.sales_amt ? item.ads_fee / item.sales_amt : null;
-    item.return_pct = item.sales_amt ? (item.refund_amt + item.resend_amt) / item.sales_amt : null;
-    item.profit_margin = item.sales_amt ? item.profit_incl_rn / item.sales_amt : null;
+    const netSales = netSalesAmount(item);
+    item.selling_fee_pct = netSales ? item.selling_fee / netSales : null;
+    item.ads_fee_pct = netSales ? item.ads_fee / netSales : null;
+    item.return_pct = netSales ? (item.refund_amt + item.resend_amt) / netSales : null;
+    item.profit_margin = netSales ? item.profit_incl_rn / netSales : null;
     item.unit_price = item.sku_qty ? item.sales_amt / item.sku_qty * 1.2 : null;
   });
   return records.length ? [...records, total] : [];

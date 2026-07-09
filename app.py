@@ -78,6 +78,14 @@ def return_amount(row):
     return clean_number(row.get("refund_amt")) + clean_number(row.get("resend_amt"))
 
 
+def net_sales_amount(row):
+    return (
+        clean_number(row.get("sales_amt", row.get("sales")))
+        + clean_number(row.get("extra_freight"))
+        - clean_number(row.get("promo_rebate"))
+    )
+
+
 def clean_value(value):
     if value is None:
         return None
@@ -763,22 +771,26 @@ def aggregate_sales(df):
     grouped = df.groupby("platform name", dropna=False).agg(
         sku_qty=("sku_qty", "sum"),
         sales_amt=("sales_amt", "sum"),
+        extra_freight=("extra_freight", "sum"),
+        promo_rebate=("promo_rebate", "sum"),
         selling_fee=("selling_fee", "sum"),
         ads_fee=("ads_fee", "sum"),
         resend_amt=("resend_amt", "sum"),
         refund_amt=("refund_amt", "sum"),
         profit_incl_rn=("profit_incl_rn", "sum"),
     ).reset_index()
-    grouped["selling_fee_pct"] = grouped.apply(lambda r: clean_number(r["selling_fee"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
-    grouped["ads_fee_pct"] = grouped.apply(lambda r: clean_number(r["ads_fee"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
-    grouped["return_pct"] = grouped.apply(lambda r: return_amount(r) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
-    grouped["profit_margin"] = grouped.apply(lambda r: clean_number(r["profit_incl_rn"]) / clean_number(r["sales_amt"]) if clean_number(r["sales_amt"]) else None, axis=1)
+    grouped["selling_fee_pct"] = grouped.apply(lambda r: clean_number(r["selling_fee"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
+    grouped["ads_fee_pct"] = grouped.apply(lambda r: clean_number(r["ads_fee"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
+    grouped["return_pct"] = grouped.apply(lambda r: return_amount(r) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
+    grouped["profit_margin"] = grouped.apply(lambda r: clean_number(r["profit_incl_rn"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
     grouped["unit_price"] = grouped.apply(lambda r: clean_number(r["sales_amt"]) / clean_number(r["sku_qty"]) * 1.2 if clean_number(r["sku_qty"]) else None, axis=1)
 
     total = {
         "platform name": "Grand Total",
         "sku_qty": grouped["sku_qty"].sum(),
         "sales_amt": grouped["sales_amt"].sum(),
+        "extra_freight": grouped["extra_freight"].sum(),
+        "promo_rebate": grouped["promo_rebate"].sum(),
         "selling_fee": grouped["selling_fee"].sum(),
         "ads_fee": grouped["ads_fee"].sum(),
         "resend_amt": grouped["resend_amt"].sum(),
@@ -786,11 +798,12 @@ def aggregate_sales(df):
         "profit_incl_rn": grouped["profit_incl_rn"].sum(),
     }
     sales = clean_number(total["sales_amt"])
+    net_sales = net_sales_amount(total)
     qty = clean_number(total["sku_qty"])
-    total["selling_fee_pct"] = clean_number(total["selling_fee"]) / sales if sales else None
-    total["ads_fee_pct"] = clean_number(total["ads_fee"]) / sales if sales else None
-    total["return_pct"] = return_amount(total) / sales if sales else None
-    total["profit_margin"] = clean_number(total["profit_incl_rn"]) / sales if sales else None
+    total["selling_fee_pct"] = clean_number(total["selling_fee"]) / net_sales if net_sales else None
+    total["ads_fee_pct"] = clean_number(total["ads_fee"]) / net_sales if net_sales else None
+    total["return_pct"] = return_amount(total) / net_sales if net_sales else None
+    total["profit_margin"] = clean_number(total["profit_incl_rn"]) / net_sales if net_sales else None
     total["unit_price"] = sales / qty * 1.2 if qty else None
 
     grouped = grouped.sort_values(["sales_amt"], ascending=False)
@@ -805,6 +818,8 @@ def aggregate_sales_rows(rows):
             "platform name": platform,
             "sku_qty": 0.0,
             "sales_amt": 0.0,
+            "extra_freight": 0.0,
+            "promo_rebate": 0.0,
             "selling_fee": 0.0,
             "ads_fee": 0.0,
             "resend_amt": 0.0,
@@ -813,6 +828,8 @@ def aggregate_sales_rows(rows):
         })
         item["sku_qty"] += clean_number(row.get("sku_qty"))
         item["sales_amt"] += clean_number(row.get("sales_amt"))
+        item["extra_freight"] += clean_number(row.get("extra_freight"))
+        item["promo_rebate"] += clean_number(row.get("promo_rebate"))
         item["selling_fee"] += clean_number(row.get("selling_fee"))
         item["ads_fee"] += clean_number(row.get("ads_fee"))
         item["resend_amt"] += clean_number(row.get("resend_amt"))
@@ -824,6 +841,8 @@ def aggregate_sales_rows(rows):
         "platform name": "Grand Total",
         "sku_qty": sum(item["sku_qty"] for item in records),
         "sales_amt": sum(item["sales_amt"] for item in records),
+        "extra_freight": sum(item["extra_freight"] for item in records),
+        "promo_rebate": sum(item["promo_rebate"] for item in records),
         "selling_fee": sum(item["selling_fee"] for item in records),
         "ads_fee": sum(item["ads_fee"] for item in records),
         "resend_amt": sum(item["resend_amt"] for item in records),
@@ -832,17 +851,21 @@ def aggregate_sales_rows(rows):
     }
     for item in records + [total]:
         sales = clean_number(item["sales_amt"])
+        net_sales = net_sales_amount(item)
         qty = clean_number(item["sku_qty"])
-        item["selling_fee_pct"] = clean_number(item["selling_fee"]) / sales if sales else None
-        item["ads_fee_pct"] = clean_number(item["ads_fee"]) / sales if sales else None
-        item["return_pct"] = return_amount(item) / sales if sales else None
-        item["profit_margin"] = clean_number(item["profit_incl_rn"]) / sales if sales else None
+        item["selling_fee_pct"] = clean_number(item["selling_fee"]) / net_sales if net_sales else None
+        item["ads_fee_pct"] = clean_number(item["ads_fee"]) / net_sales if net_sales else None
+        item["return_pct"] = return_amount(item) / net_sales if net_sales else None
+        item["profit_margin"] = clean_number(item["profit_incl_rn"]) / net_sales if net_sales else None
         item["unit_price"] = sales / qty * 1.2 if qty else None
     return records + [total]
 
 
 def numeric_summary(df):
     sales = clean_number(df["sales_amt"].sum()) if not df.empty else 0
+    extra_freight = clean_number(df["extra_freight"].sum()) if not df.empty and "extra_freight" in df else 0
+    promo_rebate = clean_number(df["promo_rebate"].sum()) if not df.empty and "promo_rebate" in df else 0
+    net_sales = sales + extra_freight - promo_rebate
     qty = clean_number(df["sku_qty"].sum()) if not df.empty else 0
     profit = clean_number(df["profit_incl_rn"].sum()) if not df.empty else 0
     ads = clean_number(df["ads_fee"].sum()) if not df.empty else 0
@@ -850,15 +873,16 @@ def numeric_summary(df):
         "qty": qty,
         "sales": sales,
         "profit": profit,
-        "profitMargin": profit / sales if sales else None,
+        "profitMargin": profit / net_sales if net_sales else None,
         "adsFee": ads,
-        "adsFeeRate": ads / sales if sales else None,
+        "adsFeeRate": ads / net_sales if net_sales else None,
         "unitPrice": sales / qty * 1.2 if qty else None,
     }
 
 
 def numeric_summary_rows(rows):
     sales = sum(clean_number(row.get("sales_amt")) for row in rows)
+    net_sales = sum(net_sales_amount(row) for row in rows)
     qty = sum(clean_number(row.get("sku_qty")) for row in rows)
     profit = sum(clean_number(row.get("profit_incl_rn")) for row in rows)
     ads = sum(clean_number(row.get("ads_fee")) for row in rows)
@@ -866,9 +890,9 @@ def numeric_summary_rows(rows):
         "qty": qty,
         "sales": sales,
         "profit": profit,
-        "profitMargin": profit / sales if sales else None,
+        "profitMargin": profit / net_sales if net_sales else None,
         "adsFee": ads,
-        "adsFeeRate": ads / sales if sales else None,
+        "adsFeeRate": ads / net_sales if net_sales else None,
         "unitPrice": sales / qty * 1.2 if qty else None,
     }
 
@@ -880,7 +904,7 @@ def detail_payload_supabase(sku_code):
     try:
         sales_rows = supabase_select_all(
             "sales",
-            "sale_date,platform,sku_qty,sales_amt,selling_fee,ads_fee,resend_amt,refund_amt,profit_incl_rn,postage",
+            "sale_date,platform,sku_qty,sales_amt,extra_freight,promo_rebate,selling_fee,ads_fee,resend_amt,refund_amt,profit_incl_rn,postage",
             f"&sku=eq.{sku_filter}&order=sale_date.asc",
         )
     except DataSourceError:
@@ -900,6 +924,8 @@ def detail_payload_supabase(sku_code):
             "sku": sku_norm,
             "sku_qty": clean_number(row.get("sku_qty")),
             "sales_amt": clean_number(row.get("sales_amt")),
+            "extra_freight": clean_number(row.get("extra_freight")),
+            "promo_rebate": clean_number(row.get("promo_rebate")),
             "selling_fee": clean_number(row.get("selling_fee")),
             "ads_fee": clean_number(row.get("ads_fee")),
             "resend_amt": clean_number(row.get("resend_amt")),
@@ -956,14 +982,15 @@ def detail_payload_supabase(sku_code):
     monthly_map = {}
     for row in sales:
         month = row["date"].strftime("%Y-%m")
-        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "profit": 0.0})
+        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "netSales": 0.0, "profit": 0.0})
         item["qty"] += clean_number(row.get("sku_qty"))
         item["sales"] += clean_number(row.get("sales_amt"))
+        item["netSales"] += net_sales_amount(row)
         item["profit"] += clean_number(row.get("profit_incl_rn"))
     monthly = []
     for month in sorted(monthly_map):
         item = monthly_map[month]
-        item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
+        item["profitMargin"] = item["profit"] / item["netSales"] if item["netSales"] else None
         monthly.append(item)
 
     suggested_freight = clean_number(freight.get("suggested_freight"), None)
@@ -989,6 +1016,8 @@ def detail_payload_supabase(sku_code):
                 "platform": row["platform"],
                 "sku_qty": row["sku_qty"],
                 "sales_amt": row["sales_amt"],
+                "extra_freight": row["extra_freight"],
+                "promo_rebate": row["promo_rebate"],
                 "selling_fee": row["selling_fee"],
                 "ads_fee": row["ads_fee"],
                 "resend_amt": row["resend_amt"],
@@ -1037,6 +1066,8 @@ def detail_payload_google(sku_code):
                 "sku": row_sku,
                 "sku_qty": clean_number(row.get("sku_qty")),
                 "sales_amt": clean_number(row.get("sales_amt")),
+                "extra_freight": clean_number(row.get("extra_freight")),
+                "promo_rebate": clean_number(row.get("promo_rebate")),
                 "selling_fee": clean_number(row.get("selling_fee")),
                 "ads_fee": clean_number(row.get("ads_fee")),
                 "resend_amt": clean_number(row.get("resend_amt")),
@@ -1077,14 +1108,15 @@ def detail_payload_google(sku_code):
     monthly_map = {}
     for row in sales:
         month = row["date"].strftime("%Y-%m")
-        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "profit": 0.0})
+        item = monthly_map.setdefault(month, {"month": month, "qty": 0.0, "sales": 0.0, "netSales": 0.0, "profit": 0.0})
         item["qty"] += clean_number(row.get("sku_qty"))
         item["sales"] += clean_number(row.get("sales_amt"))
+        item["netSales"] += net_sales_amount(row)
         item["profit"] += clean_number(row.get("profit_incl_rn"))
     monthly = []
     for month in sorted(monthly_map):
         item = monthly_map[month]
-        item["profitMargin"] = item["profit"] / item["sales"] if item["sales"] else None
+        item["profitMargin"] = item["profit"] / item["netSales"] if item["netSales"] else None
         monthly.append(item)
 
     suggested_freight = clean_number(inv.get("suggested_freight"), None)
@@ -1109,6 +1141,8 @@ def detail_payload_google(sku_code):
                 "platform": row["platform"],
                 "sku_qty": row["sku_qty"],
                 "sales_amt": row["sales_amt"],
+                "extra_freight": row["extra_freight"],
+                "promo_rebate": row["promo_rebate"],
                 "selling_fee": row["selling_fee"],
                 "ads_fee": row["ads_fee"],
                 "resend_amt": row["resend_amt"],
@@ -1196,9 +1230,12 @@ def detail_payload(sku_code):
         month_group = monthly.groupby("month").agg(
             qty=("sku_qty", "sum"),
             sales=("sales_amt", "sum"),
+            extra_freight=("extra_freight", "sum"),
+            promo_rebate=("promo_rebate", "sum"),
             profit=("profit_incl_rn", "sum"),
         ).reset_index()
-        month_group["profitMargin"] = month_group.apply(lambda r: clean_number(r["profit"]) / clean_number(r["sales"]) if clean_number(r["sales"]) else None, axis=1)
+        month_group["netSales"] = month_group.apply(net_sales_amount, axis=1)
+        month_group["profitMargin"] = month_group.apply(lambda r: clean_number(r["profit"]) / clean_number(r["netSales"]) if clean_number(r["netSales"]) else None, axis=1)
     else:
         month_group = pandas_module.DataFrame(columns=["month", "qty", "sales", "profit", "profitMargin"])
 
@@ -1225,6 +1262,8 @@ def detail_payload(sku_code):
                 "platform": row["platform name"],
                 "sku_qty": clean_number(row["sku_qty"]),
                 "sales_amt": clean_number(row["sales_amt"]),
+                "extra_freight": clean_number(row["extra_freight"]),
+                "promo_rebate": clean_number(row["promo_rebate"]),
                 "selling_fee": clean_number(row["selling_fee"]),
                 "ads_fee": clean_number(row["ads_fee"]),
                 "resend_amt": clean_number(row.get("resend_amt")),

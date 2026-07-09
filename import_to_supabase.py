@@ -294,6 +294,8 @@ def build_sales():
             "sku": sku,
             "sku_qty": clean_number(row.get("sku_qty"), 0),
             "sales_amt": clean_number(row.get("sales_amt"), 0),
+            "extra_freight": clean_number(row.get("extra_freight"), 0),
+            "promo_rebate": clean_number(row.get("promo_rebate"), 0),
             "selling_fee": clean_number(row.get("selling_fee"), 0),
             "ads_fee": clean_number(row.get("ads_fee"), 0),
             "resend_amt": clean_number(row.get("resend_amt"), 0),
