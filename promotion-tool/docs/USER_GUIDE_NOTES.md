@@ -200,6 +200,9 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   headers to explain their red-highlight rules.
 - Kept the result header visible while scrolling through long SKU lists on
   desktop and mobile layouts.
+- Corrected the populated results panel so the SKU table itself scrolls within
+  the workspace and its header remains visible during natural mouse-wheel
+  scrolling.
 - Added a bilingual import-progress window with a Cancel import action for
   platform offer files and commission workbooks.
 - Added a persistent bilingual control to collapse or reopen the Criteria panel
