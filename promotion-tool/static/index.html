@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=20260731-layout">
 </head>
 <body>
   <header class="app-header">
@@ -12,11 +12,11 @@
       <div class="brand-mark" aria-hidden="true">PN</div>
       <div>
         <h1>Promotion Nomination</h1>
-        <p>Debenhams calculation demo</p>
+        <p>Promotion calculation tool</p>
       </div>
     </div>
     <div class="header-actions">
-      <span class="environment"><span></span>Local demo</span>
+      <span class="environment"><span></span>Live data</span>
       <button class="button language-button" id="languageButton" title="Display in Simplified Chinese">中文</button>
       <button class="header-help" id="helpButton" title="Open user guide" aria-label="Open user guide">?</button>
       <button class="button secondary" id="loadSample">Load sample</button>
@@ -62,9 +62,15 @@
 
         <div class="section-label">Nomination filters</div>
         <div class="field-grid two">
-          <label>Minimum grade
-            <input id="minGrade" type="number" min="0" max="7" step="1" value="0">
-          </label>
+          <div class="filter-field compact-filter">
+            <span class="field-label">Grade level</span>
+            <div class="multi-select" id="gradeLevel">
+              <button class="multi-select-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+                <span class="multi-select-value">All grades</span>
+              </button>
+              <div class="multi-select-menu" role="group" hidden></div>
+            </div>
+          </div>
           <label>Minimum stock
             <input id="minStock" type="number" min="0" step="1" value="1">
           </label>
@@ -201,10 +207,9 @@
             <tr>
               <th class="select-column"><input type="checkbox" id="selectAll" aria-label="Select all eligible candidates"></th>
               <th>SKU</th>
-              <th>Category</th>
-              <th>Grade</th>
-              <th>Months</th>
-              <th>SOH</th>
+              <th data-header-key="category">Category</th>
+              <th data-header-key="grade">Grade</th>
+              <th data-header-key="months">Months</th>
               <th class="price-column" id="caPriceHeader">
                 <span class="header-title">CA price</span>
                 <span class="header-meta">VAT included</span>
@@ -217,8 +222,8 @@
                 <span class="header-title">Price used</span>
                 <span class="header-meta">VAT included</span>
               </th>
-              <th>Suggested</th>
-              <th>Final</th>
+              <th data-header-key="suggested">Suggested</th>
+              <th data-header-key="final">Final</th>
               <th class="price-column" id="promoPriceHeader">
                 <span class="header-title">Promo price</span>
                 <span class="header-meta">VAT included</span>
@@ -227,7 +232,8 @@
                 <span class="header-title">Promo margin</span>
                 <span class="header-meta">proposed</span>
               </th>
-              <th>Sold</th>
+              <th data-header-key="SOH">SOH</th>
+              <th data-header-key="sold">Sold</th>
               <th class="metric-column">
                 <span class="header-title">Lifetime margin</span>
                 <span class="header-meta">after returns</span>
@@ -236,8 +242,8 @@
                 <span class="header-title">Return rate</span>
                 <span class="header-meta">all platforms</span>
               </th>
-              <th class="decision-column">Decision</th>
-              <th class="reason-column">Reason</th>
+              <th class="decision-column" data-header-key="decision">Decision</th>
+              <th class="reason-column" data-header-key="reason">Reason</th>
             </tr>
           </thead>
           <tbody id="candidateRows"></tbody>
@@ -323,6 +329,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20260731-layout"></script>
 </body>
 </html>

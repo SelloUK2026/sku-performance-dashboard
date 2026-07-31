@@ -130,6 +130,7 @@ form > label, .field-grid label, .filter-field {
 }
 .field-grid { display: grid; gap: 10px; }
 .field-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.field-grid .compact-filter { margin-bottom: 12px; }
 input, select {
   width: 100%;
   min-width: 0;
@@ -459,27 +460,21 @@ tbody tr.excluded td { color: #59625f; }
 .badge.warning { background: var(--yellow-soft); color: #765b00; }
 .decision-column,
 .decision-cell {
-  position: sticky;
-  right: 200px;
   width: 76px;
   min-width: 76px;
 }
 .reason-column,
 .reason-text {
-  position: sticky;
-  right: 0;
   width: 200px;
   min-width: 200px;
   max-width: 200px;
 }
 .decision-column,
 .reason-column {
-  z-index: 5;
   background: #edf0ee;
 }
 .decision-cell,
 .reason-text {
-  z-index: 2;
   background: #fff;
 }
 .reason-text { white-space: normal; line-height: 1.25; }

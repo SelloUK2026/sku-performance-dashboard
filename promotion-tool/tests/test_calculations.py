@@ -180,6 +180,17 @@ class PromotionCalculationTests(unittest.TestCase):
         self.assertEqual(result["price_including_vat"], 76.99)
         self.assertIn("Offer price unavailable; CA price used", result["warnings"])
 
+    def test_missing_offer_and_ca_prices_do_not_claim_a_fallback(self):
+        row = dict(self.rows[1], price=None, offer_price=None, ca_price=None)
+        result = calculate_candidate(row, dict(CRITERIA, price_source="offer"))
+
+        self.assertIsNone(result["calculation_price_source"])
+        self.assertNotIn("Offer price unavailable; CA price used", result["warnings"])
+        self.assertIn(
+            "Price or margin settings make reverse pricing impossible",
+            result["reasons"],
+        )
+
     def test_max_discount_uses_ten_pence_rounding(self):
         actual = calculate_candidate(self.rows[0], CRITERIA)
         self.assertEqual(actual["final_discount"], 0.25)
@@ -222,6 +233,15 @@ class PromotionCalculationTests(unittest.TestCase):
         self.assertTrue(included["eligible"])
         self.assertFalse(excluded["eligible"])
         self.assertIn("Outside selected brand", excluded["reasons"])
+
+    def test_grade_filter_matches_any_selected_grade(self):
+        row = dict(self.rows[0], grade=4)
+        included = calculate_candidate(row, dict(CRITERIA, grades=["2", "4"]))
+        excluded = calculate_candidate(row, dict(CRITERIA, grades=["1", "3"]))
+
+        self.assertTrue(included["eligible"])
+        self.assertFalse(excluded["eligible"])
+        self.assertIn("Outside selected grade", excluded["reasons"])
 
     def test_single_value_filter_requests_remain_supported(self):
         row = dict(

@@ -1,6 +1,6 @@
 # Promotion Nomination User Guide Notes
 
-Status: Living notes for the local demo. Update this file and the in-app
+Status: Living notes for the production tool. Update this file and the in-app
 walkthrough whenever a user-facing workflow, rule, input, or output changes.
 These notes will be used to create the final user guide.
 
@@ -80,9 +80,9 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
 - Available filters include grade, main category, subcategory, brand, stock,
   estimated selling months, first-arrival cutoff, minimum discount, and return
   review threshold.
-- Main category, subcategory, and brand are multi-select dropdowns. Select any
-  number of values in each dropdown; a SKU may match any selected value within
-  that filter, while different filters are applied together.
+- Grade, main category, subcategory, and brand are multi-select dropdowns.
+  Select any number of values in each dropdown; a SKU may match any selected
+  value within that filter, while different filters are applied together.
 - An empty multi-select dropdown means all values. Use the clear icon in the
   open dropdown to return to all values.
 - Return rate at or above the default 6% threshold is highlighted red and marks
@@ -146,18 +146,31 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
   mappings through its server-side connection. Supabase credentials are never
   exposed to the browser.
 
-## Prepared shared data model
+## Shared production data model
 
-The local SKU-dashboard schema and importer now define
+The SKU-dashboard schema and importer define
 `channeladvisor_products`, keyed by the original ChannelAdvisor platform SKU,
 with verified Wooper SKU, CA price, mapping status, mapping source, title,
 brand, and import timestamp.
 
-This table has not yet been created or populated in the live Supabase project.
-Apply the schema and run a normal validated dashboard refresh only when the
-promotion-tool data model is ready for deployment.
+The live Supabase project contains `promotion_sku_data`,
+`channeladvisor_products`, and `sku_mappings`. The normal validated SKU
+dashboard refresh updates the promotion snapshot and CA data at the same time.
+Manual mappings and non-existing statuses remain durable between refreshes.
 
 ## Change log
+
+### 2026-07-31
+
+- Published the Supabase-backed tool to Render with public access.
+- Replaced the local-demo labels with production live-data labels.
+- Corrected the result-table layout so Decision and Reason cannot cover Promo
+  price, Promo margin, SOH, Lifetime margin, or Return rate.
+- Moved SOH immediately after Promo margin, followed by Sold, Lifetime margin,
+  and Return rate.
+- Changed grade filtering from a minimum numeric threshold to a multi-select
+  grade-level filter.
+- Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30
 
@@ -188,7 +201,6 @@ promotion-tool data model is ready for deployment.
 Before publishing the final guide:
 
 - Confirm the final Supabase data sources and refresh timing.
-- Replace local mapping-storage references with the production workflow.
 - Confirm each platform's required export columns and file format.
 - Add screenshots from the production interface.
 - Include troubleshooting for rejected files and unresolved SKUs.

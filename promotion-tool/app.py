@@ -1076,12 +1076,18 @@ def calculate_candidate(row: dict, criteria: dict) -> dict:
         offer_price = legacy_price
     ca_price = nullable_number(row.get("ca_price"))
     requested_price_source = str(criteria.get("price_source") or "ca").lower()
+    valid_ca_price = ca_price is not None and ca_price > 0
+    valid_offer_price = offer_price is not None and offer_price > 0
     if requested_price_source == "ca":
-        price = ca_price if ca_price and ca_price > 0 else offer_price
-        calculation_price_source = "ca" if ca_price and ca_price > 0 else "offer"
+        price = ca_price if valid_ca_price else offer_price
+        calculation_price_source = (
+            "ca" if valid_ca_price else "offer" if valid_offer_price else None
+        )
     else:
-        price = offer_price if offer_price and offer_price > 0 else ca_price
-        calculation_price_source = "offer" if offer_price and offer_price > 0 else "ca"
+        price = offer_price if valid_offer_price else ca_price
+        calculation_price_source = (
+            "offer" if valid_offer_price else "ca" if valid_ca_price else None
+        )
     price = price or 0
     cogs = normalise_number(row.get("cogs"))
     sold_qty = normalise_number(row.get("sold_qty"))
@@ -1184,7 +1190,15 @@ def calculate_candidate(row: dict, criteria: dict) -> dict:
     return_rate = normalise_number(row.get("return_rate"))
     minimum_discount = normalise_number(criteria.get("min_discount"), 0)
 
-    if grade < normalise_number(criteria.get("min_grade"), 0):
+    selected_grades = {
+        int(normalise_number(value))
+        for value in criteria.get("grades", [])
+        if str(value).strip()
+    }
+    if selected_grades:
+        if int(grade) not in selected_grades:
+            reasons.append("Outside selected grade")
+    elif grade < normalise_number(criteria.get("min_grade"), 0):
         reasons.append("Grade below threshold")
     if stock < normalise_number(criteria.get("min_stock"), 0):
         reasons.append("Stock below threshold")

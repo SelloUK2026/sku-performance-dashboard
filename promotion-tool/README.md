@@ -31,9 +31,10 @@ Required environment variables:
 - `PROMOTION_CACHE_SECONDS=300`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `PROMOTION_REQUIRE_AUTH=true`
-- `PROMOTION_AUTH_USERNAME`
-- `PROMOTION_AUTH_PASSWORD`
+- `PROMOTION_REQUIRE_AUTH=false`
+
+`PROMOTION_AUTH_USERNAME` and `PROMOTION_AUTH_PASSWORD` are optional and only
+required when application-level authentication is enabled.
 
 The service-role key is used only by the Python backend and must never be sent
 to the browser or committed to GitHub.
@@ -54,8 +55,8 @@ to the browser or committed to GitHub.
 - Workbook-matched reverse pricing, discount cap, optional discount intervals,
   price rounding, profit, and margin.
 - Editable grade-to-profit-margin matrix from `Template - General`.
-- Wooper grade and first-arrival filters, with multi-select dropdowns for main
-  category, subcategory, and brand.
+- Wooper grade and first-arrival filters, with multi-select dropdowns for grade,
+  main category, subcategory, and brand.
 - All-platform lifetime profit margin after returns and return rate from the
   SKU-dashboard PowerBI history.
 - SKU-dashboard suggested freight precedence and WMS at 8% of promotion

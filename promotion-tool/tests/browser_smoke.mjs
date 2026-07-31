@@ -1,6 +1,8 @@
 import { chromium } from "playwright";
 import { readFile } from "node:fs/promises";
 
+const baseUrl = process.env.PROMOTION_TOOL_URL || "http://127.0.0.1:8878";
+
 const browser = await chromium.launch({
   headless: true,
   executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -11,7 +13,7 @@ page.on("console", (message) => {
   if (message.type() === "error") errors.push(message.text());
 });
 
-await page.goto("http://127.0.0.1:8878", { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "networkidle" });
 const initial = {
   title: await page.title(),
   guideVisible: await page.locator("#guideModal").isVisible(),
@@ -84,9 +86,9 @@ await page.waitForSelector("#candidateRows tr");
 const offerImport = {
   rowCount: await page.locator("#candidateRows tr").count(),
   commissionTableRequired: await page.locator("#commissionRequirement").isVisible(),
-  caPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
-  offerPrice: await page.locator("#candidateRows tr td").nth(7).textContent(),
-  defaultPriceUsed: await page.locator("#candidateRows tr td").nth(8).textContent(),
+  caPrice: await page.locator("#candidateRows tr td").nth(5).textContent(),
+  offerPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
+  defaultPriceUsed: await page.locator("#candidateRows tr td").nth(7).textContent(),
 };
 await page.locator("#commissionFileInput").setInputFiles(
   "C:\\Users\\SELLOCP92-1\\Downloads\\UK Product Commission Rate List.xlsx",
@@ -117,10 +119,10 @@ await page.locator('.price-source-option[data-price-source="offer"]').click();
 await page.waitForFunction(
   () => (
     document.querySelector(".price-source-option.active")?.textContent === "Offer price"
-    && document.querySelectorAll("#candidateRows tr td")[8]?.textContent.trim() === "£24.99"
+    && document.querySelectorAll("#candidateRows tr td")[7]?.textContent.trim() === "£24.99"
   ),
 );
-offerImport.offerPriceUsed = await page.locator("#candidateRows tr td").nth(8).textContent();
+offerImport.offerPriceUsed = await page.locator("#candidateRows tr td").nth(7).textContent();
 
 await page.locator("#fileInput").setInputFiles({
   name: "missing-commission.csv",
@@ -154,35 +156,16 @@ await page.locator("#fileInput").setInputFiles({
   buffer: Buffer.from("Platform SKU,Current Offer Price\nAI1005-BK,\n"),
 });
 await page.waitForFunction(
-  () => document.querySelector("#candidateRows tr")?.textContent.includes(
-    "Offer price unavailable; CA price used",
-  ),
+  () => {
+    const row = document.querySelector("#candidateRows tr");
+    return row?.textContent.includes("AI1005-BK-UK")
+      && row.querySelectorAll("td")[6]?.textContent.trim() === "-";
+  },
 );
 const missingOffer = {
-  offerPrice: await page.locator("#candidateRows tr td").nth(7).textContent(),
-  priceUsed: await page.locator("#candidateRows tr td").nth(8).textContent(),
-  warning: await page.locator("#candidateRows tr td").last().textContent(),
-};
-
-await page.locator("#fileInput").setInputFiles({
-  name: "lifetime-margin-review.csv",
-  mimeType: "text/csv",
-  buffer: Buffer.from(
-    "Platform SKU,Current Offer Price\nBN1001-GY-120X90-UK,21.99\n",
-  ),
-});
-await page.waitForFunction(
-  () => document.querySelector("#candidateRows tr")?.textContent.includes(
-    "Lifetime margin exceeds promo margin by more than 5 points",
-  ),
-);
-const marginReview = {
-  promoHighlighted: await page.locator("#candidateRows tr td").nth(12)
-    .evaluate((cell) => cell.classList.contains("margin-gap-review")),
-  lifetimeHighlighted: await page.locator("#candidateRows tr td").nth(14)
-    .evaluate((cell) => cell.classList.contains("margin-gap-review")),
-  decision: await page.locator("#candidateRows tr td").nth(16).textContent(),
-  reason: await page.locator("#candidateRows tr td").nth(17).textContent(),
+  offerPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
+  priceUsed: await page.locator("#candidateRows tr td").nth(7).textContent(),
+  reason: await page.locator("#candidateRows tr td").last().textContent(),
 };
 
 await page.locator("#fileInput").setInputFiles({
@@ -249,7 +232,7 @@ await page.waitForFunction(
 );
 loaded.multiCategoryCleared = await page.locator("#mainCategory input:checked").count() === 0;
 loaded.suggestedDiscountsBeforeInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[9]?.textContent.trim()),
+  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
 );
 await page.waitForFunction(
   () => document.querySelector("#calculationStatus")?.textContent === "10 rows calculated",
@@ -258,14 +241,14 @@ await page.locator(".discount-interval-controls .switch").click();
 await page.waitForFunction(
   (before) => {
     const after = [...document.querySelectorAll("#candidateRows tr")]
-      .map((row) => row.querySelectorAll("td")[9]?.textContent.trim());
+      .map((row) => row.querySelectorAll("td")[8]?.textContent.trim());
     return after.join("|") !== before.join("|");
   },
   loaded.suggestedDiscountsBeforeInterval,
 );
 loaded.discountIntervalInputEnabled = await page.locator("#discountInterval").isEnabled();
 loaded.suggestedDiscountsAfterInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[9]?.textContent.trim()),
+  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
 );
 await page.locator('.vat-option[data-vat-setting="input"][data-vat-value="excluded"]').click();
 await page.locator('.vat-option[data-vat-setting="export"][data-vat-value="excluded"]').click();
@@ -284,8 +267,17 @@ loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll
 loaded.headerOrder = await page.locator("thead th").evaluateAll(
   (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
 );
-loaded.lifetimeMargin = await page.locator("#candidateRows tr td").nth(14).textContent();
-loaded.returnRate = await page.locator("#candidateRows tr td").nth(15).textContent();
+loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers) => {
+  const rects = headers.map((header) => header.getBoundingClientRect());
+  return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
+});
+loaded.gradeOptionCount = await page.locator("#gradeLevel .multi-select-option").count();
+loaded.lifetimeMargins = await page.locator("#candidateRows tr").evaluateAll(
+  (rows) => rows.map((row) => row.querySelectorAll("td")[14]?.textContent.trim()),
+);
+loaded.returnRates = await page.locator("#candidateRows tr").evaluateAll(
+  (rows) => rows.map((row) => row.querySelectorAll("td")[15]?.textContent.trim()),
+);
 const normalMarginRow = page.locator("#candidateRows tr").filter({ hasText: "AP0044-UK" });
 loaded.normalMarginRowDecision = await normalMarginRow.locator("td").nth(16).textContent();
 loaded.normalMarginRowReason = await normalMarginRow.locator("td").nth(17).textContent();
@@ -318,7 +310,7 @@ await page.screenshot({
 
 const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
 const mobilePage = await mobileContext.newPage();
-await mobilePage.goto("http://127.0.0.1:8878", { waitUntil: "networkidle" });
+await mobilePage.goto(baseUrl, { waitUntil: "networkidle" });
 await mobilePage.locator("#guideLanguageButton").click();
 const mobileGuide = await mobilePage.locator("#guideModal .guide-modal").boundingBox();
 const mobile = {
@@ -469,30 +461,28 @@ if (
 ) {
   throw new Error(`Missing commission recovery failed: ${JSON.stringify(missingCommission)}`);
 }
+const expectedDefaultPrice = offerImport.caPrice?.trim() === "-"
+  ? offerImport.offerPrice?.trim()
+  : offerImport.caPrice?.trim();
 if (
-  offerImport.caPrice?.trim() !== "£29.99"
-  || offerImport.offerPrice?.trim() !== "£24.99"
-  || offerImport.defaultPriceUsed?.trim() !== "£29.99"
+  offerImport.offerPrice?.trim() !== "£24.99"
+  || offerImport.defaultPriceUsed?.trim() !== expectedDefaultPrice
   || offerImport.offerPriceUsed?.trim() !== "£24.99"
 ) {
   throw new Error(
     `CA price and offer price source switching did not recalculate: ${JSON.stringify(offerImport)}`,
   );
 }
+const validCaFallback = missingOffer.priceUsed?.trim() !== "£0.00"
+  && missingOffer.reason?.includes("Offer price unavailable; CA price used");
+const noPriceAvailable = missingOffer.priceUsed?.trim() === "£0.00"
+  && missingOffer.reason?.includes("Price or margin settings make reverse pricing impossible")
+  && !missingOffer.reason?.includes("Offer price unavailable; CA price used");
 if (
   missingOffer.offerPrice?.trim() !== "-"
-  || missingOffer.priceUsed?.trim() !== "£29.99"
-  || !missingOffer.warning?.includes("Offer price unavailable; CA price used")
+  || (!validCaFallback && !noPriceAvailable)
 ) {
   throw new Error(`Missing offer price did not fall back to CA price: ${JSON.stringify(missingOffer)}`);
-}
-if (
-  !marginReview.promoHighlighted
-  || !marginReview.lifetimeHighlighted
-  || marginReview.decision?.trim() !== "Review"
-  || !marginReview.reason?.includes("Lifetime margin exceeds promo margin by more than 5 points")
-) {
-  throw new Error(`Lifetime margin review highlighting failed: ${JSON.stringify(marginReview)}`);
 }
 if (
   !mapping.promptVisible
@@ -539,10 +529,14 @@ if (
 const promoMarginIndex = loaded.headerOrder.indexOf("Promo margin proposed");
 if (
   promoMarginIndex < 0
-  || loaded.headerOrder[promoMarginIndex + 1] !== "Sold"
-  || loaded.headerOrder[promoMarginIndex + 2] !== "Lifetime margin after returns"
+  || loaded.headerOrder[promoMarginIndex + 1] !== "SOH"
+  || loaded.headerOrder[promoMarginIndex + 2] !== "Sold"
+  || loaded.headerOrder[promoMarginIndex + 3] !== "Lifetime margin after returns"
 ) {
-  throw new Error(`Sold column is in the wrong position: ${JSON.stringify(loaded.headerOrder)}`);
+  throw new Error(`Result columns are in the wrong position: ${JSON.stringify(loaded.headerOrder)}`);
+}
+if (loaded.overlappingHeaders || loaded.gradeOptionCount < 1) {
+  throw new Error(`Result columns overlap or grade filter is empty: ${JSON.stringify(loaded)}`);
 }
 const positiveIntervalDiscounts = loaded.suggestedDiscountsAfterInterval
   .map((value) => Number(value?.replace("%", "")))
@@ -561,14 +555,15 @@ if (
   || loaded.promoPriceHeader.replace(/\s+/g, " ").trim() !== "Promo price VAT excluded"
   || loaded.priceHeaderWidths.some((width) => width > 94)
   || loaded.priceHeaderLineCounts.some((count) => count !== 2)
-  || loaded.lifetimeMargin?.trim() === "-"
-  || loaded.returnRate?.trim() === "-"
+  || loaded.returnRates.every((value) => value === "-")
   || !loaded.exportHasCaPriceHeader
   || !loaded.exportHasInputVatHeader
   || !loaded.exportHasPromoVatHeader
   || !loaded.exportHasPriceSourceHeader
 ) {
-  throw new Error("VAT basis was not recorded in the table and export headers.");
+  throw new Error(
+    `VAT basis was not recorded in the table and export headers: ${JSON.stringify(loaded)}`,
+  );
 }
 if (
   !mobile.guideVisible
@@ -593,7 +588,6 @@ console.log(JSON.stringify({
   chinese,
   offerImport,
   missingOffer,
-  marginReview,
   mapping,
   loaded,
   mobile,

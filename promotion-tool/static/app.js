@@ -15,8 +15,8 @@ const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
 const UI_TEXT = {
   en: {
     appTitle: "Promotion Nomination",
-    appSubtitle: "Debenhams calculation demo",
-    localDemo: "Local demo",
+    appSubtitle: "Promotion calculation tool",
+    localDemo: "Live data",
     chinese: "中文",
     english: "English",
     displayChinese: "Display in Simplified Chinese",
@@ -39,7 +39,8 @@ const UI_TEXT = {
     commissionRatesReview: "{count} commission rates need review",
     uploadTable: "Upload table",
     nominationFilters: "Nomination filters",
-    minimumGrade: "Minimum grade",
+    gradeLevel: "Grade level",
+    allGrades: "All grades",
     minimumStock: "Minimum stock",
     minimumMonths: "Minimum months",
     minimumDiscount: "Minimum discount",
@@ -170,8 +171,8 @@ const UI_TEXT = {
     selectedCount: "\u5df2\u9009 {count} \u9879",
     clearSelection: "\u6e05\u9664\u9009\u62e9",
     appTitle: "促销提名工具",
-    appSubtitle: "Debenhams 计算演示",
-    localDemo: "本地演示",
+    appSubtitle: "促销计算工具",
+    localDemo: "实时数据",
     chinese: "中文",
     english: "English",
     displayChinese: "显示简体中文",
@@ -194,7 +195,8 @@ const UI_TEXT = {
     commissionRatesReview: "{count}个佣金率需要审核",
     uploadTable: "上传表格",
     nominationFilters: "提名筛选",
-    minimumGrade: "最低等级",
+    gradeLevel: "等级",
+    allGrades: "所有等级",
     minimumStock: "最低库存",
     minimumMonths: "最低可售月数",
     minimumDiscount: "最低折扣",
@@ -346,7 +348,7 @@ const GUIDE_STEPS = {
     summary: "Use Wooper product data to control which products may participate.",
     points: [
       "Filter by grade, main category, subcategory, brand, stock, and estimated selling months.",
-      "Main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
+      "Grade, main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
       "Use the first-arrival cutoff to exclude newer products.",
       "Minimum discount removes products that cannot support the required campaign discount.",
     ],
@@ -442,7 +444,7 @@ const GUIDE_STEPS = {
 GUIDE_STEPS.zh[3].points.splice(
   1,
   0,
-  "\u4e3b\u7c7b\u522b\u3001\u5b50\u7c7b\u522b\u548c\u54c1\u724c\u53ef\u591a\u9009\uff1b\u672a\u9009\u62e9\u4efb\u4f55\u503c\u65f6\u8868\u793a\u5168\u90e8\u3002",
+  "\u7b49\u7ea7\u3001\u4e3b\u7c7b\u522b\u3001\u5b50\u7c7b\u522b\u548c\u54c1\u724c\u53ef\u591a\u9009\uff1b\u672a\u9009\u62e9\u4efb\u4f55\u503c\u65f6\u8868\u793a\u5168\u90e8\u3002",
 );
 GUIDE_STEPS.zh[2].points.splice(
   1,
@@ -510,6 +512,7 @@ function translateMessage(message) {
     "Rounding leaves margin slightly below target": "价格舍入导致利润率略低于目标",
     "Final discount leaves margin below target": "最终折扣导致利润率低于目标",
     "Grade below threshold": "等级低于筛选条件",
+    "Outside selected grade": "不属于所选等级",
     "Stock below threshold": "库存低于筛选条件",
     "Saleable months below threshold": "可售月数低于筛选条件",
     "Available discount below minimum": "可用折扣低于最低要求",
@@ -617,7 +620,7 @@ function applyLanguage(language, { persist = true } = {}) {
     ["platform", "platform"],
     ["campaignType", "campaignType"],
     ["campaignName", "campaignName"],
-    ["minGrade", "minimumGrade"],
+    ["gradeLevel", "gradeLevel"],
     ["minStock", "minimumStock"],
     ["minMonths", "minimumMonths"],
     ["minDiscount", "minimumDiscount"],
@@ -667,19 +670,8 @@ function applyLanguage(language, { persist = true } = {}) {
   });
   element("selectAll").setAttribute("aria-label", t("selectAll"));
 
-  const simpleHeaders = {
-    2: "category",
-    3: "grade",
-    4: "months",
-    5: "SOH",
-    9: "suggested",
-    10: "final",
-    13: "sold",
-    16: "decision",
-    17: "reason",
-  };
-  Object.entries(simpleHeaders).forEach(([index, key]) => {
-    const header = document.querySelectorAll("thead th")[Number(index)];
+  document.querySelectorAll("th[data-header-key]").forEach((header) => {
+    const key = header.dataset.headerKey;
     header.textContent = key === "SOH" ? "SOH" : t(key);
   });
   setPriceHeader("caPriceHeader", "caPrice", "included");
@@ -868,7 +860,7 @@ function criteriaFromForm() {
     platform: element("platform").value,
     campaign_name: element("campaignName").value.trim(),
     campaign_type: element("campaignType").value,
-    min_grade: Number(element("minGrade").value || 0),
+    grades: selectedMultiValues("gradeLevel"),
     min_stock: Number(element("minStock").value || 0),
     min_months: Number(element("minMonths").value || 0),
     min_discount: Number(element("minDiscount").value || 0) / 100,
@@ -972,6 +964,14 @@ function populateMultiSelect(id, values, placeholder) {
 }
 
 function updateWooperFilters() {
+  populateMultiSelect(
+    "gradeLevel",
+    state.rows
+      .map((row) => Number(row.grade))
+      .filter(Number.isFinite)
+      .map(String),
+    t("allGrades"),
+  );
   populateMultiSelect("mainCategory", state.rows.map((row) => row.main_category), t("allMainCategories"));
   populateMultiSelect("subcategory", state.rows.map((row) => row.subcategory), t("allSubcategories"));
   populateMultiSelect("brand", state.rows.map((row) => row.brand), t("allBrands"));
@@ -1068,7 +1068,6 @@ function renderRows() {
         <td>${escapeHtml(row.subcategory || "-")}</td>
         <td class="number">${number(row.grade)}</td>
         <td class="number">${number(row.estimated_months, 1)}</td>
-        <td class="number">${number(row.stock)}</td>
         <td class="number">${money(row.ca_price)}</td>
         <td class="number">${money(row.offer_price)}</td>
         <td class="number">${money(row.price_including_vat)}</td>
@@ -1083,6 +1082,7 @@ function renderRows() {
         </td>
         <td class="number">${money(row.promo_price)}</td>
         <td class="number ${Number(row.promo_margin) < 0 ? "negative" : ""} ${row.margin_gap_review ? "review-highlight margin-gap-review" : ""}">${percent(row.promo_margin, 1)}</td>
+        <td class="number">${number(row.stock)}</td>
         <td class="number">${number(row.sold_qty)}</td>
         <td class="number ${Number(row.lifetime_profit_margin) < 0 ? "negative" : ""} ${row.margin_gap_review ? "review-highlight margin-gap-review" : ""}">${percent(row.lifetime_profit_margin, 1)}</td>
         <td class="number ${row.return_rate_review ? "review-highlight return-rate-review" : ""}">${percent(row.return_rate, 1)}</td>
@@ -1586,7 +1586,6 @@ function exportSelected() {
 }
 
 function resetCriteria() {
-  element("minGrade").value = 0;
   element("minStock").value = 1;
   element("minMonths").value = 0;
   element("minDiscount").value = 5;
@@ -1594,7 +1593,7 @@ function resetCriteria() {
   document.querySelectorAll(".multi-select-option input").forEach((input) => {
     input.checked = false;
   });
-  ["mainCategory", "subcategory", "brand"].forEach(updateMultiSelectSummary);
+  ["gradeLevel", "mainCategory", "subcategory", "brand"].forEach(updateMultiSelectSummary);
   element("firstArrivalCutoff").value = "";
   element("maxDiscount").value = 25;
   element("defaultCommission").value = 26.4;
