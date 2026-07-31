@@ -21,6 +21,7 @@ from app import (  # noqa: E402
     ca_price_sku,
     calculate_candidate,
     commission_rows_from_workbook,
+    combined_platform_mappings,
     map_imported_rows,
     normalise_date,
     resolve_wooper_sku,
@@ -629,6 +630,79 @@ class PromotionCalculationTests(unittest.TestCase):
         self.assertEqual(len(mapped), 1)
         self.assertIsNone(mapped[0].get("offer_price"))
         self.assertNotIn("price", mapped[0])
+
+    def test_unresolved_import_does_not_suggest_a_non_wooper_sku(self):
+        mapped = map_imported_rows(
+            [{"Platform SKU": "LENOR-HOLEN153A_1"}],
+            manual_mappings={},
+            inventory={
+                "OTHER-WOOPER-SKU": {
+                    "sku": "OTHER-WOOPER-SKU",
+                    "grade": 3,
+                    "stock": 5,
+                    "cogs": 8,
+                }
+            },
+        )
+
+        self.assertEqual(mapped[0]["mapping_status"], "unresolved")
+        self.assertEqual(mapped[0]["sku"], "")
+        self.assertEqual(mapped[0]["suggested_sku"], "")
+
+    @patch("app.persisted_mapping_dictionary", return_value={})
+    @patch("app.supabase_enabled", return_value=True)
+    def test_agreed_platform_mapping_is_reused_across_platforms(
+        self,
+        _supabase_enabled,
+        _persisted_dictionary,
+    ):
+        rows = [
+            {
+                "external_sku": "LENOR-HOLEN153A_1",
+                "wooper_sku": "LENOR-HOLEN153A",
+                "status": "mapped",
+                "platform": "Amazon(UK)",
+            },
+            {
+                "external_sku": "LENOR-HOLEN153A_1",
+                "wooper_sku": "LENOR-HOLEN153A",
+                "status": "mapped",
+                "platform": "Tesco",
+            },
+        ]
+        with patch("app.persisted_mapping_rows", return_value=rows):
+            mappings = combined_platform_mappings("Debenhams")
+
+        self.assertEqual(
+            mappings["LENOR-HOLEN153A_1"],
+            "LENOR-HOLEN153A",
+        )
+
+    @patch("app.persisted_mapping_dictionary", return_value={})
+    @patch("app.supabase_enabled", return_value=True)
+    def test_conflicting_platform_mappings_are_not_reused(
+        self,
+        _supabase_enabled,
+        _persisted_dictionary,
+    ):
+        rows = [
+            {
+                "external_sku": "SHARED-ALIAS",
+                "wooper_sku": "CORE-A",
+                "status": "mapped",
+                "platform": "Amazon(UK)",
+            },
+            {
+                "external_sku": "SHARED-ALIAS",
+                "wooper_sku": "CORE-B",
+                "status": "mapped",
+                "platform": "Tesco",
+            },
+        ]
+        with patch("app.persisted_mapping_rows", return_value=rows):
+            mappings = combined_platform_mappings("Debenhams")
+
+        self.assertNotIn("SHARED-ALIAS", mappings)
 
     def test_first_arrival_cutoff_excludes_new_products(self):
         row = dict(self.rows[1], first_arrival_date="2026-07-01")

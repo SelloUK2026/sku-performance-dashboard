@@ -182,6 +182,14 @@ Manual mappings and non-existing statuses remain durable between refreshes.
 ### 2026-07-31
 
 - Published the Supabase-backed tool to Render with public access.
+- Corrected the mapping prompt so it only suggests exact current Wooper SKUs;
+  unresolved SKUs now start with a blank mapping field.
+- Required every completed mapping to select an exact SKU from the current
+  Wooper inventory list, while retaining the Non-existing SKU option.
+- Reused an external SKU's saved mapping across platforms when every saved
+  record agrees, preventing repeated prompts for previously resolved aliases.
+- Kept conflicting platform mappings platform-specific so an uncertain
+  cross-platform mapping is never applied automatically.
 - Replaced the local-demo labels with production live-data labels.
 - Corrected the result-table layout so Decision and Reason cannot cover Promo
   price, Promo margin, SOH, Lifetime margin, or Return rate.

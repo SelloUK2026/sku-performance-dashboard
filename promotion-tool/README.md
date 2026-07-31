@@ -48,7 +48,12 @@ to the browser or committed to GitHub.
 - CA price ingestion from ChannelAdvisor Buy It Now Price, with CA price or
   offer price selectable as the calculation basis.
 - Automatic CA-price fallback when an imported offer price is unavailable.
-- Exact `CA Price!C` automatic SKU normalization plus persistent manual mappings.
+- Automatic SKU normalization only when the result is a current Wooper SKU;
+  otherwise the mapping suggestion is left blank.
+- Supabase-backed manual mappings are reused across platforms when every saved
+  mapping for the external SKU agrees on the same current Wooper SKU.
+- Mapping entries must select an exact current Wooper SKU or be marked as
+  non-existing before they can be saved.
 - Supabase-backed many-to-one CA-to-Wooper mappings, with newly unresolved CA
   SKUs prompted at startup after each daily refresh.
 - CA SKUs ending in `-ALL` automatically classified as non-existing parent SKUs.

@@ -258,6 +258,17 @@ const mapping = {
   suggestedSku: await page.locator(".manual-mapping").inputValue(),
   nonExistingOption: await page.locator(".non-existing-sku").isVisible(),
 };
+const mappingInput = page.locator(".manual-mapping");
+await mappingInput.fill("NOT-A-WOOPER-SKU");
+await page.locator("#saveMappings").click();
+mapping.invalidRejected = await mappingInput.getAttribute("aria-invalid") === "true";
+mapping.remainedOpen = await page.locator("#mappingModal").isVisible();
+await page.screenshot({
+  path: "analysis/mapping-validation.png",
+});
+await mappingInput.fill("AI1005-BK-UK");
+mapping.validWooperAccepted = await mappingInput.getAttribute("aria-invalid") === "false";
+await mappingInput.fill("");
 await page.locator("#closeMappings").click();
 mapping.closed = !(await page.locator("#mappingModal").isVisible());
 mapping.reopenAvailable = await page.locator("#mappingButton").isVisible();
@@ -316,596 +327,8 @@ await page.locator("#mainCategory .multi-select-trigger").click();
 await page.locator('#mainCategory input[value="Home Appliances"]').check();
 const multiFilterCalculation = page.waitForResponse(
   (response) => response.url().endsWith("/api/calculate") && response.ok(),
-);
-await page.locator('#mainCategory input[value="Kitchen Appliances"]').check();
-await multiFilterCalculation;
-await page.waitForFunction(
-  () => document.querySelector("#mainCategory .multi-select-value")?.textContent === "2 selected",
-);
-loaded.multiCategorySummary = await page.locator("#mainCategory .multi-select-value").textContent();
-loaded.multiCategoryValues = await page.locator("#mainCategory input:checked").evaluateAll(
-  (inputs) => inputs.map((input) => input.value),
-);
-await page.locator("#languageButton").click();
-loaded.chineseMultiCategorySummary = await page.locator("#mainCategory .multi-select-value").textContent();
-await page.locator("#languageButton").click();
-await page.waitForFunction(() => document.documentElement.lang === "en");
-loaded.unselectedCategoryReason = await page.locator("#candidateRows tr")
-  .filter({ hasText: "BATH1010-WH-UK" })
-  .locator("td")
-  .last()
-  .textContent();
-await page.locator("#mainCategory .multi-select-trigger").click();
-const clearedFilterCalculation = page.waitForResponse(
-  (response) => response.url().endsWith("/api/calculate") && response.ok(),
-);
-await page.locator("#mainCategory .multi-select-clear").click();
-await clearedFilterCalculation;
-await page.waitForFunction(
-  () => document.querySelector("#mainCategory .multi-select-value")?.textContent === "All main categories",
-);
-loaded.multiCategoryCleared = await page.locator("#mainCategory input:checked").count() === 0;
-loaded.suggestedDiscountsBeforeInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
-);
-await page.waitForFunction(
-  () => document.querySelector("#calculationStatus")?.textContent === "10 rows calculated",
-);
-await page.locator(".discount-interval-controls .switch").click();
-await page.waitForFunction(
-  (before) => {
-    const after = [...document.querySelectorAll("#candidateRows tr")]
-      .map((row) => row.querySelectorAll("td")[8]?.textContent.trim());
-    return after.join("|") !== before.join("|");
-  },
-  loaded.suggestedDiscountsBeforeInterval,
-);
-loaded.discountIntervalInputEnabled = await page.locator("#discountInterval").isEnabled();
-loaded.suggestedDiscountsAfterInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
-);
-await page.locator('.vat-option[data-vat-setting="input"][data-vat-value="excluded"]').click();
-await page.locator('.vat-option[data-vat-setting="export"][data-vat-value="excluded"]').click();
-await page.waitForFunction(
-  () => document.querySelector("#calculationStatus")?.textContent === "10 rows calculated",
-);
-loaded.normalPriceHeader = await page.locator("#normalPriceHeader").textContent();
-loaded.offerPriceHeader = await page.locator("#offerPriceHeader").textContent();
-loaded.promoPriceHeader = await page.locator("#promoPriceHeader").textContent();
-loaded.priceHeaderWidths = await page.locator("th.price-column").evaluateAll(
-  (headers) => headers.map((header) => Math.round(header.getBoundingClientRect().width)),
-);
-loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll(
-  (headers) => headers.map((header) => header.querySelectorAll("span").length),
-);
-loaded.headerOrder = await page.locator("thead th").evaluateAll(
-  (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
-);
-loaded.headerNoteCount = await page.locator(".header-note").count();
-loaded.promoHighlightNote = await page.locator(
-  "#promoMarginHeader .header-note",
-).getAttribute("data-tooltip");
-loaded.returnHighlightNote = await page.locator(
-  "#returnRateHeader .header-note",
-).getAttribute("data-tooltip");
-const returnHeaderNote = page.locator("#returnRateHeader .header-note");
-await returnHeaderNote.hover();
-await page.waitForTimeout(180);
-await page.screenshot({
-  path: "analysis/header-highlight-note.png",
-});
-loaded.returnTooltipVisible = await returnHeaderNote.evaluate((node) => {
-  const tooltip = getComputedStyle(node, "::after");
-  return tooltip.visibility === "visible" && Number(tooltip.opacity) > 0;
-});
-loaded.stickyHeader = await page.locator(".table-shell").evaluate(async (shell) => {
-  const previous = {
-    flex: shell.style.flex,
-    height: shell.style.height,
-    maxHeight: shell.style.maxHeight,
-    scrollTop: shell.scrollTop,
-  };
-  shell.style.flex = "0 0 220px";
-  shell.style.height = "220px";
-  shell.style.maxHeight = "220px";
-  await new Promise(requestAnimationFrame);
-  shell.scrollTop = 160;
-  await new Promise(requestAnimationFrame);
-  const header = shell.querySelector("thead th");
-  const shellTop = shell.getBoundingClientRect().top;
-  const headerTop = header.getBoundingClientRect().top;
-  const result = {
-    position: getComputedStyle(header).position,
-    scrolled: shell.scrollTop > 0,
-    topDelta: Math.abs(headerTop - shellTop),
-  };
-  shell.scrollTop = previous.scrollTop;
-  shell.style.flex = previous.flex;
-  shell.style.height = previous.height;
-  shell.style.maxHeight = previous.maxHeight;
-  return result;
-});
-loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers) => {
-  const rects = headers.map((header) => header.getBoundingClientRect());
-  return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
-});
-loaded.lifetimeMargins = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[14]?.textContent.trim()),
-);
-loaded.returnRates = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[15]?.textContent.trim()),
-);
-const normalMarginRow = page.locator("#candidateRows tr").filter({ hasText: "AP0044-UK" });
-loaded.normalMarginRowDecision = await normalMarginRow.locator("td").nth(16).textContent();
-loaded.normalMarginRowReason = await normalMarginRow.locator("td").nth(17).textContent();
-loaded.returnRateReviewCount = await page.locator("td.return-rate-review").count();
-await page.locator("#languageButton").click();
-const chineseResultRow = page.locator("#candidateRows tr").filter({ hasText: "AI1005-BK-UK" });
-loaded.chineseDecision = await chineseResultRow.locator("td").nth(16).textContent();
-loaded.chineseReason = await chineseResultRow.locator("td").nth(17).textContent();
-loaded.chineseCaHeader = await page.locator("#caPriceHeader").textContent();
-loaded.chineseReturnHighlightNote = await page.locator(
-  "#returnRateHeader .header-note",
-).getAttribute("data-tooltip");
-loaded.chineseRowCount = await page.locator("#candidateRows tr").count();
-await page.screenshot({
-  path: "analysis/chinese-results.png",
-  fullPage: true,
-});
-await page.locator("#languageButton").click();
-await page.waitForFunction(() => document.documentElement.lang === "en");
-const downloadPromise = page.waitForEvent("download");
-await page.locator("#exportButton").click();
-const download = await downloadPromise;
-const exportCsv = await readFile(await download.path(), "utf8");
-loaded.exportHasCaPriceHeader = exportCsv.includes("CA Price - Normal Price (VAT Included)");
-loaded.exportHasInputVatHeader = exportCsv.includes("Offer Price (VAT Excluded)");
-loaded.exportHasPromoVatHeader = exportCsv.includes("Promotion Price (VAT Excluded)");
-loaded.exportHasPriceSourceHeader = exportCsv.includes("Calculation Price Source");
-
-await page.screenshot({
-  path: "analysis/browser-smoke.png",
-  fullPage: true,
-});
-
-const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-const mobilePage = await mobileContext.newPage();
-await mobilePage.goto(baseUrl, { waitUntil: "networkidle" });
-await mobilePage.locator("#guideLanguageButton").click();
-const mobileGuide = await mobilePage.locator("#guideModal .guide-modal").boundingBox();
-const mobile = {
-  guideVisible: await mobilePage.locator("#guideModal").isVisible(),
-  chineseTitle: await mobilePage.locator("#guideTitle").textContent(),
-  chineseCounter: await mobilePage.locator("#guideCounter").textContent(),
-  widthFits: mobileGuide && mobileGuide.x >= 0 && mobileGuide.x + mobileGuide.width <= 390,
-  heightFits: mobileGuide && mobileGuide.y >= 0 && mobileGuide.y + mobileGuide.height <= 844,
-  noPageOverflow: await mobilePage.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
-  ),
-  layout: await mobilePage.evaluate(() => {
-    const workspace = document.querySelector(".workspace");
-    const criteria = document.querySelector(".criteria-panel");
-    const results = document.querySelector(".results-panel");
-    return {
-      innerWidth: window.innerWidth,
-      scrollX: window.scrollX,
-      workspaceColumns: getComputedStyle(workspace).gridTemplateColumns,
-      workspaceWidth: workspace.getBoundingClientRect().width,
-      criteriaX: criteria.getBoundingClientRect().x,
-      criteriaWidth: criteria.getBoundingClientRect().width,
-      resultsX: results.getBoundingClientRect().x,
-      resultsWidth: results.getBoundingClientRect().width,
-    };
-  }),
-};
-await mobilePage.screenshot({
-  path: "analysis/user-guide-mobile.png",
-  fullPage: true,
-});
-await mobilePage.locator("#guideCloseButton").click();
-mobile.startupCaMappingVisible = await mobilePage.locator("#mappingModal").isVisible();
-const mobileMappingModal = await mobilePage.locator("#mappingModal .mapping-modal").boundingBox();
-mobile.startupCaMappingFits = !mobile.startupCaMappingVisible || (
-  mobileMappingModal
-  && mobileMappingModal.x >= 0
-  && mobileMappingModal.x + mobileMappingModal.width <= 390
-  && mobileMappingModal.y >= 0
-  && mobileMappingModal.y + mobileMappingModal.height <= 844
-);
-if (mobile.startupCaMappingVisible) {
-  await mobilePage.locator("#closeMappings").click();
-}
-await mobilePage.locator("#firstSampleButton").click();
-await mobilePage.waitForSelector("#candidateRows tr");
-await mobilePage.locator("#criteriaToggle").click();
-await mobilePage.waitForFunction(
-  () => document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
-);
-const mobileCollapsedCriteria = await mobilePage.locator(".criteria-panel").boundingBox();
-mobile.criteriaCollapsed = await mobilePage.locator("#criteriaForm").isHidden();
-mobile.criteriaCollapsedHeight = mobileCollapsedCriteria?.height;
-mobile.criteriaShowTitle = await mobilePage.locator("#criteriaToggle").getAttribute("title");
-mobile.collapsedResultsWidth = await mobilePage.locator(".results-panel").evaluate(
-  (panel) => Math.round(panel.getBoundingClientRect().width),
-);
-await mobilePage.screenshot({
-  path: "analysis/collapsed-criteria-mobile.png",
-  fullPage: true,
-});
-await mobilePage.locator("#criteriaToggle").click();
-await mobilePage.waitForFunction(
-  () => !document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
-);
-mobile.criteriaRestored = await mobilePage.locator("#criteriaForm").isVisible();
-mobile.resultsPanelConstrained = await mobilePage.locator(".results-panel").evaluate((panel) => {
-  const style = getComputedStyle(panel);
-  return style.height !== "auto" && panel.clientHeight <= 760;
-});
-mobile.stickyHeaderPosition = await mobilePage.locator("thead th").first().evaluate(
-  (header) => getComputedStyle(header).position,
-);
-const mobileVatControls = await mobilePage.locator(".vat-controls").boundingBox();
-mobile.pageScrollWidth = await mobilePage.evaluate(() => document.documentElement.scrollWidth);
-mobile.vatControlsBox = mobileVatControls;
-mobile.populatedLayout = await mobilePage.evaluate(() => {
-  const workspace = document.querySelector(".workspace");
-  const results = document.querySelector(".results-panel");
-  const toolbar = document.querySelector(".table-toolbar");
-  return {
-    workspaceColumns: getComputedStyle(workspace).gridTemplateColumns,
-    workspaceWidth: workspace.getBoundingClientRect().width,
-    resultsX: results.getBoundingClientRect().x,
-    resultsWidth: results.getBoundingClientRect().width,
-    toolbarX: toolbar.getBoundingClientRect().x,
-    toolbarWidth: toolbar.getBoundingClientRect().width,
-    scrollX: window.scrollX,
-  };
-});
-mobile.vatControlsVisible = await mobilePage.locator(".vat-controls").isVisible();
-mobile.vatControlsFit = mobileVatControls
-  && mobileVatControls.x >= 0
-  && mobileVatControls.x + mobileVatControls.width <= 390;
-let releaseMobileCommissionImport;
-let markMobileCommissionImportStarted;
-const mobileCommissionImportStarted = new Promise((resolve) => {
-  markMobileCommissionImportStarted = resolve;
-});
-const mobileCommissionImportRoute = async (route) => {
-  markMobileCommissionImportStarted();
-  await new Promise((resolve) => {
-    releaseMobileCommissionImport = resolve;
-  });
-  try {
-    await route.continue();
-  } catch {
-    // Removing the route can resume the intercepted request first.
-  }
-};
-await mobilePage.route("**/api/import-commissions", mobileCommissionImportRoute);
-await mobilePage.locator("#commissionFileInput").setInputFiles(
-  "C:\\Users\\SELLOCP92-1\\Downloads\\UK Product Commission Rate List.xlsx",
-);
-await mobileCommissionImportStarted;
-await mobilePage.waitForSelector("#importProgressModal.visible");
-const mobileImportProgress = await mobilePage.locator(
-  "#importProgressModal .import-progress-modal",
-).boundingBox();
-mobile.importProgressFits = mobileImportProgress
-  && mobileImportProgress.x >= 0
-  && mobileImportProgress.x + mobileImportProgress.width <= 390
-  && mobileImportProgress.y >= 0
-  && mobileImportProgress.y + mobileImportProgress.height <= 844;
-mobile.importProgressTitle = await mobilePage.locator("#importProgressTitle").textContent();
-mobile.importCancelVisible = await mobilePage.locator("#cancelImport").isVisible();
-await mobilePage.screenshot({
-  path: "analysis/import-progress-mobile.png",
-});
-releaseMobileCommissionImport();
-await mobilePage.unroute("**/api/import-commissions", mobileCommissionImportRoute);
-await mobilePage.waitForFunction(
-  () => !document.querySelector("#importProgressModal")?.classList.contains("visible"),
-);
-await mobilePage.locator("#fileInput").setInputFiles({
-  name: "missing-commission.csv",
-  mimeType: "text/csv",
-  buffer: Buffer.from("Platform SKU,Current Offer Price\nAIRPURE-HOAIR334,19.99\n"),
-});
-await mobilePage.waitForSelector("#commissionMissingModal.visible");
-const mobileCommissionModal = await mobilePage.locator("#commissionMissingModal .modal").boundingBox();
-mobile.commissionModalFits = mobileCommissionModal
-  && mobileCommissionModal.x >= 0
-  && mobileCommissionModal.x + mobileCommissionModal.width <= 390
-  && mobileCommissionModal.y >= 0
-  && mobileCommissionModal.y + mobileCommissionModal.height <= 844;
-mobile.commissionActionsVisible = await mobilePage.locator("#reuploadCommission").isVisible()
-  && await mobilePage.locator("#applySuggestedCommissions").isVisible();
-mobile.chineseCommissionTitle = await mobilePage.locator("#commissionMissingTitle").textContent();
-mobile.chineseCommissionSummary = await mobilePage.locator("#commissionMissingSummary").textContent();
-await mobilePage.screenshot({
-  path: "analysis/commission-missing-mobile.png",
-  fullPage: true,
-});
-await mobilePage.screenshot({
-  path: "analysis/vat-controls-mobile.png",
-  fullPage: true,
-});
-await mobileContext.close();
-await browser.close();
-
-const materialErrors = errors.filter((message) => !message.includes("Failed to load resource"));
-if (materialErrors.length) throw new Error(`Browser console errors: ${materialErrors.join(" | ")}`);
-if (
-  !initial.guideVisible
-  || initial.guideCounter !== "Step 1 of 6"
-  || initial.secondGuideTitle !== "Import current offers"
-  || (
-    initial.startupCaMappingVisible
-    && initial.startupCaMappingTitle !== "Match CA SKUs to Wooper"
-  )
-  || (initial.startupCaMappingVisible && initial.startupCaMappingCount < 1)
-  || (!initial.startupCaMappingVisible && initial.startupCaMappingCount !== 0)
-  || (
-    initial.startupCaMappingVisible
-    && !initial.startupCaMappingSearchVisible
-  )
-  || initial.startupCaParentCount !== 0
-  || !initial.firstImportVisibleAfterGuide
-) {
-  throw new Error(
-    `First-visit user guide did not complete the expected flow: ${JSON.stringify(initial)}`,
-  );
-}
-if (initial.platformCount < 10) throw new Error("Platform defaults did not load.");
-if (initial.marginInputs !== 8) throw new Error("Grade margin matrix is incomplete.");
-if (initial.vatOptions !== 4 || initial.vatRate !== "VAT 20%") {
-  throw new Error("VAT controls are incomplete.");
-}
-if (initial.priceSourceOptions !== 2 || initial.defaultPriceSource !== "CA price") {
-  throw new Error("CA price is not the default calculation source.");
-}
-if (
-  !cancelledImport.visible
-  || cancelledImport.title !== "Loading platform data"
-  || !cancelledImport.message?.includes("cancel-test.csv")
-  || cancelledImport.cancelLabel !== "Cancel import"
-  || cancelledImport.rowCountBeforeCancel !== 0
-  || !cancelledImport.hidden
-  || cancelledImport.rowCountAfterCancel !== 0
-  || cancelledImport.status !== "Import cancelled"
-  || !cancelledImport.firstImportRestored
-) {
-  throw new Error(`Import cancellation failed: ${JSON.stringify(cancelledImport)}`);
-}
-if (
-  commissionProgress.title !== "Loading commission table"
-  || !commissionProgress.message?.includes("UK Product Commission Rate List.xlsx")
-  || !commissionProgress.hiddenAfterImport
-) {
-  throw new Error(`Commission import progress failed: ${JSON.stringify(commissionProgress)}`);
-}
-if (
-  initial.defaultCommissionLabel !== "Default commission"
-  || initial.defaultCommissionLabel.includes("VAT")
-) {
-  throw new Error(`Default commission label is incorrect: ${initial.defaultCommissionLabel}`);
-}
-if (
-  chinese.htmlLanguage !== "zh-CN"
-  || chinese.title !== "ä¿ƒé”€æåå·¥å…·"
-  || chinese.switchLabel?.trim() !== "English"
-  || chinese.guideTitle !== "é€‰æ‹©å¹³å°"
-  || chinese.guideCounter !== "ç¬¬1æ­¥ï¼Œå…±6æ­¥"
-  || chinese.caPriceLabel?.trim() !== "CAåƒ¹"
-  || chinese.caHeader.replace(/\s+/g, " ").trim() !== "CAåƒ¹ å«VAT"
-  || chinese.vatRate !== "VAT 20%"
-  || chinese.defaultCommissionLabel !== "é»˜è®¤ä½£é‡‘ç‡"
-  || chinese.defaultCommissionValue !== initial.defaultCommission
-  || chinese.campaignName !== "EXTRA 25%"
-  || !chinese.noPageOverflow
-) {
-  throw new Error(`Simplified Chinese interface is incomplete: ${JSON.stringify(chinese)}`);
-}
-if (!initial.guideText?.includes("UK Product Commission Rate List from DingTalk")) {
-  throw new Error("The user guide does not explain where to obtain the commission workbook.");
-}
-if (
-  initial.discountIntervalEnabled
-  || initial.discountIntervalValue !== "5"
-  || !initial.discountIntervalDisabled
-) {
-  throw new Error("Discount interval defaults are incorrect.");
-}
-if (!offerImport.commissionTableRequired) throw new Error("Variable commission upload was not requested.");
-if (
-  !matchedCommission.requirementHidden
-  || matchedCommission.missingPromptVisible
-  || !matchedCommission.reusedForRange
-) {
-  throw new Error(`Matched commission rate was not applied: ${JSON.stringify(matchedCommission)}`);
-}
-if (
-  !missingCommission.promptVisible
-  || !missingCommission.summary?.includes("Re-upload the latest UK Product Commission Rate List from DingTalk")
-  || missingCommission.sku?.trim() !== "AIRPURE-HOAIR334"
-  || !missingCommission.suggestedRate
-  || !missingCommission.suggestionSource?.includes("platform default")
-  || !missingCommission.requirementVisible
-  || missingCommission.decision?.trim() !== "Review"
-  || !missingCommission.applied
-  || !missingCommission.requirementCleared
-) {
-  throw new Error(`Missing commission recovery failed: ${JSON.stringify(missingCommission)}`);
-}
-const expectedDefaultPrice = offerImport.caPrice?.trim() === "-"
-  ? offerImport.offerPrice?.trim()
-  : offerImport.caPrice?.trim();
-if (
-  offerImport.offerPrice?.trim() !== "Â£24.99"
-  || offerImport.defaultPriceUsed?.trim() !== expectedDefaultPrice
-  || offerImport.offerPriceUsed?.trim() !== "Â£24.99"
-) {
-  throw new Error(
-    `CA price and offer price source switching did not recalculate: ${JSON.stringify(offerImport)}`,
-  );
-}
-const validCaFallback = missingOffer.priceUsed?.trim() !== "Â£0.00"
-  && missingOffer.reason?.includes("Offer price unavailable; CA price used");
-const noPriceAvailable = missingOffer.priceUsed?.trim() === "Â£0.00"
-  && missingOffer.reason?.includes("Price or margin settings make reverse pricing impossible")
-  && !missingOffer.reason?.includes("Offer price unavailable; CA price used");
-if (
-  missingOffer.offerPrice?.trim() !== "-"
-  || (!validCaFallback && !noPriceAvailable)
-) {
-  throw new Error(`Missing offer price did not fall back to CA price: ${JSON.stringify(missingOffer)}`);
-}
-if (
-  !mapping.promptVisible
-  || mapping.suggestedSku !== "MYSTERY-UK"
-  || !mapping.nonExistingOption
-  || !mapping.closed
-  || !mapping.reopenAvailable
-  || !mapping.reopened
-) {
-  throw new Error("Manual SKU mapping prompt did not use the CA Price rule.");
-}
-if (loaded.rowCount !== 10) throw new Error("Workbook sample rows did not load.");
-const expectedSkuOrder = [...loaded.displayedSkus].sort((left, right) => (
-  left.localeCompare(right, "en-GB", { numeric: true, sensitivity: "base" })
-));
-if (loaded.displayedSkus.join("|") !== expectedSkuOrder.join("|")) {
-  throw new Error(`Displayed SKUs are not sorted A-Z: ${JSON.stringify(loaded.displayedSkus)}`);
-}
-if (
-  loaded.criteriaWidthExpanded < 290
-  || loaded.criteriaWidthCollapsed > 45
-  || loaded.resultsWidthCollapsed <= loaded.resultsWidthExpanded
-  || !loaded.criteriaFormHidden
-  || loaded.criteriaToggleExpanded !== "false"
-  || loaded.criteriaPreference !== "true"
-  || loaded.chineseShowCriteriaTitle !== "æ˜¾ç¤ºç­›é€‰æ¡ä»¶"
-  || !loaded.criteriaRestored
-) {
-  throw new Error(`Criteria collapse failed: ${JSON.stringify(loaded)}`);
-}
-if (
-  loaded.mainCategoryOptions < 2
-  || loaded.subcategoryOptions < 2
-  || loaded.brandOptions < 2
-  || loaded.multiCategorySummary !== "2 selected"
-  || loaded.multiCategoryValues.length !== 2
-  || !loaded.multiCategoryValues.includes("Home Appliances")
-  || !loaded.multiCategoryValues.includes("Kitchen Appliances")
-  || loaded.chineseMultiCategorySummary !== "\u5df2\u9009 2 \u9879"
-  || !loaded.unselectedCategoryReason?.includes("Outside selected main category")
-  || !loaded.multiCategoryCleared
-) {
-  throw new Error(`Multi-select filters are incomplete: ${JSON.stringify(loaded)}`);
-}
-if (loaded.normalMarginRowReason?.toLowerCase().includes("normal margin")) {
-  throw new Error(
-    `Historical normal margin still changes the decision: ${JSON.stringify(loaded)}`,
-  );
-}
-if (loaded.returnRateReviewCount < 1) {
-  throw new Error(`Review metrics are not highlighted: ${JSON.stringify(loaded)}`);
-}
-if (
-  loaded.headerNoteCount !== 3
-  || !loaded.promoHighlightNote?.includes("5 percentage points")
-  || !loaded.returnHighlightNote?.includes("Return review threshold")
-  || !loaded.returnTooltipVisible
-  || loaded.stickyHeader?.position !== "sticky"
-  || !loaded.stickyHeader?.scrolled
-  || loaded.stickyHeader?.topDelta > 2
-) {
-  throw new Error(`Header guidance or sticky scrolling failed: ${JSON.stringify(loaded)}`);
-}
-if (
-  loaded.chineseDecision?.trim() !== "æ’é™¤"
-  || !loaded.chineseReason?.includes("åº“å­˜ä½äºç­›é€‰æ¡ä»¶")
-  || !loaded.chineseReason?.includes("é€€è´§ç‡è¾¾åˆ°æˆ–è¶…è¿‡6%å®¡æ ¸é˜ˆå€¼")
-  || loaded.chineseCaHeader.replace(/\s+/g, " ").trim() !== "CAåƒ¹ å«VAT"
-  || !loaded.chineseReturnHighlightNote?.includes("é»˜è®¤6%")
-  || loaded.chineseRowCount !== loaded.rowCount
-) {
-  throw new Error(`Dynamic Chinese results are incomplete: ${JSON.stringify(loaded)}`);
-}
-const promoMarginIndex = loaded.headerOrder.indexOf("Promo margin proposed");
-if (
-  promoMarginIndex < 0
-  || loaded.headerOrder[promoMarginIndex + 1] !== "SOH"
-  || loaded.headerOrder[promoMarginIndex + 2] !== "Sold"
-  || loaded.headerOrder[promoMarginIndex + 3] !== "Lifetime margin after returns"
-) {
-  throw new Error(`Result columns are in the wrong position: ${JSON.stringify(loaded.headerOrder)}`);
-}
-if (loaded.overlappingHeaders) {
-  throw new Error(`Result columns overlap: ${JSON.stringify(loaded)}`);
-}
-const positiveIntervalDiscounts = loaded.suggestedDiscountsAfterInterval
-  .map((value) => Number(value?.replace("%", "")))
-  .filter((value) => Number.isFinite(value) && value > 0);
-if (
-  !loaded.discountIntervalInputEnabled
-  || !positiveIntervalDiscounts.every((value) => Math.abs(value % 5) < 0.001)
-  || loaded.suggestedDiscountsBeforeInterval.join("|")
-    === loaded.suggestedDiscountsAfterInterval.join("|")
-) {
-  throw new Error(`Discount interval did not floor suggestions: ${JSON.stringify(loaded)}`);
-}
-if (
-  loaded.normalPriceHeader.replace(/\s+/g, " ").trim() !== "Price used VAT included"
-  || loaded.offerPriceHeader.replace(/\s+/g, " ").trim() !== "Offer price VAT excluded"
-  || loaded.promoPriceHeader.replace(/\s+/g, " ").trim() !== "Promo price VAT excluded"
-  || loaded.priceHeaderWidths.some((width) => width > 94)
-  || loaded.priceHeaderLineCounts.some((count) => count !== 2)
-  || loaded.returnRates.every((value) => value === "-")
-  || !loaded.exportHasCaPriceHeader
-  || !loaded.exportHasInputVatHeader
-  || !loaded.exportHasPromoVatHeader
-  || !loaded.exportHasPriceSourceHeader
-) {
-  throw new Error(
-    `VAT basis was not recorded in the table and export headers: ${JSON.stringify(loaded)}`,
-  );
-}
-if (
-  !mobile.guideVisible
-  || !mobile.widthFits
-  || !mobile.heightFits
-  || !mobile.noPageOverflow
-  || !mobile.vatControlsVisible
-  || !mobile.vatControlsFit
-  || !mobile.commissionModalFits
-  || !mobile.commissionActionsVisible
-  || !mobile.startupCaMappingFits
-  || !mobile.importProgressFits
-  || mobile.importProgressTitle !== "æ­£åœ¨åŠ è½½ä½£é‡‘ç‡è¡¨"
-  || !mobile.importCancelVisible
-  || !mobile.criteriaCollapsed
-  || mobile.criteriaCollapsedHeight > 50
-  || mobile.criteriaShowTitle !== "æ˜¾ç¤ºç­›é€‰æ¡ä»¶"
-  || mobile.collapsedResultsWidth !== 390
-  || !mobile.criteriaRestored
-  || !mobile.resultsPanelConstrained
-  || mobile.stickyHeaderPosition !== "sticky"
-  || mobile.chineseTitle !== "é€‰æ‹©å¹³å°"
-  || mobile.chineseCounter !== "ç¬¬1æ­¥ï¼Œå…±6æ­¥"
-  || mobile.chineseCommissionTitle !== "ç¼ºå°‘ä½£é‡‘ç‡"
-  || !mobile.chineseCommissionSummary?.includes("DingTalk")
-) {
-  throw new Error(`User guide or mobile results layout failed: ${JSON.stringify(mobile)}`);
-}
-
-console.log(JSON.stringify({
-  initial,
-  chinese,
-  offerImport,
-  missingOffer,
-  mapping,
-  cancelledImport,
-  commissionProgress,
-  loaded,
-  mobile,
-}));
+)ßÍ½¶‰ËkºwµçU…Ñ”  ¤€ôøì(€½¹ÍĞİ½É­ÍÁ…”€ô‘½Õµ•¹Ğ¹ÅÕ•ÉåM•±•Ñ½È ˆ¹İ½É­ÍÁ…”ˆ¤ì(€½¹ÍĞÉ•ÍÕ±ÑÌ€ô‘½Õµ•¹Ğ¹ÅÕ•ÉåM•±•Ñ½È ˆ¹É•ÍÕ±ÑÌµÁ…¹•°ˆ¤ì(€½¹ÍĞÑ½½±‰…È€ô‘½Õµ•¹Ğ¹ÅÕ•ÉåM•±•Ñ½È ˆ¹Ñ…‰±”µÑ½½±‰…Èˆ¤ì(€É•ÑÕÉ¸ì(€€€İ½É­ÍÁ…•½±Õµ¹Ìè•Ñ½µÁÕÑ•‘MÑå±”¡İ½É­ÍÁ…”¤¹É¥‘Q•µÁ±…Ñ•½±Õµ¹Ì°(€€€İ½É­ÍÁ…•]¥‘Ñ èİ½É­ÍÁ…”¹•Ñ	½Õ¹‘¥¹±¥•¹ÑI•Ğ ¤¹İ¥‘Ñ °(€€€É•ÍÕ±ÑÍ`èÉ•ÍÕ±ÑÌ¹•Ñ	½Õ¹‘¥¹±¥•¹ÑI•Ğ ¤¹à°(€€€É•ÍÕ±ÑÍ]¥‘Ñ èÉ•ÍÕ±ÑÌ¹•Ñ	½Õ¹‘¥¹±¥•¹ÑI•Ğ ¤¹İ¥‘Ñ °(€€€Ñ½½±‰…É`èÑ½½±‰…È¹•Ñ	½Õ¹‘¥¹±¥•¹ÑI•Ğ ¤¹à°(€€€Ñ½½±‰…É]¥‘Ñ èÑ½½±‰…È¹•Ñ	½Õ¹‘¥¹±¥•¹ÑI•Ğ ¤¹İ¥‘Ñ °(€€€ÍÉ½±±`èİ¥¹‘½Ü¹ÍÉ½±±`°(€ôì)ô¤ì)µ½‰¥±”¹Ù…Ñ½¹ÑÉ½±ÍY¥Í¥‰±”€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ¹Ù…Ğµ½¹ÑÉ½±Ìˆ¤¹¥ÍY¥Í¥‰±” ¤ì)µ½‰¥±”¹Ù…Ñ½¹ÑÉ½±Í¥Ğ€ôµ½‰¥±•Y…Ñ½¹ÑÉ½±Ì(€€˜˜µ½‰¥±•Y…Ñ½¹ÑÉ½±Ì¹à€øô€À(€€˜˜µ½‰¥±•Y…Ñ½¹ÑÉ½±Ì¹à€¬µ½‰¥±•Y…Ñ½¹ÑÉ½±Ì¹İ¥‘Ñ €ğô€ÌäÀì)±•ĞÉ•±•…Í•5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉĞì)±•Ğµ…É­5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑMÑ…ÉÑ•ì)½¹ÍĞµ½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑMÑ…ÉÑ•€ô¹•ÜAÉ½µ¥Í” ¡É•Í½±Ù”¤€ôøì(€µ…É­5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑMÑ…ÉÑ•€ôÉ•Í½±Ù”ì)ô¤ì)½¹ÍĞµ½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑI½ÕÑ”€ô…Íå¹Œ€¡É½ÕÑ”¤€ôøì(€µ…É­5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑMÑ…ÉÑ• ¤ì(€…İ…¥Ğ¹•ÜAÉ½µ¥Í” ¡É•Í½±Ù”¤€ôøì(€€€É•±•…Í•5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉĞ€ôÉ•Í½±Ù”ì(€ô¤ì(€ÑÉäì(€€€…İ…¥ĞÉ½ÕÑ”¹½¹Ñ¥¹Õ” ¤ì(€ô…Ñ ì(€€€€¼¼I•µ½Ù¥¹œÑ¡”É½ÕÑ”…¸É•ÍÕµ”Ñ¡”¥¹Ñ•É•ÁÑ•É•ÅÕ•ÍĞ™¥ÉÍĞ¸(€ô)ôì)…İ…¥Ğµ½‰¥±•A…”¹É½ÕÑ” ˆ¨¨½…Á¤½¥µÁ½ÉĞµ½µµ¥ÍÍ¥½¹Ìˆ°µ½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑI½ÕÑ”¤ì)…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ½µµ¥ÍÍ¥½¹¥±•%¹ÁÕĞˆ¤¹Í•Ñ%¹ÁÕÑ¥±•Ì (€€‰éqqUÍ•ÉÍqqM11=@äÈ´Åqq½İ¹±½…‘ÍqqU,AÉ½‘ÕĞ½µµ¥ÍÍ¥½¸I…Ñ”1¥ÍĞ¹á±Íàˆ°(¤ì)…İ…¥Ğµ½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑMÑ…ÉÑ•ì)…İ…¥Ğµ½‰¥±•A…”¹İ…¥Ñ½ÉM•±•Ñ½È ˆ¥µÁ½ÉÑAÉ½É•ÍÍ5½‘…°¹Ù¥Í¥‰±”ˆ¤ì)½¹ÍĞµ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È (€€ˆ¥µÁ½ÉÑAÉ½É•ÍÍ5½‘…°€¹¥µÁ½ÉĞµÁÉ½É•ÍÌµµ½‘…°ˆ°(¤¹‰½Õ¹‘¥¹	½à ¤ì)µ½‰¥±”¹¥µÁ½ÉÑAÉ½É•ÍÍ¥ÑÌ€ôµ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ(€€˜˜µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹à€øô€À(€€˜˜µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹à€¬µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹İ¥‘Ñ €ğô€ÌäÀ(€€˜˜µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹ä€øô€À(€€˜˜µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹ä€¬µ½‰¥±•%µÁ½ÉÑAÉ½É•ÍÌ¹¡•¥¡Ğ€ğô€àĞĞì)µ½‰¥±”¹¥µÁ½ÉÑAÉ½É•ÍÍQ¥Ñ±”€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ¥µÁ½ÉÑAÉ½É•ÍÍQ¥Ñ±”ˆ¤¹Ñ•áÑ½¹Ñ•¹Ğ ¤ì)µ½‰¥±”¹¥µÁ½ÉÑ…¹•±Y¥Í¥‰±”€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ…¹•±%µÁ½ÉĞˆ¤¹¥ÍY¥Í¥‰±” ¤ì)…İ…¥Ğµ½‰¥±•A…”¹ÍÉ••¹Í¡½Ğ¡ì(€Á…Ñ è€‰…¹…±åÍ¥Ì½¥µÁ½ÉĞµÁÉ½É•ÍÌµµ½‰¥±”¹Á¹œˆ°)ô¤ì)É•±•…Í•5½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉĞ ¤ì)…İ…¥Ğµ½‰¥±•A…”¹Õ¹É½ÕÑ” ˆ¨¨½…Á¤½¥µÁ½ÉĞµ½µµ¥ÍÍ¥½¹Ìˆ°µ½‰¥±•½µµ¥ÍÍ¥½¹%µÁ½ÉÑI½ÕÑ”¤ì)…İ…¥Ğµ½‰¥±•A…”¹İ…¥Ñ½ÉÕ¹Ñ¥½¸ (€€ ¤€ôø€…‘½Õµ•¹Ğ¹ÅÕ•ÉåM•±•Ñ½È ˆ¥µÁ½ÉÑAÉ½É•ÍÍ5½‘…°ˆ¤ü¹±…ÍÍ1¥ÍĞ¹½¹Ñ…¥¹Ì ‰Ù¥Í¥‰±”ˆ¤°(¤ì)…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ™¥±•%¹ÁÕĞˆ¤¹Í•Ñ%¹ÁÕÑ¥±•Ì¡ì(€¹…µ”è€‰µ¥ÍÍ¥¹œµ½µµ¥ÍÍ¥½¸¹ÍØˆ°(€µ¥µ•QåÁ”è€‰Ñ•áĞ½ÍØˆ°(€‰Õ™™•Èè	Õ™™•È¹™É½´ ‰A±…Ñ™½É´M-T±ÕÉÉ•¹Ğ=™™•ÈAÉ¥•q¹%IAUIµ!=%HÌÌĞ°Ää¸äåq¸ˆ¤°)ô¤ì)…İ…¥Ğµ½‰¥±•A…”¹İ…¥Ñ½ÉM•±•Ñ½È ˆ½µµ¥ÍÍ¥½¹5¥ÍÍ¥¹5½‘…°¹Ù¥Í¥‰±”ˆ¤ì)½¹ÍĞµ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ½µµ¥ÍÍ¥½¹5¥ÍÍ¥¹5½‘…°€¹µ½‘…°ˆ¤¹‰½Õ¹‘¥¹	½à ¤ì)µ½‰¥±”¹½µµ¥ÍÍ¥½¹5½‘…±¥ÑÌ€ôµ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°(€€˜˜µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹à€øô€À(€€˜˜µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹à€¬µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹İ¥‘Ñ €ğô€ÌäÀ(€€˜˜µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹ä€øô€À(€€˜˜µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹ä€¬µ½‰¥±•½µµ¥ÍÍ¥½¹5½‘…°¹¡•¥¡Ğ€ğô€àĞĞì)µ½‰¥±”¹½µµ¥ÍÍ¥½¹Ñ¥½¹ÍY¥Í¥‰±”€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆÉ•ÕÁ±½…‘½µµ¥ÍÍ¥½¸ˆ¤¹¥ÍY¥Í¥‰±” ¤(€€˜˜…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ…ÁÁ±åMÕ•ÍÑ•‘½µµ¥ÍÍ¥½¹Ìˆ¤¹¥ÍY¥Í¥‰±” ¤ì)µ½‰¥±”¹¡¥¹•Í•½µµ¥ÍÍ¥½¹Q¥Ñ±”€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ½µµ¥ÍÍ¥½¹5¥ÍÍ¥¹Q¥Ñ±”ˆ¤¹Ñ•áÑ½¹Ñ•¹Ğ ¤ì)µ½‰¥±”¹¡¥¹•Í•½µµ¥ÍÍ¥½¹MÕµµ…Éä€ô…İ…¥Ğµ½‰¥±•A…”¹±½…Ñ½È ˆ½µµ¥ÍÍ¥½¹5¥ÍÍ¥¹MÕµµ…Éäˆ¤¹Ñ•áÑ½¹Ñ•¹Ğ ¤ì)…İ…¥Ğµ½‰¥±•A…”¹ÍÉ••¹Í¡½Ğ¡ì(€Á…Ñ è€‰…¹…±åÍ¥Ì½½µµ¥ÍÍ¥½¸µµ¥ÍÍ¥¹œµµ½‰¥±”¹Á¹œˆ°(€™Õ±±A…”èÑÉÕ”°)ô¤ì)…İ…¥Ğµ½‰¥±•A…”¹ÍÉ••¹Í¡½Ğ¡ì(€Á…Ñ è€‰…¹…±åÍ¥Ì½Ù…Ğµ½¹ÑÉ½±Ìµµ½‰¥±”¹Á¹œˆ°(€™Õ±±A…”èÑÉÕ”°)ô¤ì)…İ…¥Ğµ½‰¥±•½¹Ñ•áĞ¹±½Í” ¤ì)…İ…¥Ğ‰É½İÍ•È¹±½Í” ¤ì()½¹ÍĞµ…Ñ•É¥…±ÉÉ½ÉÌ€ô•ÉÉ½ÉÌ¹™¥±Ñ•È ¡µ•ÍÍ…”¤€ôø€…µ•ÍÍ…”¹¥¹±Õ‘•Ì ‰…¥±•Ñ¼±½…É•Í½ÕÉ”ˆ¤¤ì)¥˜€¡µ…Ñ•É¥…±ÉÉ½ÉÌ¹±•¹Ñ ¤Ñ¡É½Ü¹•ÜÉÉ½È¡	É½İÍ•È½¹Í½±”•ÉÉ½ÉÌè€‘íµ…Ñ•É¥…±ÉÉ½ÉÌ¹©½¥¸ ˆğ€ˆ¥õ€¤ì)¥˜€ (€€…¥¹¥Ñ¥…°¹Õ¥‘•Y¥Í¥‰±”(€ñğ¥¹¥Ñ¥…°¹Õ¥‘•½Õ¹Ñ•È€„ôô€‰MÑ•À€Ä½˜€Øˆ(€ñğ¥¹¥Ñ¥…°¹Í•½¹‘Õ¥‘•Q¥Ñ±”€„ôô€‰%µÁ½ÉĞÕÉÉ•¹Ğ½™™•ÉÌˆ(€ñğ€ (€€€¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹Y¥Í¥‰±”(€€€€˜˜¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹Q¥Ñ±”€„ôô€‰5…Ñ M-UÌÑ¼]½½Á•Èˆ(€€¤(€ñğ€¡¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹Y¥Í¥‰±”€˜˜¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹½Õ¹Ğ€ğ€Ä¤(€ñğ€ …¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹Y¥Í¥‰±”€˜˜¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹½Õ¹Ğ€„ôô€À¤(€ñğ€ (€€€¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹Y¥Í¥‰±”(€€€€˜˜€…¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹M•…É¡Y¥Í¥‰±”(€€¤(€ñğ¥¹¥Ñ¥…°¹ÍÑ…ÉÑÕÁ…A…É•¹Ñ½Õ¹Ğ€„ôô€À(€ñğ€…¥¹¥Ñ¥…°¹™¥ÉÍÑ%µÁ½ÉÑY¥Í¥‰±•™Ñ•ÉÕ¥‘”(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È (€€€¥ÉÍĞµÙ¥Í¥ĞÕÍ•ÈÕ¥‘”‘¥¹½Ğ½µÁ±•Ñ”Ñ¡”•áÁ•Ñ•™±½Üè€‘í)M=8¹ÍÑÉ¥¹¥™ä¡¥¹¥Ñ¥…°¥õ€°(€€¤ì)ô)¥˜€¡¥¹¥Ñ¥…°¹Á±…Ñ™½Éµ½Õ¹Ğ€ğ€ÄÀ¤Ñ¡É½Ü¹•ÜÉÉ½È ‰A±…Ñ™½É´‘•™…Õ±ÑÌ‘¥¹½Ğ±½…¸ˆ¤ì)¥˜€¡¥¹¥Ñ¥…°¹µ…É¥¹%¹ÁÕÑÌ€„ôô€à¤Ñ¡É½Ü¹•ÜÉÉ½È ‰É…‘”µ…É¥¸µ…ÑÉ¥à¥Ì¥¹½µÁ±•Ñ”¸ˆ¤ì)¥˜€¡¥¹¥Ñ¥…°¹Ù…Ñ=ÁÑ¥½¹Ì€„ôô€Ğñğ¥¹¥Ñ¥…°¹Ù…ÑI…Ñ”€„ôô€‰YP€ÈÀ”ˆ¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È ‰YP½¹ÑÉ½±Ì…É”¥¹½µÁ±•Ñ”¸ˆ¤ì)ô)¥˜€¡¥¹¥Ñ¥…°¹ÁÉ¥•M½ÕÉ•=ÁÑ¥½¹Ì€„ôô€Èñğ¥¹¥Ñ¥…°¹‘•™…Õ±ÑAÉ¥•M½ÕÉ”€„ôô€‰ÁÉ¥”ˆ¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È ‰ÁÉ¥”¥Ì¹½ĞÑ¡”‘•™…Õ±Ğ…±Õ±…Ñ¥½¸Í½ÕÉ”¸ˆ¤ì)ô)¥˜€ (€€……¹•±±•‘%µÁ½ÉĞ¹Ù¥Í¥‰±”(€ñğ…¹•±±•‘%µÁ½ÉĞ¹Ñ¥Ñ±”€„ôô€‰1½…‘¥¹œÁ±…Ñ™½É´‘…Ñ„ˆ(€ñğ€……¹•±±•‘%µÁ½ÉĞ¹µ•ÍÍ…”ü¹¥¹±Õ‘•Ì ‰…¹•°µÑ•ÍĞ¹ÍØˆ¤(€ñğ…¹•±±•‘%µÁ½ÉĞ¹…¹•±1…‰•°€„ôô€‰…¹•°¥µÁ½ÉĞˆ(€ñğ…¹•±±•‘%µÁ½ÉĞ¹É½İ½Õ¹Ñ	•™½É•…¹•°€„ôô€À(€ñğ€……¹•±±•‘%µÁ½ÉĞ¹¡¥‘‘•¸(€ñğ…¹•±±•‘%µÁ½ÉĞ¹É½İ½Õ¹Ñ™Ñ•É…¹•°€„ôô€À(€ñğ…¹•±±•‘%µÁ½ÉĞ¹ÍÑ…ÑÕÌ€„ôô€‰%µÁ½ÉĞ…¹•±±•ˆ(€ñğ€……¹•±±•‘%µÁ½ÉĞ¹™¥ÉÍÑ%µÁ½ÉÑI•ÍÑ½É•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡%µÁ½ÉĞ…¹•±±…Ñ¥½¸™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡…¹•±±•‘%µÁ½ÉĞ¥õ€¤ì)ô)¥˜€ (€½µµ¥ÍÍ¥½¹AÉ½É•ÍÌ¹Ñ¥Ñ±”€„ôô€‰1½…‘¥¹œ½µµ¥ÍÍ¥½¸Ñ…‰±”ˆ(€ñğ€…½µµ¥ÍÍ¥½¹AÉ½É•ÍÌ¹µ•ÍÍ…”ü¹¥¹±Õ‘•Ì ‰U,AÉ½‘ÕĞ½µµ¥ÍÍ¥½¸I…Ñ”1¥ÍĞ¹á±Íàˆ¤(€ñğ€…½µµ¥ÍÍ¥½¹AÉ½É•ÍÌ¹¡¥‘‘•¹™Ñ•É%µÁ½ÉĞ(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡½µµ¥ÍÍ¥½¸¥µÁ½ÉĞÁÉ½É•ÍÌ™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡½µµ¥ÍÍ¥½¹AÉ½É•ÍÌ¥õ€¤ì)ô)¥˜€ (€¥¹¥Ñ¥…°¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¹1…‰•°€„ôô€‰•™…Õ±Ğ½µµ¥ÍÍ¥½¸ˆ(€ñğ¥¹¥Ñ¥…°¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¹1…‰•°¹¥¹±Õ‘•Ì ‰YPˆ¤(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡•™…Õ±Ğ½µµ¥ÍÍ¥½¸±…‰•°¥Ì¥¹½ÉÉ•Ğè€‘í¥¹¥Ñ¥…°¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¹1…‰•±õ€¤ì)ô)¥˜€ (€¡¥¹•Í”¹¡Ñµ±1…¹Õ…”€„ôô€‰é µ8ˆ(€ñğ¡¥¹•Í”¹Ñ¥Ñ±”€„ôô€‹’ş¦Rš>C–B7–Ş—–Üˆ(€ñğ¡¥¹•Í”¹Íİ¥Ñ¡1…‰•°ü¹ÑÉ¥´ ¤€„ôô€‰¹±¥Í ˆ(€ñğ¡¥¹•Í”¹Õ¥‘•Q¥Ñ±”€„ôô€‹¦'š.§–æÏ–>Àˆ(€ñğ¡¥¹•Í”¹Õ¥‘•½Õ¹Ñ•È€„ôô€‹²°Çš¶—¾ò3–ÄÛš¶”ˆ(€ñğ¡¥¹•Í”¹…AÉ¥•1…‰•°ü¹ÑÉ¥´ ¤€„ôô€‰–äˆ(€ñğ¡¥¹•Í”¹…!•…‘•È¹É•Á±…” ½qÌ¬½œ°€ˆ€ˆ¤¹ÑÉ¥´ ¤€„ôô€‰–äƒ–B­YPˆ(€ñğ¡¥¹•Í”¹Ù…ÑI…Ñ”€„ôô€‰YP€ÈÀ”ˆ(€ñğ¡¥¹•Í”¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¹1…‰•°€„ôô€‹¦îc¢º“’ö¦G:ˆ(€ñğ¡¥¹•Í”¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¹Y…±Õ”€„ôô¥¹¥Ñ¥…°¹‘•™…Õ±Ñ½µµ¥ÍÍ¥½¸(€ñğ¡¥¹•Í”¹…µÁ…¥¹9…µ”€„ôô€‰aQI€ÈÔ”ˆ(€ñğ€…¡¥¹•Í”¹¹½A…•=Ù•É™±½Ü(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡M¥µÁ±¥™¥•¡¥¹•Í”¥¹Ñ•É™…”¥Ì¥¹½µÁ±•Ñ”è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡¡¥¹•Í”¥õ€¤ì)ô)¥˜€ …¥¹¥Ñ¥…°¹Õ¥‘•Q•áĞü¹¥¹±Õ‘•Ì ‰U,AÉ½‘ÕĞ½µµ¥ÍÍ¥½¸I…Ñ”1¥ÍĞ™É½´¥¹Q…±¬ˆ¤¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È ‰Q¡”ÕÍ•ÈÕ¥‘”‘½•Ì¹½Ğ•áÁ±…¥¸İ¡•É”Ñ¼½‰Ñ…¥¸Ñ¡”½µµ¥ÍÍ¥½¸İ½É­‰½½¬¸ˆ¤ì)ô)¥˜€ (€¥¹¥Ñ¥…°¹‘¥Í½Õ¹Ñ%¹Ñ•ÉÙ…±¹…‰±•(€ñğ¥¹¥Ñ¥…°¹‘¥Í½Õ¹Ñ%¹Ñ•ÉÙ…±Y…±Õ”€„ôô€ˆÔˆ(€ñğ€…¥¹¥Ñ¥…°¹‘¥Í½Õ¹Ñ%¹Ñ•ÉÙ…±¥Í…‰±•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È ‰¥Í½Õ¹Ğ¥¹Ñ•ÉÙ…°‘•™…Õ±ÑÌ…É”¥¹½ÉÉ•Ğ¸ˆ¤ì)ô)¥˜€ …½™™•É%µÁ½ÉĞ¹½µµ¥ÍÍ¥½¹Q…‰±•I•ÅÕ¥É•¤Ñ¡É½Ü¹•ÜÉÉ½È ‰Y…É¥…‰±”½µµ¥ÍÍ¥½¸ÕÁ±½…İ…Ì¹½ĞÉ•ÅÕ•ÍÑ•¸ˆ¤ì)¥˜€ (€€…µ…Ñ¡•‘½µµ¥ÍÍ¥½¸¹É•ÅÕ¥É•µ•¹Ñ!¥‘‘•¸(€ñğµ…Ñ¡•‘½µµ¥ÍÍ¥½¸¹µ¥ÍÍ¥¹AÉ½µÁÑY¥Í¥‰±”(€ñğ€…µ…Ñ¡•‘½µµ¥ÍÍ¥½¸¹É•ÕÍ•‘½ÉI…¹”(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡5…Ñ¡•½µµ¥ÍÍ¥½¸É…Ñ”İ…Ì¹½Ğ…ÁÁ±¥•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡µ…Ñ¡•‘½µµ¥ÍÍ¥½¸¥õ€¤ì)ô)¥˜€ (€€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹ÁÉ½µÁÑY¥Í¥‰±”(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹ÍÕµµ…Éäü¹¥¹±Õ‘•Ì ‰I”µÕÁ±½…Ñ¡”±…Ñ•ÍĞU,AÉ½‘ÕĞ½µµ¥ÍÍ¥½¸I…Ñ”1¥ÍĞ™É½´¥¹Q…±¬ˆ¤(€ñğµ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹Í­Ôü¹ÑÉ¥´ ¤€„ôô€‰%IAUIµ!=%HÌÌĞˆ(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹ÍÕ•ÍÑ•‘I…Ñ”(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹ÍÕ•ÍÑ¥½¹M½ÕÉ”ü¹¥¹±Õ‘•Ì ‰Á±…Ñ™½É´‘•™…Õ±Ğˆ¤(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹É•ÅÕ¥É•µ•¹ÑY¥Í¥‰±”(€ñğµ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹‘•¥Í¥½¸ü¹ÑÉ¥´ ¤€„ôô€‰I•Ù¥•Üˆ(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹…ÁÁ±¥•(€ñğ€…µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¹É•ÅÕ¥É•µ•¹Ñ±•…É•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡5¥ÍÍ¥¹œ½µµ¥ÍÍ¥½¸É•½Ù•Éä™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡µ¥ÍÍ¥¹½µµ¥ÍÍ¥½¸¥õ€¤ì)ô)½¹ÍĞ•áÁ•Ñ•‘•™…Õ±ÑAÉ¥”€ô½™™•É%µÁ½ÉĞ¹…AÉ¥”ü¹ÑÉ¥´ ¤€ôôô€ˆ´ˆ(€€ü½™™•É%µÁ½ÉĞ¹½™™•ÉAÉ¥”ü¹ÑÉ¥´ ¤(€€è½™™•É%µÁ½ÉĞ¹…AÉ¥”ü¹ÑÉ¥´ ¤ì)¥˜€ (€½™™•É%µÁ½ÉĞ¹½™™•ÉAÉ¥”ü¹ÑÉ¥´ ¤€„ôô€‹
+ŒÈĞ¸ääˆ(€ñğ½™™•É%µÁ½ÉĞ¹‘•™…Õ±ÑAÉ¥•UÍ•ü¹ÑÉ¥´ ¤€„ôô•áÁ•Ñ•‘•™…Õ±ÑAÉ¥”(€ñğ½™™•É%µÁ½ÉĞ¹½™™•ÉAÉ¥•UÍ•ü¹ÑÉ¥´ ¤€„ôô€‹
+ŒÈĞ¸ääˆ(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È (€€€ÁÉ¥”…¹½™™•ÈÁÉ¥”Í½ÕÉ”Íİ¥Ñ¡¥¹œ‘¥¹½ĞÉ•…±Õ±…Ñ”è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡½™™•É%µÁ½ÉĞ¥õ€°(€€¤ì)ô)½¹ÍĞÙ…±¥‘……±±‰…¬€ôµ¥ÍÍ¥¹=™™•È¹ÁÉ¥•UÍ•ü¹ÑÉ¥´ ¤€„ôô€‹
+ŒÀ¸ÀÀˆ(€€˜˜µ¥ÍÍ¥¹=™™•È¹É•…Í½¸ü¹¥¹±Õ‘•Ì ‰=™™•ÈÁÉ¥”Õ¹…Ù…¥±…‰±”ìÁÉ¥”ÕÍ•ˆ¤ì)½¹ÍĞ¹½AÉ¥•Ù…¥±…‰±”€ôµ¥ÍÍ¥¹=™™•È¹ÁÉ¥•UÍ•ü¹ÑÉ¥´ ¤€ôôô€‹
+ŒÀ¸ÀÀˆ(€€˜˜µ¥ÍÍ¥¹=™™•È¹É•…Í½¸ü¹¥¹±Õ‘•Ì ‰AÉ¥”½Èµ…É¥¸Í•ÑÑ¥¹Ìµ…­”É•Ù•ÉÍ”ÁÉ¥¥¹œ¥µÁ½ÍÍ¥‰±”ˆ¤(€€˜˜€…µ¥ÍÍ¥¹=™™•È¹É•…Í½¸ü¹¥¹±Õ‘•Ì ‰=™™•ÈÁÉ¥”Õ¹…Ù…¥±…‰±”ìÁÉ¥”ÕÍ•ˆ¤ì)¥˜€ (€µ¥ÍÍ¥¹=™™•È¹½™™•ÉAÉ¥”ü¹ÑÉ¥´ ¤€„ôô€ˆ´ˆ(€ñğ€ …Ù…±¥‘……±±‰…¬€˜˜€…¹½AÉ¥•Ù…¥±…‰±”¤(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡5¥ÍÍ¥¹œ½™™•ÈÁÉ¥”‘¥¹½Ğ™…±°‰…¬Ñ¼ÁÉ¥”è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡µ¥ÍÍ¥¹=™™•È¥õ€¤ì)ô)¥˜€ (€€…µ…ÁÁ¥¹œ¹ÁÉ½µÁÑY¥Í¥‰±”(€ñğµ…ÁÁ¥¹œ¹ÍÕ•ÍÑ•‘M­Ô€„ôô€ˆˆ(€ñğ€…µ…ÁÁ¥¹œ¹¹½¹á¥ÍÑ¥¹=ÁÑ¥½¸(€ñğ€…µ…ÁÁ¥¹œ¹¥¹Ù…±¥‘I•©•Ñ•(€ñğ€…µ…ÁÁ¥¹œ¹É•µ…¥¹•‘=Á•¸(€ñğ€…µ…ÁÁ¥¹œ¹Ù…±¥‘]½½Á•É•ÁÑ•(€ñğ€…µ…ÁÁ¥¹œ¹±½Í•(€ñğ€…µ…ÁÁ¥¹œ¹É•½Á•¹Ù…¥±…‰±”(€ñğ€…µ…ÁÁ¥¹œ¹É•½Á•¹•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È ‰5…¹Õ…°M-Tµ…ÁÁ¥¹œ‘¥¹½Ğ•¹™½É”Ñ¡”ÕÉÉ•¹Ğ]½½Á•ÈM-T±¥ÍĞ¸ˆ¤ì)ô)¥˜€¡±½…‘•¹É½İ½Õ¹Ğ€„ôô€ÄÀ¤Ñ¡É½Ü¹•ÜÉÉ½È ‰]½É­‰½½¬Í…µÁ±”É½İÌ‘¥¹½Ğ±½…¸ˆ¤ì)½¹ÍĞ•áÁ•Ñ•‘M­Õ=É‘•È€ôl¸¸¹±½…‘•¹‘¥ÍÁ±…å•‘M­ÕÍt¹Í½ÉĞ ¡±•™Ğ°É¥¡Ğ¤€ôø€ (€±•™Ğ¹±½…±•½µÁ…É”¡É¥¡Ğ°€‰•¸µˆ°ì¹Õµ•É¥ŒèÑÉÕ”°Í•¹Í¥Ñ¥Ù¥Ñäè€‰‰…Í”ˆô¤(¤¤ì)¥˜€¡±½…‘•¹‘¥ÍÁ±…å•‘M­ÕÌ¹©½¥¸ ‰ğˆ¤€„ôô•áÁ•Ñ•‘M­Õ=É‘•È¹©½¥¸ ‰ğˆ¤¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡¥ÍÁ±…å•M-UÌ…É”¹½ĞÍ½ÉÑ•µhè€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¹‘¥ÍÁ±…å•‘M­ÕÌ¥õ€¤ì)ô)¥˜€ (€±½…‘•¹É¥Ñ•É¥…]¥‘Ñ¡áÁ…¹‘•€ğ€ÈäÀ(€ñğ±½…‘•¹É¥Ñ•É¥…]¥‘Ñ¡½±±…ÁÍ•€ø€ĞÔ(€ñğ±½…‘•¹É•ÍÕ±ÑÍ]¥‘Ñ¡½±±…ÁÍ•€ğô±½…‘•¹É•ÍÕ±ÑÍ]¥‘Ñ¡áÁ…¹‘•(€ñğ€…±½…‘•¹É¥Ñ•É¥…½Éµ!¥‘‘•¸(€ñğ±½…‘•¹É¥Ñ•É¥…Q½±•áÁ…¹‘•€„ôô€‰™…±Í”ˆ(€ñğ±½…‘•¹É¥Ñ•É¥…AÉ•™•É•¹”€„ôô€‰ÑÉÕ”ˆ(€ñğ±½…‘•¹¡¥¹•Í•M¡½İÉ¥Ñ•É¥…Q¥Ñ±”€„ôô€‹šbû’ë¶o¦'šv‡’îØˆ(€ñğ€…±½…‘•¹É¥Ñ•É¥…I•ÍÑ½É•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡É¥Ñ•É¥„½±±…ÁÍ”™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)¥˜€ (€±½…‘•¹µ…¥¹…Ñ•½Éå=ÁÑ¥½¹Ì€ğ€È(€ñğ±½…‘•¹ÍÕ‰…Ñ•½Éå=ÁÑ¥½¹Ì€ğ€È(€ñğ±½…‘•¹‰É…¹‘=ÁÑ¥½¹Ì€ğ€È(€ñğ±½…‘•¹µÕ±Ñ¥…Ñ•½ÉåMÕµµ…Éä€„ôô€ˆÈÍ•±•Ñ•ˆ(€ñğ±½…‘•¹µÕ±Ñ¥…Ñ•½ÉåY…±Õ•Ì¹±•¹Ñ €„ôô€È(€ñğ€…±½…‘•¹µÕ±Ñ¥…Ñ•½ÉåY…±Õ•Ì¹¥¹±Õ‘•Ì ‰!½µ”ÁÁ±¥…¹•Ìˆ¤(€ñğ€…±½…‘•¹µÕ±Ñ¥…Ñ•½ÉåY…±Õ•Ì¹¥¹±Õ‘•Ì ‰-¥Ñ¡•¸ÁÁ±¥…¹•Ìˆ¤(€ñğ±½…‘•¹¡¥¹•Í•5Õ±Ñ¥…Ñ•½ÉåMÕµµ…Éä€„ôô€‰qÔÕ‘˜ÉqÔäÀÀä€ÈqÔäàÜäˆ(€ñğ€…±½…‘•¹Õ¹Í•±•Ñ•‘…Ñ•½ÉåI•…Í½¸ü¹¥¹±Õ‘•Ì ‰=ÕÑÍ¥‘”Í•±•Ñ•µ…¥¸…Ñ•½Éäˆ¤(€ñğ€…±½…‘•¹µÕ±Ñ¥…Ñ•½Éå±•…É•(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡5Õ±Ñ¤µÍ•±•Ğ™¥±Ñ•ÉÌ…É”¥¹½µÁ±•Ñ”è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)¥˜€¡±½…‘•¹¹½Éµ…±5…É¥¹I½İI•…Í½¸ü¹Ñ½1½İ•É…Í” ¤¹¥¹±Õ‘•Ì ‰¹½Éµ…°µ…É¥¸ˆ¤¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È (€€€!¥ÍÑ½É¥…°¹½Éµ…°µ…É¥¸ÍÑ¥±°¡…¹•ÌÑ¡”‘•¥Í¥½¸è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€°(€€¤ì)ô)¥˜€¡±½…‘•¹É•ÑÕÉ¹I…Ñ•I•Ù¥•İ½Õ¹Ğ€ğ€Ä¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡I•Ù¥•Üµ•ÑÉ¥Ì…É”¹½Ğ¡¥¡±¥¡Ñ•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)¥˜€ (€±½…‘•¹¡•…‘•É9½Ñ•½Õ¹Ğ€„ôô€Ì(€ñğ€…±½…‘•¹ÁÉ½µ½!¥¡±¥¡Ñ9½Ñ”ü¹¥¹±Õ‘•Ì ˆÔÁ•É•¹Ñ…”Á½¥¹ÑÌˆ¤(€ñğ€…±½…‘•¹É•ÑÕÉ¹!¥¡±¥¡Ñ9½Ñ”ü¹¥¹±Õ‘•Ì ‰I•ÑÕÉ¸É•Ù¥•ÜÑ¡É•Í¡½±ˆ¤(€ñğ€…±½…‘•¹É•ÑÕÉ¹Q½½±Ñ¥ÁY¥Í¥‰±”(€ñğ±½…‘•¹ÍÑ¥­å!•…‘•Èü¹Á½Í¥Ñ¥½¸€„ôô€‰ÍÑ¥­äˆ(€ñğ€…±½…‘•¹ÍÑ¥­å!•…‘•Èü¹ÍÉ½±±•(€ñğ±½…‘•¹ÍÑ¥­å!•…‘•Èü¹Ñ½Á•±Ñ„€ø€È(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡!•…‘•ÈÕ¥‘…¹”½ÈÍÑ¥­äÍÉ½±±¥¹œ™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)¥˜€ (€±½…‘•¹¡¥¹•Í••¥Í¥½¸ü¹ÑÉ¥´ ¤€„ôô€‹š:K¦fˆ(€ñğ€…±½…‘•¹¡¥¹•Í•I•…Í½¸ü¹¥¹±Õ‘•Ì ‹–êO–¶c’ö;’ê;¶o¦'šv‡’îØˆ¤(€ñğ€…±½…‘•¹¡¥¹•Í•I•…Í½¸ü¹¥¹±Õ‘•Ì ‹¦¢ÒŸ:¢úû–"Ãš"[¢Ú¢şØ—–º‡š‚ã¦b#–ğˆ¤(€ñğ±½…‘•¹¡¥¹•Í•…!•…‘•È¹É•Á±…” ½qÌ¬½œ°€ˆ€ˆ¤¹ÑÉ¥´ ¤€„ôô€‰–äƒ–B­YPˆ(€ñğ€…±½…‘•¹¡¥¹•Í•I•ÑÕÉ¹!¥¡±¥¡Ñ9½Ñ”ü¹¥¹±Õ‘•Ì ‹¦îc¢ºØ”ˆ¤(€ñğ±½…‘•¹¡¥¹•Í•I½İ½Õ¹Ğ€„ôô±½…‘•¹É½İ½Õ¹Ğ(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡å¹…µ¥Œ¡¥¹•Í”É•ÍÕ±ÑÌ…É”¥¹½µÁ±•Ñ”è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)½¹ÍĞÁÉ½µ½5…É¥¹%¹‘•à€ô±½…‘•¹¡•…‘•É=É‘•È¹¥¹‘•á=˜ ‰AÉ½µ¼µ…É¥¸ÁÉ½Á½Í•ˆ¤ì)¥˜€ (€ÁÉ½µ½5…É¥¹%¹‘•à€ğ€À(€ñğ±½…‘•¹¡•…‘•É=É‘•ÉmÁÉ½µ½5…É¥¹%¹‘•à€¬€Åt€„ôô€‰M= ˆ(€ñğ±½…‘•¹¡•…‘•É=É‘•ÉmÁÉ½µ½5…É¥¹%¹‘•à€¬€Ét€„ôô€‰M½±ˆ(€ñğ±½…‘•¹¡•…‘•É=É‘•ÉmÁÉ½µ½5…É¥¹%¹‘•à€¬€Ít€„ôô€‰1¥™•Ñ¥µ”µ…É¥¸…™Ñ•ÈÉ•ÑÕÉ¹Ìˆ(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡I•ÍÕ±Ğ½±Õµ¹Ì…É”¥¸Ñ¡”İÉ½¹œÁ½Í¥Ñ¥½¸è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¹¡•…‘•É=É‘•È¥õ€¤ì)ô)¥˜€¡±½…‘•¹½Ù•É±…ÁÁ¥¹!•…‘•ÉÌ¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡I•ÍÕ±Ğ½±Õµ¹Ì½Ù•É±…Àè€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)½¹ÍĞÁ½Í¥Ñ¥Ù•%¹Ñ•ÉÙ…±¥Í½Õ¹ÑÌ€ô±½…‘•¹ÍÕ•ÍÑ•‘¥Í½Õ¹ÑÍ™Ñ•É%¹Ñ•ÉÙ…°(€€¹µ…À ¡Ù…±Õ”¤€ôø9Õµ‰•È¡Ù…±Õ”ü¹É•Á±…” ˆ”ˆ°€ˆˆ¤¤¤(€€¹™¥±Ñ•È ¡Ù…±Õ”¤€ôø9Õµ‰•È¹¥Í¥¹¥Ñ”¡Ù…±Õ”¤€˜˜Ù…±Õ”€ø€À¤ì)¥˜€ (€€…±½…‘•¹‘¥Í½Õ¹Ñ%¹Ñ•ÉÙ…±%¹ÁÕÑ¹…‰±•(€ñğ€…Á½Í¥Ñ¥Ù•%¹Ñ•ÉÙ…±¥Í½Õ¹ÑÌ¹•Ù•Éä ¡Ù…±Õ”¤€ôø5…Ñ ¹…‰Ì¡Ù…±Õ”€”€Ô¤€ğ€À¸ÀÀÄ¤(€ñğ±½…‘•¹ÍÕ•ÍÑ•‘¥Í½Õ¹ÑÍ	•™½É•%¹Ñ•ÉÙ…°¹©½¥¸ ‰ğˆ¤(€€€€ôôô±½…‘•¹ÍÕ•ÍÑ•‘¥Í½Õ¹ÑÍ™Ñ•É%¹Ñ•ÉÙ…°¹©½¥¸ ‰ğˆ¤(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡¥Í½Õ¹Ğ¥¹Ñ•ÉÙ…°‘¥¹½Ğ™±½½ÈÍÕ•ÍÑ¥½¹Ìè€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€¤ì)ô)¥˜€ (€±½…‘•¹¹½Éµ…±AÉ¥•!•…‘•È¹É•Á±…” ½qÌ¬½œ°€ˆ€ˆ¤¹ÑÉ¥´ ¤€„ôô€‰AÉ¥”ÕÍ•YP¥¹±Õ‘•ˆ(€ñğ±½…‘•¹½™™•ÉAÉ¥•!•…‘•È¹É•Á±…” ½qÌ¬½œ°€ˆ€ˆ¤¹ÑÉ¥´ ¤€„ôô€‰=™™•ÈÁÉ¥”YP•á±Õ‘•ˆ(€ñğ±½…‘•¹ÁÉ½µ½AÉ¥•!•…‘•È¹É•Á±…” ½qÌ¬½œ°€ˆ€ˆ¤¹ÑÉ¥´ ¤€„ôô€‰AÉ½µ¼ÁÉ¥”YP•á±Õ‘•ˆ(€ñğ±½…‘•¹ÁÉ¥•!•…‘•É]¥‘Ñ¡Ì¹Í½µ” ¡İ¥‘Ñ ¤€ôøİ¥‘Ñ €ø€äĞ¤(€ñğ±½…‘•¹ÁÉ¥•!•…‘•É1¥¹•½Õ¹ÑÌ¹Í½µ” ¡½Õ¹Ğ¤€ôø½Õ¹Ğ€„ôô€È¤(€ñğ±½…‘•¹É•ÑÕÉ¹I…Ñ•Ì¹•Ù•Éä ¡Ù…±Õ”¤€ôøÙ…±Õ”€ôôô€ˆ´ˆ¤(€ñğ€…±½…‘•¹•áÁ½ÉÑ!…Í…AÉ¥•!•…‘•È(€ñğ€…±½…‘•¹•áÁ½ÉÑ!…Í%¹ÁÕÑY…Ñ!•…‘•È(€ñğ€…±½…‘•¹•áÁ½ÉÑ!…ÍAÉ½µ½Y…Ñ!•…‘•È(€ñğ€…±½…‘•¹•áÁ½ÉÑ!…ÍAÉ¥•M½ÕÉ•!•…‘•È(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È (€€€YP‰…Í¥Ìİ…Ì¹½ĞÉ•½É‘•¥¸Ñ¡”Ñ…‰±”…¹•áÁ½ÉĞ¡•…‘•ÉÌè€‘í)M=8¹ÍÑÉ¥¹¥™ä¡±½…‘•¥õ€°(€€¤ì)ô)¥˜€ (€€…µ½‰¥±”¹Õ¥‘•Y¥Í¥‰±”(€ñğ€…µ½‰¥±”¹İ¥‘Ñ¡¥ÑÌ(€ñğ€…µ½‰¥±”¹¡•¥¡Ñ¥ÑÌ(€ñğ€…µ½‰¥±”¹¹½A…•=Ù•É™±½Ü(€ñğ€…µ½‰¥±”¹Ù…Ñ½¹ÑÉ½±ÍY¥Í¥‰±”(€ñğ€…µ½‰¥±”¹Ù…Ñ½¹ÑÉ½±Í¥Ğ(€ñğ€…µ½‰¥±”¹½µµ¥ÍÍ¥½¹5½‘…±¥ÑÌ(€ñğ€…µ½‰¥±”¹½µµ¥ÍÍ¥½¹Ñ¥½¹ÍY¥Í¥‰±”(€ñğ€…µ½‰¥±”¹ÍÑ…ÉÑÕÁ…5…ÁÁ¥¹¥ÑÌ(€ñğ€…µ½‰¥±”¹¥µÁ½ÉÑAÉ½É•ÍÍ¥ÑÌ(€ñğµ½‰¥±”¹¥µÁ½ÉÑAÉ½É•ÍÍQ¥Ñ±”€„ôô€‹š¶–r£–*ƒ¢ö÷’ö¦G:¢† ˆ(€ñğ€…µ½‰¥±”¹¥µÁ½ÉÑ…¹•±Y¥Í¥‰±”(€ñğ€…µ½‰¥±”¹É¥Ñ•É¥…½±±…ÁÍ•(€ñğµ½‰¥±”¹É¥Ñ•É¥…½±±…ÁÍ•‘!•¥¡Ğ€ø€ÔÀ(€ñğµ½‰¥±”¹É¥Ñ•É¥…M¡½İQ¥Ñ±”€„ôô€‹šbû’ë¶o¦'šv‡’îØˆ(€ñğµ½‰¥±”¹½±±…ÁÍ•‘I•ÍÕ±ÑÍ]¥‘Ñ €„ôô€ÌäÀ(€ñğ€…µ½‰¥±”¹É¥Ñ•É¥…I•ÍÑ½É•(€ñğ€…µ½‰¥±”¹É•ÍÕ±ÑÍA…¹•±½¹ÍÑÉ…¥¹•(€ñğµ½‰¥±”¹ÍÑ¥­å!•…‘•ÉA½Í¥Ñ¥½¸€„ôô€‰ÍÑ¥­äˆ(€ñğµ½‰¥±”¹¡¥¹•Í•Q¥Ñ±”€„ôô€‹¦'š.§–æÏ–>Àˆ(€ñğµ½‰¥±”¹¡¥¹•Í•½Õ¹Ñ•È€„ôô€‹²°Çš¶—¾ò3–ÄÛš¶”ˆ(€ñğµ½‰¥±”¹¡¥¹•Í•½µµ¥ÍÍ¥½¹Q¥Ñ±”€„ôô€‹òë–ÂG’ö¦G:ˆ(€ñğ€…µ½‰¥±”¹¡¥¹•Í•½µµ¥ÍÍ¥½¹MÕµµ…Éäü¹¥¹±Õ‘•Ì ‰¥¹Q…±¬ˆ¤(¤ì(€Ñ¡É½Ü¹•ÜÉÉ½È¡UÍ•ÈÕ¥‘”½Èµ½‰¥±”É•ÍÕ±ÑÌ±…å½ÕĞ™…¥±•è€‘í)M=8¹ÍÑÉ¥¹¥™ä¡µ½‰¥±”¥õ€¤ì)ô()½¹Í½±”¹±½œ¡)M=8¹ÍÑÉ¥¹¥™ä¡ì(€¥¹¥Ñ¥…°°(€¡¥¹•Í”°(€½™™•É%µÁ½ÉĞ°(€µ¥ÍÍ¥¹=™™•È°(€µ…ÁÁ¥¹œ°(€…¹•±±•‘%µÁ½ÉĞ°(€½µµ¥ÍÍ¥½¹AÉ½É•ÍÌ°(€±½…‘•°(€µ½‰¥±”°)ô¤¤ì
