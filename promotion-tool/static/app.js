@@ -1249,6 +1249,7 @@ function renderRows() {
         <td class="category-cell" title="${escapeHtml(row.subcategory || "-")}">${escapeHtml(row.subcategory || "-")}</td>
         <td class="number">${number(row.grade)}</td>
         <td class="number">${number(row.estimated_months, 1)}</td>
+        <td class="number">${number(row.stock)}</td>
         <td class="number">${money(row.ca_price)}</td>
         <td class="number">${money(row.offer_price)}</td>
         <td class="number">${money(row.price_including_vat)}</td>
@@ -1263,7 +1264,6 @@ function renderRows() {
         </td>
         <td class="number">${money(row.promo_price)}</td>
         <td class="number ${Number(row.promo_margin) < 0 ? "negative" : ""} ${row.margin_gap_review ? "review-highlight margin-gap-review" : ""}">${percent(row.promo_margin, 1)}</td>
-        <td class="number">${number(row.stock)}</td>
         <td class="number">${number(row.sold_qty)}</td>
         <td class="number ${Number(row.lifetime_profit_margin) < 0 ? "negative" : ""} ${row.margin_gap_review ? "review-highlight margin-gap-review" : ""}">${percent(row.lifetime_profit_margin, 1)}</td>
         <td class="number ${row.return_rate_review ? "review-highlight return-rate-review" : ""}">${percent(row.return_rate, 1)}</td>
