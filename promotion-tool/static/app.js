@@ -110,6 +110,13 @@ const UI_TEXT = {
     calculationFailed: "Calculation failed",
     importing: "Importing",
     importFailed: "Import failed",
+    importCancelled: "Import cancelled",
+    importInProgress: "Import in progress",
+    loadingPlatformData: "Loading platform data",
+    loadingCommissionTable: "Loading commission table",
+    importProgressMessage: "Reading and matching {file}. This can take a little while.",
+    importProgressHelp: "Please keep this window open while the import is processed.",
+    cancelImport: "Cancel import",
     mappedRowsSource: "{file} - {count} mapped rows",
     stepOne: "Step 1",
     importCurrentOffers: "Import current platform offers",
@@ -266,6 +273,13 @@ const UI_TEXT = {
     calculationFailed: "计算失败",
     importing: "正在导入",
     importFailed: "导入失败",
+    importCancelled: "已取消导入",
+    importInProgress: "正在导入",
+    loadingPlatformData: "正在加载平台数据",
+    loadingCommissionTable: "正在加载佣金率表",
+    importProgressMessage: "正在读取并匹配{file}，可能需要一点时间。",
+    importProgressHelp: "导入处理期间，请保持此窗口打开。",
+    cancelImport: "取消导入",
     mappedRowsSource: "{file} - 已映射{count}行",
     stepOne: "步骤1",
     importCurrentOffers: "导入当前平台售价",
@@ -332,6 +346,7 @@ const GUIDE_STEPS = {
       "The file must contain the platform SKU and current offer price.",
       "CSV, XLSX, and XLSM files are supported.",
       "If offer price is blank, the matching CA price is used automatically.",
+      "A progress window remains visible while an offer or commission file is processed; use Cancel import to stop and keep the previous results.",
     ],
   },
   {
@@ -401,6 +416,7 @@ const GUIDE_STEPS = {
         "文件必须包含平台SKU和当前售价。",
         "支持CSV、XLSX和XLSM文件。",
         "如果当前售价为空，系统会自动使用匹配的CA價。",
+        "处理售价或佣金率文件时会显示导入进度窗口；点击取消导入可停止处理并保留之前的结果。",
       ],
     },
     {
@@ -501,6 +517,8 @@ const state = {
   sourceFile: "",
   sourceRows: 0,
   calculationStatus: { key: "ready", values: {} },
+  importSequence: 0,
+  importOperation: null,
 };
 
 const element = (id) => document.getElementById(id);
@@ -562,6 +580,91 @@ function setStaticText(selector, key) {
 function setCalculationStatus(key, values = {}) {
   state.calculationStatus = { key, values };
   element("calculationStatus").textContent = t(key, values);
+}
+
+function captureImportSnapshot() {
+  return structuredClone({
+    rows: state.rows,
+    candidates: state.candidates,
+    selected: state.selected,
+    unresolved: state.unresolved,
+    mappingRows: state.mappingRows,
+    mappingScope: state.mappingScope,
+    commissionTableLoaded: state.commissionTableLoaded,
+    commissionRows: state.commissionRows,
+    commissionMissing: state.commissionMissing,
+    commissionFileName: state.commissionFileName,
+    sourceKind: state.sourceKind,
+    sourceFile: state.sourceFile,
+    sourceRows: state.sourceRows,
+    calculationStatus: state.calculationStatus,
+  });
+}
+
+function restoreImportSnapshot(snapshot) {
+  Object.assign(state, snapshot);
+  updateMappingButton();
+  updateWooperFilters();
+  updateCommissionRequirement();
+  render();
+}
+
+function updateImportProgressText() {
+  const operation = state.importOperation;
+  if (!operation) return;
+  setStaticText("#importProgressModal .eyebrow", "importInProgress");
+  element("importProgressTitle").textContent = t(
+    operation.kind === "commission" ? "loadingCommissionTable" : "loadingPlatformData",
+  );
+  element("importProgressMessage").textContent = t("importProgressMessage", {
+    file: operation.fileName,
+  });
+  element("importProgressHelp").textContent = t("importProgressHelp");
+  element("cancelImport").textContent = t("cancelImport");
+}
+
+function beginImportOperation(kind, file) {
+  if (state.importOperation) {
+    state.importOperation.controller.abort();
+  }
+  const operation = {
+    id: ++state.importSequence,
+    kind,
+    fileName: file.name,
+    controller: new AbortController(),
+    snapshot: captureImportSnapshot(),
+  };
+  state.importOperation = operation;
+  updateImportProgressText();
+  element("importProgressModal").classList.add("visible");
+  requestAnimationFrame(() => element("cancelImport").focus({ preventScroll: true }));
+  return operation;
+}
+
+function importOperationIsActive(operation) {
+  return state.importOperation?.id === operation.id && !operation.controller.signal.aborted;
+}
+
+function finishImportOperation(operation) {
+  if (state.importOperation?.id !== operation.id) return;
+  state.importOperation = null;
+  element("importProgressModal").classList.remove("visible");
+}
+
+function cancelImportOperation() {
+  const operation = state.importOperation;
+  if (!operation) return;
+  state.importOperation = null;
+  operation.controller.abort();
+  state.requestId += 1;
+  element("importProgressModal").classList.remove("visible");
+  restoreImportSnapshot(operation.snapshot);
+  setCalculationStatus("importCancelled");
+  showToast(t("importCancelled"));
+}
+
+function isAbortError(error) {
+  return error?.name === "AbortError";
 }
 
 function escapeHtml(value) {
@@ -741,6 +844,7 @@ function applyLanguage(language, { persist = true } = {}) {
   element("closeCommissionMissing").textContent = t("close");
   element("reuploadCommission").textContent = t("reuploadFile");
   element("applySuggestedCommissions").textContent = t("applyRates");
+  updateImportProgressText();
   setStaticText("#guideModal .eyebrow", "userGuide");
   element("guideCloseIcon").title = t("close");
   element("guideCloseIcon").setAttribute("aria-label", t("close"));
@@ -1016,7 +1120,7 @@ async function loadConfig() {
   setPlatformDefault();
 }
 
-async function calculate({ selectEligible = false } = {}) {
+async function calculate({ selectEligible = false, signal } = {}) {
   if (state.unresolved.length) {
     state.mappingScope = "platform";
     state.mappingRows = state.unresolved;
@@ -1030,6 +1134,7 @@ async function calculate({ selectEligible = false } = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ criteria: criteriaFromForm(), rows: state.rows }),
+      signal,
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "Calculation failed");
@@ -1042,6 +1147,7 @@ async function calculate({ selectEligible = false } = {}) {
     render();
     setCalculationStatus("rowsCalculated", { count: state.candidates.length });
   } catch (error) {
+    if (isAbortError(error)) return;
     setCalculationStatus("calculationFailed");
     showToast(translateMessage(error.message), "error");
   }
@@ -1172,17 +1278,22 @@ async function loadSample() {
 }
 
 async function importFile(file) {
+  const operation = beginImportOperation("offers", file);
   setCalculationStatus("importing");
   try {
+    const fileBody = await file.arrayBuffer();
+    if (!importOperationIsActive(operation)) return;
     const response = await fetch("/api/import", {
       method: "POST",
       headers: {
         "X-Filename": file.name,
         "X-Platform": element("platform").value,
       },
-      body: await file.arrayBuffer(),
+      body: fileBody,
+      signal: operation.controller.signal,
     });
     const payload = await response.json();
+    if (!importOperationIsActive(operation)) return;
     if (!response.ok) throw new Error(payload.error || "Import failed");
     if (!payload.rows.length) throw new Error("No SKU rows matched the supported column names");
     state.rows = payload.rows;
@@ -1204,14 +1315,25 @@ async function importFile(file) {
       openMappingModal();
       showToast(t("mappingsNeedReview", { count: state.unresolved.length }));
     } else if (isVariableCommissionPlatform() && state.commissionRows.length) {
-      await applyCommissionRates({ selectEligible: true });
+      await applyCommissionRates({
+        selectEligible: true,
+        signal: operation.controller.signal,
+      });
+      if (!importOperationIsActive(operation)) return;
     } else {
-      await calculate({ selectEligible: true });
+      await calculate({
+        selectEligible: true,
+        signal: operation.controller.signal,
+      });
+      if (!importOperationIsActive(operation)) return;
       showToast(t("rowsImported", { count: payload.rows.length }));
     }
   } catch (error) {
+    if (isAbortError(error)) return;
     setCalculationStatus("importFailed");
     showToast(translateMessage(error.message), "error");
+  } finally {
+    finishImportOperation(operation);
   }
 }
 
@@ -1408,7 +1530,11 @@ function openCommissionMissingModal() {
   element("commissionMissingModal").classList.add("visible");
 }
 
-async function applyCommissionRates({ selectEligible = false, promptMissing = true } = {}) {
+async function applyCommissionRates({
+  selectEligible = false,
+  promptMissing = true,
+  signal,
+} = {}) {
   const platformRows = commissionPlatformRows();
   const bySku = new Map(
     platformRows.map((row) => [String(row.sku || "").trim().toUpperCase(), Number(row.commission)]),
@@ -1443,7 +1569,8 @@ async function applyCommissionRates({ selectEligible = false, promptMissing = tr
     && state.commissionMissing.length === 0
   );
   updateCommissionRequirement();
-  await calculate({ selectEligible });
+  await calculate({ selectEligible, signal });
+  if (signal?.aborted) return applied;
   if (state.commissionMissing.length && promptMissing) {
     openCommissionMissingModal();
   } else {
@@ -1453,13 +1580,19 @@ async function applyCommissionRates({ selectEligible = false, promptMissing = tr
 }
 
 async function importCommissionTable(file) {
+  const operation = beginImportOperation("commission", file);
+  setCalculationStatus("importing");
   try {
+    const fileBody = await file.arrayBuffer();
+    if (!importOperationIsActive(operation)) return;
     const response = await fetch("/api/import-commissions", {
       method: "POST",
       headers: { "X-Filename": file.name },
-      body: await file.arrayBuffer(),
+      body: fileBody,
+      signal: operation.controller.signal,
     });
     const payload = await response.json();
+    if (!importOperationIsActive(operation)) return;
     if (!response.ok) throw new Error(payload.error || "Commission import failed");
     state.commissionRows = payload.rows;
     state.commissionFileName = file.name;
@@ -1482,9 +1615,14 @@ async function importCommissionTable(file) {
           platform: element("platform").value,
         }),
       );
+      setCalculationStatus(
+        operation.snapshot.calculationStatus.key,
+        operation.snapshot.calculationStatus.values,
+      );
       return;
     }
-    const applied = await applyCommissionRates();
+    const applied = await applyCommissionRates({ signal: operation.controller.signal });
+    if (!importOperationIsActive(operation)) return;
     if (state.commissionMissing.length) {
       showToast(
         t("ratesAppliedMissing", {
@@ -1497,7 +1635,11 @@ async function importCommissionTable(file) {
       showToast(t("ratesApplied", { count: applied }));
     }
   } catch (error) {
+    if (isAbortError(error)) return;
+    setCalculationStatus("importFailed");
     showToast(translateMessage(error.message), "error");
+  } finally {
+    finishImportOperation(operation);
   }
 }
 
@@ -1665,6 +1807,7 @@ function bindEvents() {
   element("importButton").addEventListener("click", () => element("fileInput").click());
   element("firstImportButton").addEventListener("click", () => element("fileInput").click());
   element("firstSampleButton").addEventListener("click", loadSample);
+  element("cancelImport").addEventListener("click", cancelImportOperation);
   element("fileInput").addEventListener("change", (event) => {
     const [file] = event.target.files;
     if (file) importFile(file);
@@ -1769,6 +1912,10 @@ function bindEvents() {
     }
   });
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && element("importProgressModal").classList.contains("visible")) {
+      cancelImportOperation();
+      return;
+    }
     if (event.key === "Escape") {
       document.querySelectorAll(".multi-select.open").forEach((control) => {
         control.classList.remove("open");

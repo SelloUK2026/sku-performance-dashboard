@@ -14,6 +14,9 @@ These notes will be used to create the final user guide.
    `UK Product Commission Rate List` from DingTalk.
 5. Upload the current platform offer file containing Platform SKU and Current
    Offer Price.
+   A progress window remains visible while the offer or commission file is
+   processed. Use Cancel import to stop the request and retain the previous
+   results.
 6. State whether the imported prices include or exclude VAT.
 7. Choose CA price or offer price as the calculation basis.
 8. Resolve only the platform SKUs that the app cannot match automatically.
@@ -26,6 +29,11 @@ These notes will be used to create the final user guide.
 
 - The first upload must contain the platform SKU and current offer price.
 - Supported offer-file types are CSV, XLSX, and XLSM.
+- Offer and commission imports display a blocking progress window while the
+  selected file is being read, matched, and calculated.
+- Cancel import stops the active browser requests, ignores late responses, and
+  restores the rows, selections, mapping state, and commission state from
+  before the import started.
 - Debenhams and The Range always require the latest
   `UK Product Commission Rate List` downloaded from DingTalk.
 - The workbook contains all variable-commission platforms, with each platform
@@ -177,6 +185,8 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   headers to explain their red-highlight rules.
 - Kept the result header visible while scrolling through long SKU lists on
   desktop and mobile layouts.
+- Added a bilingual import-progress window with a Cancel import action for
+  platform offer files and commission workbooks.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30

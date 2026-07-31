@@ -77,6 +77,56 @@ if (initial.startupCaMappingVisible) {
 }
 initial.firstImportVisibleAfterGuide = await page.locator("#firstImportModal").isVisible();
 
+let releaseCancelledImport;
+let markCancelledImportStarted;
+const cancelledImportStarted = new Promise((resolve) => {
+  markCancelledImportStarted = resolve;
+});
+const cancelledImportRoute = async (route) => {
+  if (route.request().headers()["x-filename"] !== "cancel-test.csv") {
+    await route.continue();
+    return;
+  }
+  markCancelledImportStarted();
+  await new Promise((resolve) => {
+    releaseCancelledImport = resolve;
+  });
+  try {
+    await route.continue();
+  } catch {
+    // The expected browser abort can close the intercepted request first.
+  }
+};
+await page.route("**/api/import", cancelledImportRoute);
+await page.locator("#fileInput").setInputFiles({
+  name: "cancel-test.csv",
+  mimeType: "text/csv",
+  buffer: Buffer.from("Platform SKU,Current Offer Price\nAI1005-BK,24.99\n"),
+});
+await cancelledImportStarted;
+await page.waitForSelector("#importProgressModal.visible");
+const cancelledImport = {
+  visible: await page.locator("#importProgressModal").isVisible(),
+  title: await page.locator("#importProgressTitle").textContent(),
+  message: await page.locator("#importProgressMessage").textContent(),
+  cancelLabel: await page.locator("#cancelImport").textContent(),
+  rowCountBeforeCancel: await page.locator("#candidateRows tr").count(),
+};
+await page.screenshot({
+  path: "analysis/import-progress.png",
+});
+await page.locator("#cancelImport").click();
+releaseCancelledImport();
+await page.waitForFunction(
+  () => !document.querySelector("#importProgressModal")?.classList.contains("visible"),
+);
+await page.unroute("**/api/import", cancelledImportRoute);
+await page.waitForTimeout(200);
+cancelledImport.hidden = await page.locator("#importProgressModal").isHidden();
+cancelledImport.rowCountAfterCancel = await page.locator("#candidateRows tr").count();
+cancelledImport.status = await page.locator("#calculationStatus").textContent();
+cancelledImport.firstImportRestored = await page.locator("#firstImportModal").isVisible();
+
 await page.locator("#fileInput").setInputFiles({
   name: "current-offers.csv",
   mimeType: "text/csv",
@@ -90,12 +140,41 @@ const offerImport = {
   offerPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
   defaultPriceUsed: await page.locator("#candidateRows tr td").nth(7).textContent(),
 };
+let releaseCommissionImport;
+let markCommissionImportStarted;
+const commissionImportStarted = new Promise((resolve) => {
+  markCommissionImportStarted = resolve;
+});
+const commissionImportRoute = async (route) => {
+  markCommissionImportStarted();
+  await new Promise((resolve) => {
+    releaseCommissionImport = resolve;
+  });
+  try {
+    await route.continue();
+  } catch {
+    // Removing the route can resume the intercepted request first.
+  }
+};
+await page.route("**/api/import-commissions", commissionImportRoute);
 await page.locator("#commissionFileInput").setInputFiles(
   "C:\\Users\\SELLOCP92-1\\Downloads\\UK Product Commission Rate List.xlsx",
 );
+await commissionImportStarted;
+await page.waitForSelector("#importProgressModal.visible");
+const commissionProgress = {
+  title: await page.locator("#importProgressTitle").textContent(),
+  message: await page.locator("#importProgressMessage").textContent(),
+};
+releaseCommissionImport();
+await page.unroute("**/api/import-commissions", commissionImportRoute);
 await page.waitForFunction(
-  () => document.querySelector("#commissionRequirement")?.hidden === true,
+  () => (
+    document.querySelector("#commissionRequirement")?.hidden === true
+    && !document.querySelector("#importProgressModal")?.classList.contains("visible")
+  ),
 );
+commissionProgress.hiddenAfterImport = await page.locator("#importProgressModal").isHidden();
 const matchedCommission = {
   requirementHidden: await page.locator("#commissionRequirement").isHidden(),
   missingPromptVisible: await page.locator("#commissionMissingModal").isVisible(),
@@ -431,8 +510,45 @@ mobile.vatControlsVisible = await mobilePage.locator(".vat-controls").isVisible(
 mobile.vatControlsFit = mobileVatControls
   && mobileVatControls.x >= 0
   && mobileVatControls.x + mobileVatControls.width <= 390;
+let releaseMobileCommissionImport;
+let markMobileCommissionImportStarted;
+const mobileCommissionImportStarted = new Promise((resolve) => {
+  markMobileCommissionImportStarted = resolve;
+});
+const mobileCommissionImportRoute = async (route) => {
+  markMobileCommissionImportStarted();
+  await new Promise((resolve) => {
+    releaseMobileCommissionImport = resolve;
+  });
+  try {
+    await route.continue();
+  } catch {
+    // Removing the route can resume the intercepted request first.
+  }
+};
+await mobilePage.route("**/api/import-commissions", mobileCommissionImportRoute);
 await mobilePage.locator("#commissionFileInput").setInputFiles(
   "C:\\Users\\SELLOCP92-1\\Downloads\\UK Product Commission Rate List.xlsx",
+);
+await mobileCommissionImportStarted;
+await mobilePage.waitForSelector("#importProgressModal.visible");
+const mobileImportProgress = await mobilePage.locator(
+  "#importProgressModal .import-progress-modal",
+).boundingBox();
+mobile.importProgressFits = mobileImportProgress
+  && mobileImportProgress.x >= 0
+  && mobileImportProgress.x + mobileImportProgress.width <= 390
+  && mobileImportProgress.y >= 0
+  && mobileImportProgress.y + mobileImportProgress.height <= 844;
+mobile.importProgressTitle = await mobilePage.locator("#importProgressTitle").textContent();
+mobile.importCancelVisible = await mobilePage.locator("#cancelImport").isVisible();
+await mobilePage.screenshot({
+  path: "analysis/import-progress-mobile.png",
+});
+releaseMobileCommissionImport();
+await mobilePage.unroute("**/api/import-commissions", mobileCommissionImportRoute);
+await mobilePage.waitForFunction(
+  () => !document.querySelector("#importProgressModal")?.classList.contains("visible"),
 );
 await mobilePage.locator("#fileInput").setInputFiles({
   name: "missing-commission.csv",
@@ -491,6 +607,26 @@ if (initial.vatOptions !== 4 || initial.vatRate !== "VAT 20%") {
 }
 if (initial.priceSourceOptions !== 2 || initial.defaultPriceSource !== "CA price") {
   throw new Error("CA price is not the default calculation source.");
+}
+if (
+  !cancelledImport.visible
+  || cancelledImport.title !== "Loading platform data"
+  || !cancelledImport.message?.includes("cancel-test.csv")
+  || cancelledImport.cancelLabel !== "Cancel import"
+  || cancelledImport.rowCountBeforeCancel !== 0
+  || !cancelledImport.hidden
+  || cancelledImport.rowCountAfterCancel !== 0
+  || cancelledImport.status !== "Import cancelled"
+  || !cancelledImport.firstImportRestored
+) {
+  throw new Error(`Import cancellation failed: ${JSON.stringify(cancelledImport)}`);
+}
+if (
+  commissionProgress.title !== "Loading commission table"
+  || !commissionProgress.message?.includes("UK Product Commission Rate List.xlsx")
+  || !commissionProgress.hiddenAfterImport
+) {
+  throw new Error(`Commission import progress failed: ${JSON.stringify(commissionProgress)}`);
 }
 if (
   initial.defaultCommissionLabel !== "Default commission"
@@ -671,6 +807,9 @@ if (
   || !mobile.commissionModalFits
   || !mobile.commissionActionsVisible
   || !mobile.startupCaMappingFits
+  || !mobile.importProgressFits
+  || mobile.importProgressTitle !== "正在加载佣金率表"
+  || !mobile.importCancelVisible
   || !mobile.resultsPanelConstrained
   || mobile.stickyHeaderPosition !== "sticky"
   || mobile.chineseTitle !== "选择平台"
@@ -687,6 +826,8 @@ console.log(JSON.stringify({
   offerImport,
   missingOffer,
   mapping,
+  cancelledImport,
+  commissionProgress,
   loaded,
   mobile,
 }));

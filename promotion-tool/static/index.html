@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-header-notes">
+  <link rel="stylesheet" href="/styles.css?v=20260731-import-progress">
 </head>
 <body>
   <header class="app-header">
@@ -305,6 +305,28 @@
     </section>
   </div>
 
+  <div class="modal-backdrop import-progress-backdrop" id="importProgressModal">
+    <section class="modal import-progress-modal" role="dialog" aria-modal="true" aria-busy="true"
+      aria-labelledby="importProgressTitle"
+      aria-describedby="importProgressMessage importProgressHelp">
+      <span class="eyebrow">Import in progress</span>
+      <div class="import-progress-heading">
+        <span class="import-spinner" aria-hidden="true"></span>
+        <div>
+          <h2 id="importProgressTitle">Loading platform data</h2>
+          <p id="importProgressMessage">Reading and matching the selected file.</p>
+        </div>
+      </div>
+      <div class="import-progress-track" aria-hidden="true"><span></span></div>
+      <p class="import-progress-help" id="importProgressHelp">
+        Please keep this window open while the import is processed.
+      </p>
+      <div class="modal-actions">
+        <button class="button plain import-cancel-button" id="cancelImport">Cancel import</button>
+      </div>
+    </section>
+  </div>
+
   <div class="modal-backdrop" id="guideModal">
     <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
       <div class="guide-heading">
@@ -332,6 +354,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-header-notes"></script>
+  <script src="/app.js?v=20260731-import-progress"></script>
 </body>
 </html>

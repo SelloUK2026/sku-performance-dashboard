@@ -613,6 +613,56 @@ tbody tr.selected .reason-text { background: #f0f8f4; }
 .button.plain { background: #fff; border-color: var(--line); color: var(--ink); }
 .modal .button.secondary { background: #fff; border-color: var(--green); color: var(--green); }
 .modal .button.secondary:hover { background: #f1f8f5; border-color: var(--green); }
+.import-progress-backdrop { z-index: 60; }
+.import-progress-modal { width: min(500px, 100%); }
+.import-progress-heading {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  margin-top: 7px;
+}
+.import-progress-heading h2 { margin: 0 0 4px; }
+.import-progress-heading p { overflow-wrap: anywhere; }
+.import-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #d9dedb;
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: import-spin .8s linear infinite;
+}
+.import-progress-track {
+  height: 5px;
+  margin-top: 22px;
+  overflow: hidden;
+  background: #e8ece9;
+}
+.import-progress-track span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  background: var(--green);
+  animation: import-progress 1.25s ease-in-out infinite;
+}
+.import-progress-help {
+  margin-top: 12px !important;
+  font-size: 12px !important;
+}
+.import-cancel-button {
+  border-color: #b9c1be !important;
+  color: #39423f !important;
+}
+.import-cancel-button:hover { border-color: var(--red) !important; color: var(--red) !important; }
+@keyframes import-spin { to { transform: rotate(360deg); } }
+@keyframes import-progress {
+  from { transform: translateX(-105%); }
+  to { transform: translateX(265%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .import-spinner,
+  .import-progress-track span { animation-duration: 2.5s; }
+}
 .guide-modal { width: min(650px, 100%); }
 .guide-heading {
   display: flex;

@@ -62,6 +62,8 @@ to the browser or committed to GitHub.
 - SKU-dashboard suggested freight precedence and WMS at 8% of promotion
   selling price excluding VAT.
 - CSV, XLSX, and XLSM import with common column-name mapping.
+- Blocking import progress with cancellation and pre-import state restoration
+  for offer files and variable-commission workbooks.
 - Manual candidate selection and discount override.
 - Selected nomination CSV export.
 - First-visit six-step walkthrough with a permanent Help button.
