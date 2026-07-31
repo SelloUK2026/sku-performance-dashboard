@@ -103,6 +103,8 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
   margin, or Return rate header to see the corresponding red-highlight rule.
 - The table header remains visible while the user scrolls through a long SKU
   result list.
+- Displayed result rows are always sorted from A to Z by the core Wooper SKU,
+  including filtered and searched views.
 - The Criteria panel can be collapsed after settings are reviewed. The results
   table expands into the available space, and the compact plus button restores
   the panel. The choice is remembered on the same browser.
@@ -194,6 +196,7 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   platform offer files and commission workbooks.
 - Added a persistent bilingual control to collapse or reopen the Criteria panel
   and expand the results workspace.
+- Sorted displayed result rows from A to Z by the core Wooper SKU.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30

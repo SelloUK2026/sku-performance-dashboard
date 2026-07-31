@@ -12,6 +12,7 @@ const DEFAULT_MARGINS = {
 const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v9";
 const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
 const CRITERIA_STORAGE_KEY = "promotion-nomination-criteria-collapsed";
+const SKU_COLLATOR = new Intl.Collator("en-GB", { numeric: true, sensitivity: "base" });
 
 const UI_TEXT = {
   en: {
@@ -1214,7 +1215,15 @@ function decisionCell(row) {
 }
 
 function renderRows() {
-  const rows = state.candidates.filter(candidateMatches);
+  const rows = state.candidates
+    .filter(candidateMatches)
+    .sort((left, right) => (
+      SKU_COLLATOR.compare(String(left.sku || ""), String(right.sku || ""))
+      || SKU_COLLATOR.compare(
+        String(left.platform_sku || ""),
+        String(right.platform_sku || ""),
+      )
+    ));
   element("candidateRows").innerHTML = rows.map((row) => {
     const messages = [...(row.reasons || []), ...(row.warnings || [])]
       .map(translateMessage);

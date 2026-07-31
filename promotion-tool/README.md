@@ -65,6 +65,7 @@ to the browser or committed to GitHub.
 - Blocking import progress with cancellation and pre-import state restoration
   for offer files and variable-commission workbooks.
 - Manual candidate selection and discount override.
+- A-to-Z display sorting by the core Wooper SKU.
 - Collapsible criteria panel that remembers the user's preference and expands
   the results workspace.
 - Selected nomination CSV export.

@@ -272,6 +272,7 @@ await page.locator("#firstSampleButton").click();
 await page.waitForSelector("#candidateRows tr");
 const loaded = {
   rowCount: await page.locator("#candidateRows tr").count(),
+  displayedSkus: await page.locator("#candidateRows .sku-primary").allTextContents(),
   mainCategoryOptions: await page.locator("#mainCategory .multi-select-option").count(),
   subcategoryOptions: await page.locator("#subcategory .multi-select-option").count(),
   brandOptions: await page.locator("#brand .multi-select-option").count(),
@@ -769,6 +770,12 @@ if (
   throw new Error("Manual SKU mapping prompt did not use the CA Price rule.");
 }
 if (loaded.rowCount !== 10) throw new Error("Workbook sample rows did not load.");
+const expectedSkuOrder = [...loaded.displayedSkus].sort((left, right) => (
+  left.localeCompare(right, "en-GB", { numeric: true, sensitivity: "base" })
+));
+if (loaded.displayedSkus.join("|") !== expectedSkuOrder.join("|")) {
+  throw new Error(`Displayed SKUs are not sorted A-Z: ${JSON.stringify(loaded.displayedSkus)}`);
+}
 if (
   loaded.criteriaWidthExpanded < 290
   || loaded.criteriaWidthCollapsed > 45
