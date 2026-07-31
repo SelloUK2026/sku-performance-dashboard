@@ -528,6 +528,17 @@ tbody tr.selected td { background: #f0f8f4; }
 tbody tr.excluded td { color: #59625f; }
 .select-column { width: 40px; text-align: center; }
 .select-column input { width: 15px; height: 15px; accent-color: var(--green); }
+.category-column,
+.category-cell {
+  width: 105px;
+  min-width: 105px;
+  max-width: 105px;
+}
+.category-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sku-primary { display: block; font-weight: 700; color: var(--ink); }
 .sku-secondary { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
 .number { text-align: right; font-variant-numeric: tabular-nums; }
@@ -550,9 +561,13 @@ tbody tr.excluded td { color: #59625f; }
 }
 .reason-column,
 .reason-text {
-  width: 200px;
-  min-width: 200px;
-  max-width: 200px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+}
+.reason-text {
+  line-height: 1.25;
+  white-space: normal;
 }
 .decision-column,
 .reason-column {

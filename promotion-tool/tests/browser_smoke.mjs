@@ -392,6 +392,18 @@ loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll
 loaded.headerOrder = await page.locator("thead th").evaluateAll(
   (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
 );
+loaded.categoryLayout = await page.locator(".category-column").evaluate((header) => {
+  const cell = document.querySelector(".category-cell");
+  const reason = document.querySelector(".reason-text");
+  return {
+    headerWidth: Math.round(header.getBoundingClientRect().width),
+    cellWidth: Math.round(cell.getBoundingClientRect().width),
+    cellEllipsis: getComputedStyle(cell).textOverflow,
+    cellTitle: cell.getAttribute("title"),
+    reasonWidth: Math.round(reason.getBoundingClientRect().width),
+    reasonWhiteSpace: getComputedStyle(reason).whiteSpace,
+  };
+});
 loaded.headerNoteCount = await page.locator(".header-note").count();
 loaded.promoHighlightNote = await page.locator(
   "#promoMarginHeader .header-note",
@@ -858,6 +870,16 @@ if (
 }
 if (loaded.overlappingHeaders) {
   throw new Error(`Result columns overlap: ${JSON.stringify(loaded)}`);
+}
+if (
+  loaded.categoryLayout?.headerWidth > 110
+  || loaded.categoryLayout?.cellWidth > 110
+  || loaded.categoryLayout?.cellEllipsis !== "ellipsis"
+  || !loaded.categoryLayout?.cellTitle
+  || loaded.categoryLayout?.reasonWidth < 295
+  || loaded.categoryLayout?.reasonWhiteSpace !== "normal"
+) {
+  throw new Error(`Category and Reason widths are not balanced: ${JSON.stringify(loaded.categoryLayout)}`);
 }
 const positiveIntervalDiscounts = loaded.suggestedDiscountsAfterInterval
   .map((value) => Number(value?.replace("%", "")))

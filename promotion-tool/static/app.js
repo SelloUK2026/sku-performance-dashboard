@@ -1246,7 +1246,7 @@ function renderRows() {
           <span class="sku-primary">${escapeHtml(row.sku)}</span>
           <span class="sku-secondary">${escapeHtml(row.platform_sku || "")}</span>
         </td>
-        <td>${escapeHtml(row.subcategory || "-")}</td>
+        <td class="category-cell" title="${escapeHtml(row.subcategory || "-")}">${escapeHtml(row.subcategory || "-")}</td>
         <td class="number">${number(row.grade)}</td>
         <td class="number">${number(row.estimated_months, 1)}</td>
         <td class="number">${money(row.ca_price)}</td>
