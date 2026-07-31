@@ -203,6 +203,8 @@ Manual mappings and non-existing statuses remain durable between refreshes.
 - Corrected the populated results panel so the SKU table itself scrolls within
   the workspace and its header remains visible during natural mouse-wheel
   scrolling.
+- Narrowed the Category column and expanded the Reason column, with wrapped
+  reason text and a hover title for truncated category names.
 - Added a bilingual import-progress window with a Cancel import action for
   platform offer files and commission workbooks.
 - Added a persistent bilingual control to collapse or reopen the Criteria panel
