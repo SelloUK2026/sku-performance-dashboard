@@ -136,9 +136,9 @@ await page.waitForSelector("#candidateRows tr");
 const offerImport = {
   rowCount: await page.locator("#candidateRows tr").count(),
   commissionTableRequired: await page.locator("#commissionRequirement").isVisible(),
-  caPrice: await page.locator("#candidateRows tr td").nth(5).textContent(),
-  offerPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
-  defaultPriceUsed: await page.locator("#candidateRows tr td").nth(7).textContent(),
+  caPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
+  offerPrice: await page.locator("#candidateRows tr td").nth(7).textContent(),
+  defaultPriceUsed: await page.locator("#candidateRows tr td").nth(8).textContent(),
 };
 let releaseCommissionImport;
 let markCommissionImportStarted;
@@ -198,10 +198,10 @@ await page.locator('.price-source-option[data-price-source="offer"]').click();
 await page.waitForFunction(
   () => (
     document.querySelector(".price-source-option.active")?.textContent === "Offer price"
-    && document.querySelectorAll("#candidateRows tr td")[7]?.textContent.trim() === "£24.99"
+    && document.querySelectorAll("#candidateRows tr td")[8]?.textContent.trim() === "£24.99"
   ),
 );
-offerImport.offerPriceUsed = await page.locator("#candidateRows tr td").nth(7).textContent();
+offerImport.offerPriceUsed = await page.locator("#candidateRows tr td").nth(8).textContent();
 
 await page.locator("#fileInput").setInputFiles({
   name: "missing-commission.csv",
@@ -238,12 +238,12 @@ await page.waitForFunction(
   () => {
     const row = document.querySelector("#candidateRows tr");
     return row?.textContent.includes("AI1005-BK-UK")
-      && row.querySelectorAll("td")[6]?.textContent.trim() === "-";
+      && row.querySelectorAll("td")[7]?.textContent.trim() === "-";
   },
 );
 const missingOffer = {
-  offerPrice: await page.locator("#candidateRows tr td").nth(6).textContent(),
-  priceUsed: await page.locator("#candidateRows tr td").nth(7).textContent(),
+  offerPrice: await page.locator("#candidateRows tr td").nth(7).textContent(),
+  priceUsed: await page.locator("#candidateRows tr td").nth(8).textContent(),
   reason: await page.locator("#candidateRows tr td").last().textContent(),
 };
 
@@ -357,7 +357,7 @@ await page.waitForFunction(
 );
 loaded.multiCategoryCleared = await page.locator("#mainCategory input:checked").count() === 0;
 loaded.suggestedDiscountsBeforeInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
+  (rows) => rows.map((row) => row.querySelectorAll("td")[9]?.textContent.trim()),
 );
 await page.waitForFunction(
   () => document.querySelector("#calculationStatus")?.textContent === "10 rows calculated",
@@ -366,14 +366,14 @@ await page.locator(".discount-interval-controls .switch").click();
 await page.waitForFunction(
   (before) => {
     const after = [...document.querySelectorAll("#candidateRows tr")]
-      .map((row) => row.querySelectorAll("td")[8]?.textContent.trim());
+      .map((row) => row.querySelectorAll("td")[9]?.textContent.trim());
     return after.join("|") !== before.join("|");
   },
   loaded.suggestedDiscountsBeforeInterval,
 );
 loaded.discountIntervalInputEnabled = await page.locator("#discountInterval").isEnabled();
 loaded.suggestedDiscountsAfterInterval = await page.locator("#candidateRows tr").evaluateAll(
-  (rows) => rows.map((row) => row.querySelectorAll("td")[8]?.textContent.trim()),
+  (rows) => rows.map((row) => row.querySelectorAll("td")[9]?.textContent.trim()),
 );
 await page.locator('.vat-option[data-vat-setting="input"][data-vat-value="excluded"]').click();
 await page.locator('.vat-option[data-vat-setting="export"][data-vat-value="excluded"]').click();
@@ -392,6 +392,8 @@ loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll
 loaded.headerOrder = await page.locator("thead th").evaluateAll(
   (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
 );
+loaded.firstRowSoh = await page.locator("#candidateRows tr td").nth(5).textContent();
+loaded.firstRowSold = await page.locator("#candidateRows tr td").nth(13).textContent();
 loaded.categoryLayout = await page.locator(".category-column").evaluate((header) => {
   const cell = document.querySelector(".category-cell");
   const reason = document.querySelector(".reason-text");
@@ -859,12 +861,16 @@ if (
 ) {
   throw new Error(`Dynamic Chinese results are incomplete: ${JSON.stringify(loaded)}`);
 }
+const monthsIndex = loaded.headerOrder.indexOf("Months");
 const promoMarginIndex = loaded.headerOrder.indexOf("Promo margin proposed");
 if (
-  promoMarginIndex < 0
-  || loaded.headerOrder[promoMarginIndex + 1] !== "SOH"
-  || loaded.headerOrder[promoMarginIndex + 2] !== "Sold"
-  || loaded.headerOrder[promoMarginIndex + 3] !== "Lifetime margin after returns"
+  monthsIndex < 0
+  || loaded.headerOrder[monthsIndex + 1] !== "SOH"
+  || promoMarginIndex < 0
+  || loaded.headerOrder[promoMarginIndex + 1] !== "Sold"
+  || loaded.headerOrder[promoMarginIndex + 2] !== "Lifetime margin after returns"
+  || loaded.firstRowSoh?.trim() !== "0"
+  || loaded.firstRowSold?.trim() !== "74"
 ) {
   throw new Error(`Result columns are in the wrong position: ${JSON.stringify(loaded.headerOrder)}`);
 }

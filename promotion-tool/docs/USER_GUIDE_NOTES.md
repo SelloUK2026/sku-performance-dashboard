@@ -193,8 +193,8 @@ Manual mappings and non-existing statuses remain durable between refreshes.
 - Replaced the local-demo labels with production live-data labels.
 - Corrected the result-table layout so Decision and Reason cannot cover Promo
   price, Promo margin, SOH, Lifetime margin, or Return rate.
-- Moved SOH immediately after Promo margin, followed by Sold, Lifetime margin,
-  and Return rate.
+- Moved SOH immediately after Months. Sold remains immediately before Lifetime
+  margin, followed by Return rate.
 - Kept grade filtering as an editable minimum grade-level threshold.
 - Added bilingual hover and keyboard-focus notes to the margin and return-rate
   headers to explain their red-highlight rules.
