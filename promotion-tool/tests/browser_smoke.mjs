@@ -409,16 +409,11 @@ loaded.returnTooltipVisible = await returnHeaderNote.evaluate((node) => {
   const tooltip = getComputedStyle(node, "::after");
   return tooltip.visibility === "visible" && Number(tooltip.opacity) > 0;
 });
+const desktopViewport = page.viewportSize();
+await page.setViewportSize({ width: 1280, height: 720 });
 loaded.stickyHeader = await page.locator(".table-shell").evaluate(async (shell) => {
-  const previous = {
-    flex: shell.style.flex,
-    height: shell.style.height,
-    maxHeight: shell.style.maxHeight,
-    scrollTop: shell.scrollTop,
-  };
-  shell.style.flex = "0 0 220px";
-  shell.style.height = "220px";
-  shell.style.maxHeight = "220px";
+  const workspace = document.querySelector(".workspace");
+  const panel = document.querySelector(".results-panel");
   await new Promise(requestAnimationFrame);
   shell.scrollTop = 160;
   await new Promise(requestAnimationFrame);
@@ -428,14 +423,18 @@ loaded.stickyHeader = await page.locator(".table-shell").evaluate(async (shell) 
   const result = {
     position: getComputedStyle(header).position,
     scrolled: shell.scrollTop > 0,
+    shellScrollable: shell.scrollHeight > shell.clientHeight,
     topDelta: Math.abs(headerTop - shellTop),
+    bodyFitsViewport: document.body.scrollHeight <= window.innerHeight,
+    panelFitsWorkspace: panel.clientHeight <= workspace.clientHeight,
   };
-  shell.scrollTop = previous.scrollTop;
-  shell.style.flex = previous.flex;
-  shell.style.height = previous.height;
-  shell.style.maxHeight = previous.maxHeight;
+  shell.scrollTop = 0;
   return result;
 });
+await page.screenshot({
+  path: "analysis/sticky-results-header.png",
+});
+await page.setViewportSize(desktopViewport);
 loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers) => {
   const rects = headers.map((header) => header.getBoundingClientRect());
   return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
@@ -831,7 +830,10 @@ if (
   || !loaded.returnTooltipVisible
   || loaded.stickyHeader?.position !== "sticky"
   || !loaded.stickyHeader?.scrolled
+  || !loaded.stickyHeader?.shellScrollable
   || loaded.stickyHeader?.topDelta > 2
+  || !loaded.stickyHeader?.bodyFitsViewport
+  || !loaded.stickyHeader?.panelFitsWorkspace
 ) {
   throw new Error(`Header guidance or sticky scrolling failed: ${JSON.stringify(loaded)}`);
 }
