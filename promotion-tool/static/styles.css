@@ -762,6 +762,11 @@ tbody tr.selected .reason-text { background: #f0f8f4; }
 }
 .mapping-row span { color: var(--muted); text-align: center; }
 .mapping-row input { height: 34px; }
+.mapping-row .manual-mapping[aria-invalid="true"] {
+  border-color: var(--red);
+  background: var(--red-soft);
+  outline: 2px solid rgba(182, 56, 56, 0.12);
+}
 .mapping-row .non-existing-option {
   display: inline-flex;
   align-items: center;

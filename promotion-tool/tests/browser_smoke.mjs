@@ -258,6 +258,17 @@ const mapping = {
   suggestedSku: await page.locator(".manual-mapping").inputValue(),
   nonExistingOption: await page.locator(".non-existing-sku").isVisible(),
 };
+const mappingInput = page.locator(".manual-mapping");
+await mappingInput.fill("NOT-A-WOOPER-SKU");
+await page.locator("#saveMappings").click();
+mapping.invalidRejected = await mappingInput.getAttribute("aria-invalid") === "true";
+mapping.remainedOpen = await page.locator("#mappingModal").isVisible();
+await page.screenshot({
+  path: "analysis/mapping-validation.png",
+});
+await mappingInput.fill("AI1005-BK-UK");
+mapping.validWooperAccepted = await mappingInput.getAttribute("aria-invalid") === "false";
+await mappingInput.fill("");
 await page.locator("#closeMappings").click();
 mapping.closed = !(await page.locator("#mappingModal").isVisible());
 mapping.reopenAvailable = await page.locator("#mappingButton").isVisible();
@@ -761,13 +772,16 @@ if (
 }
 if (
   !mapping.promptVisible
-  || mapping.suggestedSku !== "MYSTERY-UK"
+  || mapping.suggestedSku !== ""
   || !mapping.nonExistingOption
+  || !mapping.invalidRejected
+  || !mapping.remainedOpen
+  || !mapping.validWooperAccepted
   || !mapping.closed
   || !mapping.reopenAvailable
   || !mapping.reopened
 ) {
-  throw new Error("Manual SKU mapping prompt did not use the CA Price rule.");
+  throw new Error("Manual SKU mapping did not enforce the current Wooper SKU list.");
 }
 if (loaded.rowCount !== 10) throw new Error("Workbook sample rows did not load.");
 const expectedSkuOrder = [...loaded.displayedSkus].sort((left, right) => (

@@ -272,7 +272,11 @@ def supabase_select_all(table, params=None, page_size=1000):
         offset += page_size
 
 
-def persisted_mapping_rows(mapping_scope, platform=""):
+def persisted_mapping_rows(
+    mapping_scope,
+    platform="",
+    include_all_platforms=False,
+):
     if not supabase_enabled():
         return []
     rows = supabase_select_all(
@@ -284,6 +288,8 @@ def persisted_mapping_rows(mapping_scope, platform=""):
     )
     if mapping_scope == "channeladvisor":
         return [row for row in rows if not row.get("platform")]
+    if include_all_platforms:
+        return rows
     platform_key = str(platform or "").strip()
     return [
         row
@@ -302,17 +308,60 @@ def persisted_mapping_dictionary(mapping_scope, platform=""):
         external_sku = str(row.get("external_sku") or "").strip().upper()
         if not external_sku:
             continue
-        mappings[external_sku] = (
+        mapped_value = (
             NON_EXISTING_SKU
             if row.get("status") == "non_existing"
             else str(row.get("wooper_sku") or "").strip().upper()
         )
+        if mapped_value:
+            mappings[external_sku] = mapped_value
     return mappings
 
 
 def combined_platform_mappings(platform=""):
+    if not supabase_enabled():
+        return load_mappings()
     mappings = persisted_mapping_dictionary("channeladvisor")
-    mappings.update(persisted_mapping_dictionary("platform", platform))
+    rows = persisted_mapping_rows(
+        "platform",
+        include_all_platforms=True,
+    )
+    grouped = {}
+    for row in rows:
+        external_sku = str(row.get("external_sku") or "").strip().upper()
+        if not external_sku:
+            continue
+        mapped_value = (
+            NON_EXISTING_SKU
+            if row.get("status") == "non_existing"
+            else str(row.get("wooper_sku") or "").strip().upper()
+        )
+        if mapped_value:
+            grouped.setdefault(external_sku, set()).add(mapped_value)
+
+    # Reuse an external SKU across marketplaces only when every saved row agrees.
+    for external_sku, mapped_values in grouped.items():
+        if len(mapped_values) == 1:
+            mappings[external_sku] = next(iter(mapped_values))
+
+    platform_key = str(platform or "").strip()
+    current_rows = [
+        row
+        for row in rows
+        if not row.get("platform") or row.get("platform") == platform_key
+    ]
+    current_rows.sort(key=lambda row: bool(row.get("platform")))
+    for row in current_rows:
+        external_sku = str(row.get("external_sku") or "").strip().upper()
+        if not external_sku:
+            continue
+        mapped_value = (
+            NON_EXISTING_SKU
+            if row.get("status") == "non_existing"
+            else str(row.get("wooper_sku") or "").strip().upper()
+        )
+        if mapped_value:
+            mappings[external_sku] = mapped_value
     return mappings
 
 
@@ -1489,7 +1538,7 @@ def map_imported_rows(
             else exact_ca_prices.get(platform_key)
             or aligned_ca_prices.get(canonical or automatic_sku)
         )
-        target["suggested_sku"] = automatic_sku
+        target["suggested_sku"] = canonical or ""
         target["sku"] = canonical or ""
         target["mapping_status"] = "mapped" if matched else "unresolved"
         if matched:
@@ -1730,9 +1779,13 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_json({"error": "Invalid mapping scope."}, status=400)
                     return
                 platform = str(payload.get("platform") or "").strip()
-                inventory_skus = set(
-                    supabase_inventory_skus() or wooper_inventory()
-                )
+                inventory_skus = {
+                    str(sku).strip().upper()
+                    for sku in (
+                        supabase_inventory_skus() or wooper_inventory()
+                    )
+                    if str(sku).strip()
+                }
                 invalid_mappings = []
                 valid_mappings = []
                 for item in payload.get("mappings", []):

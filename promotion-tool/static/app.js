@@ -160,7 +160,8 @@ const UI_TEXT = {
     mappingsNeedReview: "{count} SKU mappings need review",
     rowsImported: "{count} SKU rows imported",
     mapEverySku: "Enter at least one mapping or mark an SKU as non-existing",
-    invalidWooperMapping: "One or more mappings do not match a known Wooper SKU",
+    invalidWooperMapping: "Select a valid Wooper SKU from the list for every completed mapping",
+    selectWooperSku: "Select a Wooper SKU",
     mappingsSaved: "{count} SKU mappings saved",
     nonExistingExcluded: "{count} non-existing SKUs excluded",
     fileLoadedRates: "{file} loaded with {count} {platform} rates",
@@ -318,7 +319,8 @@ const UI_TEXT = {
     mappingsNeedReview: "{count}个SKU映射需要审核",
     rowsImported: "已导入{count}行SKU",
     mapEverySku: "请映射每个SKU或将其标记为已下架",
-    invalidWooperMapping: "一个或多个映射与已知Wooper SKU不匹配",
+    invalidWooperMapping: "每个已完成的映射必须从列表中选择有效的Wooper SKU",
+    selectWooperSku: "选择Wooper SKU",
     mappingsSaved: "已保存{count}个SKU映射",
     nonExistingExcluded: "已排除{count}个已下架SKU",
     fileLoadedRates: "{file}已加载{count}个{platform}佣金率",
@@ -496,6 +498,7 @@ const state = {
   candidates: [],
   selected: new Set(),
   config: { defaultCommissions: {}, variableCommissionPlatforms: [], wooperSkus: [] },
+  wooperSkuSet: new Set(),
   unresolved: [],
   caUnresolved: [],
   mappingRows: [],
@@ -1146,6 +1149,9 @@ async function loadConfig() {
   const response = await fetch("/api/config");
   const config = await response.json();
   state.config = config;
+  state.wooperSkuSet = new Set(
+    (config.wooperSkus || []).map((sku) => String(sku).trim().toUpperCase()),
+  );
   element("platform").innerHTML = Object.keys(config.defaultCommissions)
     .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
     .join("");
@@ -1439,7 +1445,7 @@ function openMappingModal() {
       <span>&rarr;</span>
       <input class="manual-mapping" data-platform-sku="${escapeHtml(row.platform_sku)}"
         list="wooperSkuList" value="${escapeHtml(row.suggested_sku || "")}"
-        placeholder="Wooper SKU">
+        placeholder="${escapeHtml(t("selectWooperSku"))}" aria-invalid="false">
       <label class="non-existing-option">
         <input class="non-existing-sku" type="checkbox"
           data-platform-sku="${escapeHtml(row.platform_sku)}">
@@ -1455,13 +1461,34 @@ function openMappingModal() {
       if (checkbox.checked) mappingInput.value = "";
     });
   });
+  document.querySelectorAll(".manual-mapping").forEach((input) => {
+    input.addEventListener("input", () => validateMappingInput(input));
+    validateMappingInput(input);
+  });
   state.restoreFirstImportAfterMapping = element("firstImportModal").classList.contains("visible");
   element("firstImportModal").classList.remove("visible");
   element("mappingModal").classList.add("visible");
 }
 
+function validateMappingInput(input) {
+  const value = input.value.trim().toUpperCase();
+  const valid = !value || state.wooperSkuSet.has(value);
+  input.setAttribute("aria-invalid", String(!valid));
+  return valid;
+}
+
 async function saveMappings() {
-  const mappings = [...document.querySelectorAll(".mapping-row")].map((row) => {
+  const mappingRows = [...document.querySelectorAll(".mapping-row")];
+  const invalidInputs = mappingRows
+    .filter((row) => !row.querySelector(".non-existing-sku").checked)
+    .map((row) => row.querySelector(".manual-mapping"))
+    .filter((input) => input.value.trim() && !validateMappingInput(input));
+  if (invalidInputs.length) {
+    invalidInputs[0].focus();
+    showToast(t("invalidWooperMapping"), "error");
+    return;
+  }
+  const mappings = mappingRows.map((row) => {
     const input = row.querySelector(".manual-mapping");
     const nonExisting = row.querySelector(".non-existing-sku").checked;
     return {
