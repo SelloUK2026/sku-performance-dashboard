@@ -406,6 +406,23 @@ loaded.categoryLayout = await page.locator(".category-column").evaluate((header)
     reasonWhiteSpace: getComputedStyle(reason).whiteSpace,
   };
 });
+loaded.overrideDiscountLayout = await page.locator(
+  '.override-input[data-sku="AI1005-BK-UK"]',
+).evaluate((input) => {
+  const cell = input.closest(".final-discount-cell");
+  const suffix = input.parentElement.querySelector("span");
+  const inputRect = input.getBoundingClientRect();
+  const suffixRect = suffix.getBoundingClientRect();
+  return {
+    columnWidth: Math.round(cell.getBoundingClientRect().width),
+    inputWidth: Math.round(inputRect.width),
+    value: input.value,
+    appearance: getComputedStyle(input).appearance,
+    suffix: suffix.textContent.trim(),
+    suffixInsideInput: suffixRect.left >= inputRect.left
+      && suffixRect.right <= inputRect.right,
+  };
+});
 loaded.headerNoteCount = await page.locator(".header-note").count();
 loaded.promoHighlightNote = await page.locator(
   "#promoMarginHeader .header-note",
@@ -886,6 +903,16 @@ if (
   || loaded.categoryLayout?.reasonWhiteSpace !== "normal"
 ) {
   throw new Error(`Category and Reason widths are not balanced: ${JSON.stringify(loaded.categoryLayout)}`);
+}
+if (
+  loaded.overrideDiscountLayout?.columnWidth < 95
+  || loaded.overrideDiscountLayout?.inputWidth < 80
+  || loaded.overrideDiscountLayout?.value !== "25.0"
+  || loaded.overrideDiscountLayout?.appearance !== "textfield"
+  || loaded.overrideDiscountLayout?.suffix !== "%"
+  || !loaded.overrideDiscountLayout?.suffixInsideInput
+) {
+  throw new Error(`Override discount input is not fully visible: ${JSON.stringify(loaded.overrideDiscountLayout)}`);
 }
 const positiveIntervalDiscounts = loaded.suggestedDiscountsAfterInterval
   .map((value) => Number(value?.replace("%", "")))

@@ -1254,7 +1254,7 @@ function renderRows() {
         <td class="number">${money(row.offer_price)}</td>
         <td class="number">${money(row.price_including_vat)}</td>
         <td class="number ${suggestedClass}">${percent(row.suggested_discount, 1)}</td>
-        <td class="number">
+        <td class="number final-discount-cell">
           <div class="input-suffix">
             <input class="override-input" data-sku="${escapeHtml(row.sku)}" type="number"
               min="-100" max="100" step="1"
