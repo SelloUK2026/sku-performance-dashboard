@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-import-progress">
+  <link rel="stylesheet" href="/styles.css?v=20260731-collapsible-criteria">
 </head>
 <body>
   <header class="app-header">
@@ -29,14 +29,21 @@
     </div>
   </header>
 
-  <main class="workspace">
+  <main class="workspace" id="workspace">
     <aside class="criteria-panel">
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Campaign setup</span>
           <h2>Criteria</h2>
         </div>
-        <button class="icon-button" id="resetCriteria" title="Reset criteria" aria-label="Reset criteria">&#8634;</button>
+        <div class="panel-heading-actions">
+          <button class="icon-button" id="resetCriteria" title="Reset criteria"
+            aria-label="Reset criteria">&#8634;</button>
+          <button class="icon-button criteria-toggle" id="criteriaToggle" title="Hide criteria"
+            aria-label="Hide criteria" aria-controls="criteriaForm" aria-expanded="true">
+            <span id="criteriaToggleIcon" aria-hidden="true">&minus;</span>
+          </button>
+        </div>
       </div>
 
       <form id="criteriaForm">
@@ -354,6 +361,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-import-progress"></script>
+  <script src="/app.js?v=20260731-collapsible-criteria"></script>
 </body>
 </html>

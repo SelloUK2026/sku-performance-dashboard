@@ -23,6 +23,8 @@ These notes will be used to create the final user guide.
 9. Set nomination filters and review the grade-to-profit-margin matrix.
 10. Choose whether exported promotion prices include or exclude VAT.
 11. Review eligible, excluded, and warning results.
+    Collapse the Criteria panel when more room is needed for the results table;
+    use the compact plus button to reopen it.
 12. Select approved SKUs and export the promotion nomination file.
 
 ## Input rules
@@ -101,6 +103,9 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
   margin, or Return rate header to see the corresponding red-highlight rule.
 - The table header remains visible while the user scrolls through a long SKU
   result list.
+- The Criteria panel can be collapsed after settings are reviewed. The results
+  table expands into the available space, and the compact plus button restores
+  the panel. The choice is remembered on the same browser.
 - These two checks are review warnings, not exclusion reasons.
 - The discount always references the editable grade-to-profit-margin matrix.
 - Suggested freight follows the SKU dashboard precedence: Suggested Freight,
@@ -187,6 +192,8 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   desktop and mobile layouts.
 - Added a bilingual import-progress window with a Cancel import action for
   platform offer files and commission workbooks.
+- Added a persistent bilingual control to collapse or reopen the Criteria panel
+  and expand the results workspace.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30

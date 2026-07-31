@@ -100,6 +100,9 @@ button { cursor: pointer; }
   display: grid;
   grid-template-columns: minmax(290px, 330px) minmax(0, 1fr);
 }
+.workspace.criteria-collapsed {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
 
 .criteria-panel {
   overflow-y: auto;
@@ -108,6 +111,7 @@ button { cursor: pointer; }
   border-right: 1px solid var(--line);
 }
 .panel-heading { justify-content: space-between; margin-bottom: 17px; }
+.panel-heading-actions { display: flex; align-items: center; gap: 7px; }
 .panel-heading h2 { margin: 2px 0 0; font-size: 20px; letter-spacing: 0; }
 .eyebrow { color: var(--green); font-size: 11px; font-weight: 750; text-transform: uppercase; }
 .icon-button {
@@ -119,6 +123,19 @@ button { cursor: pointer; }
   color: var(--muted);
 }
 .icon-button:hover { color: var(--green); border-color: var(--green); }
+.criteria-toggle span { display: block; line-height: 1; }
+.criteria-collapsed .criteria-panel {
+  overflow: hidden;
+  padding: 12px 6px;
+}
+.criteria-collapsed .panel-heading {
+  justify-content: center;
+  margin: 0;
+}
+.criteria-collapsed .panel-heading > div:first-child,
+.criteria-collapsed #resetCriteria,
+.criteria-collapsed #criteriaForm { display: none; }
+.criteria-collapsed .panel-heading-actions { width: 100%; justify-content: center; }
 
 form > label, .field-grid label, .filter-field {
   display: grid;
@@ -797,7 +814,11 @@ tbody tr.selected .reason-text { background: #f0f8f4; }
   .app-header { height: auto; min-height: 68px; padding: 10px 14px; flex-wrap: wrap; }
   .environment { display: none; }
   .workspace { height: auto; min-height: calc(100vh - 68px); grid-template-columns: 1fr; }
+  .workspace.criteria-collapsed { grid-template-columns: 1fr; }
   .criteria-panel { overflow: visible; border-right: 0; border-bottom: 1px solid var(--line); }
+  .criteria-collapsed .criteria-panel { padding: 8px 13px; }
+  .criteria-collapsed .panel-heading { justify-content: flex-end; }
+  .criteria-collapsed .panel-heading-actions { width: auto; }
   .margin-grid { grid-template-columns: repeat(8, minmax(55px, 1fr)); }
   .results-panel {
     height: calc(100vh - 16px);

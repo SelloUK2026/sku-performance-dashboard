@@ -11,6 +11,7 @@ const DEFAULT_MARGINS = {
 
 const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v9";
 const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
+const CRITERIA_STORAGE_KEY = "promotion-nomination-criteria-collapsed";
 
 const UI_TEXT = {
   en: {
@@ -30,6 +31,8 @@ const UI_TEXT = {
     campaignSetup: "Campaign setup",
     criteria: "Criteria",
     resetCriteria: "Reset criteria",
+    hideCriteria: "Hide criteria",
+    showCriteria: "Show criteria",
     platform: "Platform",
     campaignType: "Campaign type",
     themeEvent: "Theme event",
@@ -195,6 +198,8 @@ const UI_TEXT = {
     campaignSetup: "促销设置",
     criteria: "筛选条件",
     resetCriteria: "重置筛选条件",
+    hideCriteria: "隐藏筛选条件",
+    showCriteria: "显示筛选条件",
     platform: "平台",
     campaignType: "促销类型",
     themeEvent: "主题活动",
@@ -370,6 +375,7 @@ const GUIDE_STEPS = {
       "Main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
       "Use the first-arrival cutoff to exclude newer products.",
       "Minimum discount removes products that cannot support the required campaign discount.",
+      "Collapse the Criteria panel when the settings are no longer needed; the results table expands and the panel can be reopened at any time.",
     ],
   },
   {
@@ -435,6 +441,7 @@ const GUIDE_STEPS = {
         "可按等级、主类别、子类别、品牌、库存和预计可售月数筛选。",
         "使用首次到货日期截止条件排除新品。",
         "最低折扣会排除无法支持活动所需折扣的商品。",
+        "不再需要调整设置时可收起筛选条件面板；结果表会展开，并可随时重新打开面板。",
       ],
     },
     {
@@ -519,6 +526,13 @@ const state = {
   calculationStatus: { key: "ready", values: {} },
   importSequence: 0,
   importOperation: null,
+  criteriaCollapsed: (() => {
+    try {
+      return localStorage.getItem(CRITERIA_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  })(),
 };
 
 const element = (id) => document.getElementById(id);
@@ -580,6 +594,28 @@ function setStaticText(selector, key) {
 function setCalculationStatus(key, values = {}) {
   state.calculationStatus = { key, values };
   element("calculationStatus").textContent = t(key, values);
+}
+
+function updateCriteriaToggle() {
+  const key = state.criteriaCollapsed ? "showCriteria" : "hideCriteria";
+  const button = element("criteriaToggle");
+  button.title = t(key);
+  button.setAttribute("aria-label", t(key));
+  button.setAttribute("aria-expanded", String(!state.criteriaCollapsed));
+  element("criteriaToggleIcon").textContent = state.criteriaCollapsed ? "+" : "\u2212";
+}
+
+function setCriteriaCollapsed(collapsed, { persist = true } = {}) {
+  state.criteriaCollapsed = Boolean(collapsed);
+  element("workspace").classList.toggle("criteria-collapsed", state.criteriaCollapsed);
+  updateCriteriaToggle();
+  if (persist) {
+    try {
+      localStorage.setItem(CRITERIA_STORAGE_KEY, String(state.criteriaCollapsed));
+    } catch {
+      // The panel still changes for the current session when storage is unavailable.
+    }
+  }
 }
 
 function captureImportSnapshot() {
@@ -730,6 +766,7 @@ function applyLanguage(language, { persist = true } = {}) {
   setStaticText(".panel-heading h2", "criteria");
   element("resetCriteria").title = t("resetCriteria");
   element("resetCriteria").setAttribute("aria-label", t("resetCriteria"));
+  updateCriteriaToggle();
   [
     ["platform", "platform"],
     ["campaignType", "campaignType"],
@@ -1804,6 +1841,9 @@ function bindEvents() {
     });
   });
   element("loadSample").addEventListener("click", loadSample);
+  element("criteriaToggle").addEventListener("click", () => {
+    setCriteriaCollapsed(!state.criteriaCollapsed);
+  });
   element("importButton").addEventListener("click", () => element("fileInput").click());
   element("firstImportButton").addEventListener("click", () => element("fileInput").click());
   element("firstSampleButton").addEventListener("click", loadSample);
@@ -1943,6 +1983,7 @@ function bindEvents() {
 
 buildMarginInputs();
 bindEvents();
+setCriteriaCollapsed(state.criteriaCollapsed, { persist: false });
 applyLanguage(state.language, { persist: false });
 loadConfig()
   .then(() => {

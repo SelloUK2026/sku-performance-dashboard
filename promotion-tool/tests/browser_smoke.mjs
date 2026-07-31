@@ -277,6 +277,40 @@ const loaded = {
   brandOptions: await page.locator("#brand .multi-select-option").count(),
   eligibleCount: await page.locator("#eligibleCount").textContent(),
 };
+loaded.criteriaWidthExpanded = await page.locator(".criteria-panel").evaluate(
+  (panel) => Math.round(panel.getBoundingClientRect().width),
+);
+loaded.resultsWidthExpanded = await page.locator(".results-panel").evaluate(
+  (panel) => Math.round(panel.getBoundingClientRect().width),
+);
+await page.locator("#criteriaToggle").click();
+await page.waitForFunction(
+  () => document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
+);
+loaded.criteriaWidthCollapsed = await page.locator(".criteria-panel").evaluate(
+  (panel) => Math.round(panel.getBoundingClientRect().width),
+);
+loaded.resultsWidthCollapsed = await page.locator(".results-panel").evaluate(
+  (panel) => Math.round(panel.getBoundingClientRect().width),
+);
+loaded.criteriaFormHidden = await page.locator("#criteriaForm").isHidden();
+loaded.criteriaToggleExpanded = await page.locator("#criteriaToggle").getAttribute("aria-expanded");
+loaded.criteriaPreference = await page.evaluate(
+  () => localStorage.getItem("promotion-nomination-criteria-collapsed"),
+);
+await page.locator("#languageButton").click();
+await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+loaded.chineseShowCriteriaTitle = await page.locator("#criteriaToggle").getAttribute("title");
+await page.screenshot({
+  path: "analysis/collapsed-criteria.png",
+});
+await page.locator("#languageButton").click();
+await page.waitForFunction(() => document.documentElement.lang === "en");
+await page.locator("#criteriaToggle").click();
+await page.waitForFunction(
+  () => !document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
+);
+loaded.criteriaRestored = await page.locator("#criteriaForm").isVisible();
 await page.locator("#mainCategory .multi-select-trigger").click();
 await page.locator('#mainCategory input[value="Home Appliances"]').check();
 const multiFilterCalculation = page.waitForResponse(
@@ -482,6 +516,26 @@ if (mobile.startupCaMappingVisible) {
 }
 await mobilePage.locator("#firstSampleButton").click();
 await mobilePage.waitForSelector("#candidateRows tr");
+await mobilePage.locator("#criteriaToggle").click();
+await mobilePage.waitForFunction(
+  () => document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
+);
+const mobileCollapsedCriteria = await mobilePage.locator(".criteria-panel").boundingBox();
+mobile.criteriaCollapsed = await mobilePage.locator("#criteriaForm").isHidden();
+mobile.criteriaCollapsedHeight = mobileCollapsedCriteria?.height;
+mobile.criteriaShowTitle = await mobilePage.locator("#criteriaToggle").getAttribute("title");
+mobile.collapsedResultsWidth = await mobilePage.locator(".results-panel").evaluate(
+  (panel) => Math.round(panel.getBoundingClientRect().width),
+);
+await mobilePage.screenshot({
+  path: "analysis/collapsed-criteria-mobile.png",
+  fullPage: true,
+});
+await mobilePage.locator("#criteriaToggle").click();
+await mobilePage.waitForFunction(
+  () => !document.querySelector("#workspace")?.classList.contains("criteria-collapsed"),
+);
+mobile.criteriaRestored = await mobilePage.locator("#criteriaForm").isVisible();
 mobile.resultsPanelConstrained = await mobilePage.locator(".results-panel").evaluate((panel) => {
   const style = getComputedStyle(panel);
   return style.height !== "auto" && panel.clientHeight <= 760;
@@ -716,6 +770,18 @@ if (
 }
 if (loaded.rowCount !== 10) throw new Error("Workbook sample rows did not load.");
 if (
+  loaded.criteriaWidthExpanded < 290
+  || loaded.criteriaWidthCollapsed > 45
+  || loaded.resultsWidthCollapsed <= loaded.resultsWidthExpanded
+  || !loaded.criteriaFormHidden
+  || loaded.criteriaToggleExpanded !== "false"
+  || loaded.criteriaPreference !== "true"
+  || loaded.chineseShowCriteriaTitle !== "显示筛选条件"
+  || !loaded.criteriaRestored
+) {
+  throw new Error(`Criteria collapse failed: ${JSON.stringify(loaded)}`);
+}
+if (
   loaded.mainCategoryOptions < 2
   || loaded.subcategoryOptions < 2
   || loaded.brandOptions < 2
@@ -810,6 +876,11 @@ if (
   || !mobile.importProgressFits
   || mobile.importProgressTitle !== "正在加载佣金率表"
   || !mobile.importCancelVisible
+  || !mobile.criteriaCollapsed
+  || mobile.criteriaCollapsedHeight > 50
+  || mobile.criteriaShowTitle !== "显示筛选条件"
+  || mobile.collapsedResultsWidth !== 390
+  || !mobile.criteriaRestored
   || !mobile.resultsPanelConstrained
   || mobile.stickyHeaderPosition !== "sticky"
   || mobile.chineseTitle !== "选择平台"
