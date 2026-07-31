@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+analysis/
+node_modules/
+*.log
+.env
+.env.*
+data/lifetime_metrics.json
+

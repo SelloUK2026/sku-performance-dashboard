@@ -16,13 +16,18 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_WORKBOOK = ROOT.parent / "Lastest Data Analyse - Codex.xlsx"
+DEFAULT_WORKBOOK = ROOT.parents[1] / "Lastest Data Analyse - Codex.xlsx"
 WORKBOOK_PATH = Path(os.environ.get("SKU_APP_WORKBOOK", DEFAULT_WORKBOOK))
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 if SUPABASE_URL.endswith("/rest/v1"):
     SUPABASE_URL = SUPABASE_URL[:-8].rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 BATCH_SIZE = int(os.environ.get("SUPABASE_IMPORT_BATCH_SIZE", "1000"))
+IMPORT_TABLES = {
+    name.strip()
+    for name in os.environ.get("SUPABASE_IMPORT_TABLES", "").split(",")
+    if name.strip()
+}
 ARRIVAL_SHEET_ID = os.environ.get("ARRIVAL_SHEET_ID", "1yJZc8YnlqftOOP4mF1cfQ_FovfsrNBWzTMzaJYuySpk")
 ARRIVAL_SHEET_GID = os.environ.get("ARRIVAL_SHEET_GID", "1184624748")
 ARRIVAL_STATUS = os.environ.get("ARRIVAL_STATUS", "Arrived").strip().lower()
@@ -131,7 +136,11 @@ def build_powerbi_freight_metrics():
     df["platform_norm"] = df["platform name"].map(lambda value: clean_text(value) or "")
     df["qty_num"] = df["sku_qty"].map(lambda value: clean_number(value, 0))
     df["postage_num"] = df["postage"].map(lambda value: clean_number(value, 0))
-    df = df[(df["sku_norm"].notna()) & (df["postage_num"] != 0) & (df["platform_norm"] != "Amazon(UK) FBA")]
+    df = df[
+        (df["sku_norm"].notna())
+        & (df["postage_num"] != 0)
+        & (~df["platform_norm"].isin({"Amazon(UK) FBA", "Amazon(UK) SFP"}))
+    ]
     metrics = {}
     for sku, group in df.groupby("sku_norm", dropna=True):
         valid_qty = float(group["qty_num"].sum())
@@ -179,6 +188,21 @@ def image_sku_from_row(row):
     if sku:
         return sku
     return price_change_formula_sku(row.get("Inventory Number"))
+
+
+def resolve_ca_wooper_sku(platform_sku, inventory_skus, explicit_wooper_sku=None):
+    inventory_skus = {
+        normalize_sku(sku) for sku in inventory_skus if normalize_sku(sku)
+    }
+    candidates = (
+        ("exact", normalize_sku(platform_sku)),
+        ("workbook", normalize_sku(explicit_wooper_sku)),
+        ("rule", price_change_formula_sku(platform_sku)),
+    )
+    for source, candidate in candidates:
+        if candidate in inventory_skus:
+            return candidate, source
+    return None, "unresolved"
 
 
 def merge_price_history_points(points):
@@ -263,6 +287,32 @@ def insert_rows(table, rows):
         batch = rows[start:start + BATCH_SIZE]
         supabase_request("POST", table, rows=batch)
         print(f"{table}: inserted {min(start + BATCH_SIZE, total):,}/{total:,}")
+
+
+def read_rows(table, query=""):
+    payload = supabase_request("GET", table, query=query)
+    return json.loads(payload.decode("utf-8"))
+
+
+def load_channeladvisor_mappings():
+    rows = read_rows(
+        "sku_mappings",
+        (
+            "?select=external_sku,wooper_sku,status"
+            "&mapping_scope=eq.channeladvisor"
+            "&platform=eq."
+        ),
+    )
+    mappings = {}
+    for row in rows:
+        external_sku = normalize_sku(row.get("external_sku"))
+        if not external_sku:
+            continue
+        mappings[external_sku] = {
+            "wooper_sku": normalize_sku(row.get("wooper_sku")),
+            "status": clean_text(row.get("status")),
+        }
+    return mappings
 
 
 def read_google_csv(sheet_id, gid):
@@ -352,6 +402,7 @@ def build_inventory():
             "main_category": clean_text(row.get("Main Category")),
             "subcategory": clean_text(row.get("Subcategory")),
             "brand": clean_text(row.get("Brand")),
+            "inventory_status": clean_text(row.get("Inventory Status")),
             "grade_level": clean_number(row.get("Grade Level")),
             "estimated_months_to_sell": clean_number(row.get("Estimated Months to Sell")),
             "daily_average_sales": clean_number(row.get("Daily Average Sales")),
@@ -505,23 +556,233 @@ def build_product_images():
     return list(rows.values())
 
 
+def build_channeladvisor_products(inventory_rows=None, manual_mappings=None):
+    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image")
+    if inventory_rows is None:
+        inventory_rows = build_inventory()
+    inventory_skus = {row["sku"] for row in inventory_rows}
+    manual_mappings = manual_mappings or {}
+    rows = {}
+    for _, row in df.iterrows():
+        platform_sku = clean_text(row.get("Inventory Number"))
+        if not platform_sku:
+            continue
+        platform_sku = platform_sku.upper()
+        saved_mapping = manual_mappings.get(platform_sku)
+        saved_wooper_sku = normalize_sku(
+            saved_mapping.get("wooper_sku") if saved_mapping else None
+        )
+        if platform_sku.endswith("-ALL"):
+            wooper_sku = None
+            mapping_status = "non_existing"
+            mapping_source = "parent_sku_rule"
+        elif saved_mapping and saved_mapping.get("status") == "non_existing":
+            wooper_sku = None
+            mapping_status = "non_existing"
+            mapping_source = "manual"
+        elif saved_wooper_sku in inventory_skus:
+            wooper_sku = saved_wooper_sku
+            mapping_status = "mapped"
+            mapping_source = "manual"
+        else:
+            wooper_sku, mapping_source = resolve_ca_wooper_sku(
+                platform_sku,
+                inventory_skus,
+                explicit_wooper_sku=row.get("Unnamed: 25"),
+            )
+            mapping_status = "mapped" if wooper_sku else "unresolved"
+        rows[platform_sku] = {
+            "platform_sku": platform_sku,
+            "wooper_sku": wooper_sku,
+            "ca_price": clean_number(row.get("Buy It Now Price")),
+            "title": clean_text(row.get("Auction Title")),
+            "brand": clean_text(row.get("Brand")),
+            "mapping_status": mapping_status,
+            "mapping_source": mapping_source,
+        }
+    return list(rows.values())
+
+
+def build_promotion_sku_data(
+    inventory_rows=None,
+    sku_master_rows=None,
+    container_rows=None,
+    sales_rows=None,
+):
+    inventory_rows = inventory_rows if inventory_rows is not None else build_inventory()
+    sku_master_rows = (
+        sku_master_rows if sku_master_rows is not None else build_sku_master()
+    )
+    container_rows = (
+        container_rows if container_rows is not None else build_container_report()
+    )
+    sales_rows = sales_rows if sales_rows is not None else build_sales()
+
+    master_arrivals = {
+        row["sku"]: row.get("first_arrival_date")
+        for row in sku_master_rows
+        if row.get("sku") and row.get("first_arrival_date")
+    }
+    inbound_arrivals = {}
+    for row in container_rows:
+        sku = normalize_sku(row.get("sku"))
+        inbound_time = clean_date(row.get("inbound_time"))
+        if not sku or not inbound_time:
+            continue
+        current = inbound_arrivals.get(sku)
+        if current is None or inbound_time < current:
+            inbound_arrivals[sku] = inbound_time
+
+    totals = {}
+    for row in sales_rows:
+        sku = normalize_sku(row.get("sku"))
+        if not sku:
+            continue
+        item = totals.setdefault(
+            sku,
+            {
+                "sold_qty": 0.0,
+                "sales_amt": 0.0,
+                "net_sales": 0.0,
+                "return_amount": 0.0,
+                "profit_incl_rn": 0.0,
+            },
+        )
+        item["sold_qty"] += clean_number(row.get("sku_qty"), 0)
+        item["sales_amt"] += clean_number(row.get("sales_amt"), 0)
+        item["net_sales"] += (
+            clean_number(row.get("sales_amt"), 0)
+            + clean_number(row.get("extra_freight"), 0)
+            - clean_number(row.get("promo_rebate"), 0)
+        )
+        item["return_amount"] += (
+            clean_number(row.get("refund_amt"), 0)
+            + clean_number(row.get("resend_amt"), 0)
+        )
+        item["profit_incl_rn"] += clean_number(row.get("profit_incl_rn"), 0)
+
+    rows = []
+    for inventory_row in inventory_rows:
+        sku = normalize_sku(inventory_row.get("sku"))
+        if not sku:
+            continue
+        metrics = totals.get(sku, {})
+        net_sales = clean_number(metrics.get("net_sales"), 0)
+        rows.append(
+            {
+                "sku": sku,
+                "main_category": inventory_row.get("main_category"),
+                "subcategory": inventory_row.get("subcategory"),
+                "brand": inventory_row.get("brand"),
+                "inventory_status": inventory_row.get("inventory_status"),
+                "grade_level": clean_number(inventory_row.get("grade_level")),
+                "estimated_months_to_sell": clean_number(
+                    inventory_row.get("estimated_months_to_sell")
+                ),
+                "stock_on_hand": clean_number(inventory_row.get("stock_on_hand")),
+                "cogs": clean_number(inventory_row.get("cogs")),
+                "first_arrival_date": (
+                    master_arrivals.get(sku) or inbound_arrivals.get(sku)
+                ),
+                "suggested_freight": clean_number(
+                    inventory_row.get("suggested_freight")
+                ),
+                "sold_qty": clean_number(metrics.get("sold_qty"), 0),
+                "sales_amt": clean_number(metrics.get("sales_amt"), 0),
+                "net_sales": net_sales,
+                "return_amount": clean_number(metrics.get("return_amount"), 0),
+                "profit_incl_rn": clean_number(metrics.get("profit_incl_rn"), 0),
+                "return_rate": (
+                    clean_number(metrics.get("return_amount"), 0) / net_sales
+                    if net_sales
+                    else None
+                ),
+                "lifetime_profit_margin": (
+                    clean_number(metrics.get("profit_incl_rn"), 0) / net_sales
+                    if net_sales
+                    else None
+                ),
+            }
+        )
+    return rows
+
+
 def main():
     require_env()
     print(f"Workbook: {WORKBOOK_PATH}")
-    tables = [
-        ("sales", build_sales(), "?id=not.is.null"),
-        ("sku_master", build_sku_master(), "?sku=not.is.null"),
-        ("inventory", build_inventory(), "?sku=not.is.null"),
-        ("freight", build_freight(), "?sku=not.is.null"),
-        ("container_report", build_container_report(), "?id=not.is.null"),
-        ("price_history", build_price_history(), "?id=not.is.null"),
-        ("product_images", build_product_images(), "?sku=not.is.null"),
+    inventory_rows = build_inventory()
+    channeladvisor_mappings = load_channeladvisor_mappings()
+    channeladvisor_rows = build_channeladvisor_products(
+        inventory_rows,
+        manual_mappings=channeladvisor_mappings,
+    )
+    row_cache = {"inventory": inventory_rows}
+
+    def cached_rows(table, builder):
+        def load():
+            if table not in row_cache:
+                row_cache[table] = builder()
+            return row_cache[table]
+
+        return load
+
+    sales_rows = cached_rows("sales", build_sales)
+    sku_master_rows = cached_rows("sku_master", build_sku_master)
+    freight_rows = cached_rows("freight", build_freight)
+    container_rows = cached_rows("container_report", build_container_report)
+    table_builders = [
+        ("sales", sales_rows, "?id=not.is.null"),
+        ("sku_master", sku_master_rows, "?sku=not.is.null"),
+        ("inventory", lambda: inventory_rows, "?sku=not.is.null"),
+        ("freight", freight_rows, "?sku=not.is.null"),
+        ("container_report", container_rows, "?id=not.is.null"),
+        ("price_history", build_price_history, "?id=not.is.null"),
+        ("product_images", build_product_images, "?sku=not.is.null"),
+        (
+            "channeladvisor_products",
+            lambda: channeladvisor_rows,
+            "?platform_sku=not.is.null",
+        ),
+        (
+            "promotion_sku_data",
+            lambda: build_promotion_sku_data(
+                inventory_rows,
+                sku_master_rows(),
+                container_rows(),
+                sales_rows(),
+            ),
+            "?sku=not.is.null",
+        ),
     ]
-    for table, rows, delete_query in tables:
+    if IMPORT_TABLES:
+        known_tables = {table for table, _, _ in table_builders}
+        unknown_tables = sorted(IMPORT_TABLES - known_tables)
+        if unknown_tables:
+            raise SystemExit(
+                f"Unknown SUPABASE_IMPORT_TABLES value(s): {', '.join(unknown_tables)}"
+            )
+        table_builders = [
+            item for item in table_builders if item[0] in IMPORT_TABLES
+        ]
+        print(
+            "Selected Supabase tables: "
+            + ", ".join(table for table, _, _ in table_builders)
+        )
+    for table, builder, delete_query in table_builders:
+        rows = builder()
         print(f"\nClearing {table}...")
         clear_table(table, delete_query)
         print(f"Uploading {len(rows):,} rows to {table}...")
         insert_rows(table, rows)
+    imported_tables = {table for table, _, _ in table_builders}
+    if "channeladvisor_products" in imported_tables:
+        unresolved_ca = sum(
+            row["mapping_status"] == "unresolved" for row in channeladvisor_rows
+        )
+        print(
+            f"\nChannelAdvisor mappings: {unresolved_ca:,} unresolved. "
+            "The promotion tool will prompt for these mappings at startup."
+        )
     print("\nDone.")
 
 

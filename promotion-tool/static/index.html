@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Promotion Nomination</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">PN</div>
+      <div>
+        <h1>Promotion Nomination</h1>
+        <p>Debenhams calculation demo</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="environment"><span></span>Local demo</span>
+      <button class="button language-button" id="languageButton" title="Display in Simplified Chinese">中文</button>
+      <button class="header-help" id="helpButton" title="Open user guide" aria-label="Open user guide">?</button>
+      <button class="button secondary" id="loadSample">Load sample</button>
+      <button class="button secondary" id="importButton">Import data</button>
+      <button class="button secondary" id="mappingButton" hidden>Resolve mappings</button>
+      <button class="button secondary" id="commissionButton" hidden>Commission table</button>
+      <button class="button primary" id="exportButton">Export selected</button>
+      <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm" hidden>
+      <input id="commissionFileInput" type="file" accept=".csv,.xlsx,.xlsm" hidden>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="criteria-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Campaign setup</span>
+          <h2>Criteria</h2>
+        </div>
+        <button class="icon-button" id="resetCriteria" title="Reset criteria" aria-label="Reset criteria">&#8634;</button>
+      </div>
+
+      <form id="criteriaForm">
+        <div class="field-grid two">
+          <label>Platform
+            <select id="platform"></select>
+          </label>
+          <label>Campaign type
+            <select id="campaignType">
+              <option value="theme">Theme event</option>
+              <option value="single">Single deal</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Campaign name
+          <input id="campaignName" value="EXTRA 25%">
+        </label>
+        <div class="requirement-banner" id="commissionRequirement" hidden>
+          <span id="commissionRequirementText">UK Product Commission Rate List required</span>
+          <button type="button" id="commissionRequirementButton">Upload table</button>
+        </div>
+
+        <div class="section-label">Nomination filters</div>
+        <div class="field-grid two">
+          <label>Minimum grade
+            <input id="minGrade" type="number" min="0" max="7" step="1" value="0">
+          </label>
+          <label>Minimum stock
+            <input id="minStock" type="number" min="0" step="1" value="1">
+          </label>
+          <label>Minimum months
+            <input id="minMonths" type="number" min="0" step="0.1" value="0">
+          </label>
+          <label>Minimum discount
+            <div class="input-suffix"><input id="minDiscount" type="number" min="0" max="100" step="1" value="5"><span>%</span></div>
+          </label>
+          <label>Return review threshold
+            <div class="input-suffix"><input id="maxReturnRate" type="number" min="0" max="100" step="0.1" value="6"><span>%</span></div>
+          </label>
+        </div>
+
+        <div class="filter-field">
+          <span class="field-label">Main category</span>
+          <div class="multi-select" id="mainCategory">
+            <button class="multi-select-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+              <span class="multi-select-value">All main categories</span>
+            </button>
+            <div class="multi-select-menu" role="group" hidden></div>
+          </div>
+        </div>
+        <div class="filter-field">
+          <span class="field-label">Subcategory</span>
+          <div class="multi-select" id="subcategory">
+            <button class="multi-select-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+              <span class="multi-select-value">All subcategories</span>
+            </button>
+            <div class="multi-select-menu" role="group" hidden></div>
+          </div>
+        </div>
+        <div class="filter-field">
+          <span class="field-label">Brand</span>
+          <div class="multi-select" id="brand">
+            <button class="multi-select-trigger" type="button" aria-haspopup="true" aria-expanded="false">
+              <span class="multi-select-value">All brands</span>
+            </button>
+            <div class="multi-select-menu" role="group" hidden></div>
+          </div>
+        </div>
+        <label>Exclude first arrivals on or after
+          <input id="firstArrivalCutoff" type="date">
+        </label>
+
+        <div class="section-label">Pricing rules</div>
+        <div class="field-grid two">
+          <label>Maximum discount
+            <div class="input-suffix"><input id="maxDiscount" type="number" min="0" max="100" step="1" value="25"><span>%</span></div>
+          </label>
+          <label>Default commission
+            <div class="input-suffix"><input id="defaultCommission" type="number" min="0" max="100" step="0.1" value="26.4"><span>%</span></div>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <span>Round promotional prices</span>
+          <label class="switch">
+            <input id="rounding" type="checkbox" checked>
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
+
+        <div class="discount-interval-controls">
+          <div class="toggle-row">
+            <span>Use discount interval</span>
+            <label class="switch">
+              <input id="discountIntervalEnabled" type="checkbox">
+              <span aria-hidden="true"></span>
+            </label>
+          </div>
+          <label>Discount interval
+            <div class="input-suffix"><input id="discountInterval" type="number" min="0.1" max="100" step="0.1" value="5" disabled><span>%</span></div>
+          </label>
+        </div>
+
+        <div class="margin-header">
+          <span>Minimum margin by grade</span>
+          <span>Target</span>
+        </div>
+        <div class="margin-grid" id="marginGrid"></div>
+      </form>
+    </aside>
+
+    <section class="results-panel">
+      <div class="summary-strip">
+        <div><span>Imported</span><strong id="importedCount">0</strong></div>
+        <div><span>Eligible</span><strong id="eligibleCount">0</strong></div>
+        <div><span>Selected</span><strong id="selectedCount">0</strong></div>
+        <div><span>Average discount</span><strong id="averageDiscount">0%</strong></div>
+        <div><span>Projected profit</span><strong id="projectedProfit">&pound;0.00</strong></div>
+      </div>
+
+      <div class="table-toolbar">
+        <div class="search-wrap">
+          <span aria-hidden="true">&#9906;</span>
+          <input id="searchInput" type="search" placeholder="Search SKU, category, or reason">
+        </div>
+        <div class="vat-controls" aria-label="VAT price settings">
+          <strong>VAT 20%</strong>
+          <div class="vat-setting">
+            <span>Calculate from</span>
+            <div class="segmented-control" role="group" aria-label="Promotion calculation price source">
+              <button type="button" class="price-source-option active" data-price-source="ca" aria-pressed="true">CA price</button>
+              <button type="button" class="price-source-option" data-price-source="offer" aria-pressed="false">Offer price</button>
+            </div>
+          </div>
+          <div class="vat-setting">
+            <span>Imported price</span>
+            <div class="segmented-control" role="group" aria-label="Imported price VAT basis">
+              <button type="button" class="vat-option active" data-vat-setting="input" data-vat-value="included" aria-pressed="true">Included</button>
+              <button type="button" class="vat-option" data-vat-setting="input" data-vat-value="excluded" aria-pressed="false">Excluded</button>
+            </div>
+          </div>
+          <div class="vat-setting">
+            <span>Export price</span>
+            <div class="segmented-control" role="group" aria-label="Export price VAT basis">
+              <button type="button" class="vat-option active" data-vat-setting="export" data-vat-value="included" aria-pressed="true">Included</button>
+              <button type="button" class="vat-option" data-vat-setting="export" data-vat-value="excluded" aria-pressed="false">Excluded</button>
+            </div>
+          </div>
+        </div>
+        <div class="filter-group" role="group" aria-label="Candidate filter">
+          <button class="filter-button active" data-filter="all">All</button>
+          <button class="filter-button" data-filter="eligible">Eligible</button>
+          <button class="filter-button" data-filter="excluded">Excluded</button>
+          <button class="filter-button" data-filter="warning">Warnings</button>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th class="select-column"><input type="checkbox" id="selectAll" aria-label="Select all eligible candidates"></th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th>Grade</th>
+              <th>Months</th>
+              <th>SOH</th>
+              <th class="price-column" id="caPriceHeader">
+                <span class="header-title">CA price</span>
+                <span class="header-meta">VAT included</span>
+              </th>
+              <th class="price-column" id="offerPriceHeader">
+                <span class="header-title">Offer price</span>
+                <span class="header-meta">VAT included</span>
+              </th>
+              <th class="price-column" id="normalPriceHeader">
+                <span class="header-title">Price used</span>
+                <span class="header-meta">VAT included</span>
+              </th>
+              <th>Suggested</th>
+              <th>Final</th>
+              <th class="price-column" id="promoPriceHeader">
+                <span class="header-title">Promo price</span>
+                <span class="header-meta">VAT included</span>
+              </th>
+              <th class="metric-column">
+                <span class="header-title">Promo margin</span>
+                <span class="header-meta">proposed</span>
+              </th>
+              <th>Sold</th>
+              <th class="metric-column">
+                <span class="header-title">Lifetime margin</span>
+                <span class="header-meta">after returns</span>
+              </th>
+              <th class="metric-column">
+                <span class="header-title">Return rate</span>
+                <span class="header-meta">all platforms</span>
+              </th>
+              <th class="decision-column">Decision</th>
+              <th class="reason-column">Reason</th>
+            </tr>
+          </thead>
+          <tbody id="candidateRows"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState" hidden>
+          <strong>No candidates match this view</strong>
+          <span>Adjust the filters or import another data file.</span>
+        </div>
+      </div>
+      <div class="status-bar">
+        <span id="sourceLabel">Workbook-verified sample data</span>
+        <span id="calculationStatus">Ready</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-backdrop visible" id="firstImportModal">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="firstImportTitle">
+      <span class="eyebrow">Step 1</span>
+      <h2 id="firstImportTitle">Import current platform offers</h2>
+      <p>The first file contains the platform SKU and current offer price.</p>
+      <div class="modal-actions">
+        <button class="button primary" id="firstImportButton">Import offer file</button>
+        <button class="button plain" id="firstSampleButton">Open workbook sample</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="mappingModal">
+    <section class="modal mapping-modal" role="dialog" aria-modal="true" aria-labelledby="mappingTitle">
+      <span class="eyebrow">SKU mapping required</span>
+      <h2 id="mappingTitle">Match platform SKUs to Wooper</h2>
+      <p class="mapping-summary" id="mappingSummary"></p>
+      <input id="mappingSearch" type="search" placeholder="Search CA SKU or title">
+      <div class="mapping-list" id="mappingList"></div>
+      <div class="modal-actions">
+        <button class="button plain" id="closeMappings">Close</button>
+        <button class="button primary" id="saveMappings">Save completed mappings</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="commissionMissingModal">
+    <section class="modal commission-modal" role="dialog" aria-modal="true" aria-labelledby="commissionMissingTitle">
+      <span class="eyebrow">Commission review required</span>
+      <h2 id="commissionMissingTitle">Commission rates are missing</h2>
+      <p id="commissionMissingSummary"></p>
+      <div class="commission-missing-list" id="commissionMissingList"></div>
+      <div class="modal-actions commission-actions">
+        <button class="button plain" id="closeCommissionMissing">Close</button>
+        <button class="button secondary" id="reuploadCommission">Re-upload file</button>
+        <button class="button primary" id="applySuggestedCommissions">Apply rates</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="guideModal">
+    <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+      <div class="guide-heading">
+        <div>
+          <span class="eyebrow">User guide</span>
+          <div class="guide-counter" id="guideCounter">Step 1 of 6</div>
+        </div>
+        <div class="guide-heading-actions">
+          <button class="button guide-language-button" id="guideLanguageButton" title="Display in Simplified Chinese">中文</button>
+          <button class="icon-button" id="guideCloseIcon" title="Close user guide" aria-label="Close user guide">&times;</button>
+        </div>
+      </div>
+      <div class="guide-progress" id="guideProgress" aria-hidden="true"></div>
+      <div class="guide-content">
+        <h2 id="guideTitle"></h2>
+        <p id="guideSummary"></p>
+        <ul id="guidePoints"></ul>
+      </div>
+      <div class="modal-actions guide-actions">
+        <button class="button plain" id="guidePrevious">Previous</button>
+        <button class="button plain" id="guideCloseButton">Close</button>
+        <button class="button primary" id="guideNext">Next</button>
+      </div>
+    </section>
+  </div>
+
+  <datalist id="wooperSkuList"></datalist>
+  <script src="/app.js"></script>
+</body>
+</html>

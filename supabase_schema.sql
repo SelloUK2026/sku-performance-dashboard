@@ -34,6 +34,7 @@ create table if not exists public.inventory (
   main_category text,
   subcategory text,
   brand text,
+  inventory_status text,
   grade_level numeric,
   estimated_months_to_sell numeric,
   daily_average_sales numeric,
@@ -43,6 +44,7 @@ create table if not exists public.inventory (
 );
 
 alter table public.inventory add column if not exists suggested_freight numeric;
+alter table public.inventory add column if not exists inventory_status text;
 
 create table if not exists public.freight (
   sku text primary key,
@@ -90,6 +92,65 @@ create table if not exists public.product_images (
   image_urls jsonb default '[]'::jsonb
 );
 
+create table if not exists public.channeladvisor_products (
+  platform_sku text primary key,
+  wooper_sku text,
+  ca_price numeric check (ca_price is null or ca_price >= 0),
+  title text,
+  brand text,
+  mapping_status text not null default 'unresolved'
+    check (mapping_status in ('mapped', 'unresolved', 'non_existing')),
+  mapping_source text,
+  imported_at timestamptz not null default now()
+);
+
+create index if not exists channeladvisor_products_wooper_sku_idx
+  on public.channeladvisor_products (wooper_sku);
+
+create table if not exists public.promotion_sku_data (
+  sku text primary key,
+  main_category text,
+  subcategory text,
+  brand text,
+  inventory_status text,
+  grade_level numeric,
+  estimated_months_to_sell numeric,
+  stock_on_hand numeric,
+  cogs numeric,
+  first_arrival_date date,
+  suggested_freight numeric,
+  sold_qty numeric default 0,
+  sales_amt numeric default 0,
+  net_sales numeric default 0,
+  return_amount numeric default 0,
+  profit_incl_rn numeric default 0,
+  return_rate numeric,
+  lifetime_profit_margin numeric,
+  refreshed_at timestamptz not null default now()
+);
+
+create table if not exists public.sku_mappings (
+  mapping_scope text not null
+    check (mapping_scope in ('channeladvisor', 'platform')),
+  platform text not null default '',
+  external_sku text not null,
+  wooper_sku text,
+  status text not null
+    check (status in ('mapped', 'non_existing')),
+  mapping_source text not null default 'manual',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (mapping_scope, platform, external_sku),
+  check (
+    (status = 'mapped' and wooper_sku is not null)
+    or (status = 'non_existing' and wooper_sku is null)
+  )
+);
+
+create index if not exists sku_mappings_wooper_sku_idx
+  on public.sku_mappings (wooper_sku)
+  where wooper_sku is not null;
+
 alter table public.sales enable row level security;
 alter table public.sku_master enable row level security;
 alter table public.inventory enable row level security;
@@ -97,6 +158,16 @@ alter table public.freight enable row level security;
 alter table public.container_report enable row level security;
 alter table public.price_history enable row level security;
 alter table public.product_images enable row level security;
+alter table public.channeladvisor_products enable row level security;
+alter table public.promotion_sku_data enable row level security;
+alter table public.sku_mappings enable row level security;
+
+grant select, insert, update, delete
+  on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
+  to service_role;
+revoke all
+  on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
+  from anon, authenticated;
 
 drop policy if exists "dashboard read sales" on public.sales;
 drop policy if exists "dashboard read sku master" on public.sku_master;
@@ -105,6 +176,7 @@ drop policy if exists "dashboard read freight" on public.freight;
 drop policy if exists "dashboard read container" on public.container_report;
 drop policy if exists "dashboard read price history" on public.price_history;
 drop policy if exists "dashboard read images" on public.product_images;
+drop policy if exists "dashboard read channeladvisor products" on public.channeladvisor_products;
 
 create policy "dashboard read sales" on public.sales for select using (true);
 create policy "dashboard read sku master" on public.sku_master for select using (true);

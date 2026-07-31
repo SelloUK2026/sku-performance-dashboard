@@ -64,6 +64,10 @@ Google Sheets mode caches data for 15 minutes by default. Change `SKU_APP_CACHE_
 
 Supabase is the recommended free database option for faster SKU switching. Google Sheets is still fine for editing the source data, but the dashboard should read from Supabase after import.
 
+The same import also refreshes `promotion_sku_data`,
+`channeladvisor_products`, and persisted SKU mappings used by the separate
+promotion nomination service in `promotion-tool/`.
+
 ### 1. Create The Tables
 
 In Supabase:
@@ -76,7 +80,12 @@ In Supabase:
 
 ### 2. Import The Workbook
 
-Do this on your computer only. Use the private `service_role` key for this import, but do not upload that key to GitHub and do not put it in Render.
+Do this on your computer only. Use the private `service_role` key for this
+import and never upload it to GitHub. The SKU dashboard service itself only
+needs the public anon key. The separate promotion backend also needs a
+server-only Supabase secret/service-role key in its own Render environment
+because it maintains SKU mappings; that key must never be exposed to browser
+code.
 
 ```powershell
 cd "C:\Users\SELLOCP92-1\Documents\Overall\sku-performance-app"
