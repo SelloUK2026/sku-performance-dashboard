@@ -271,7 +271,6 @@ loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers)
   const rects = headers.map((header) => header.getBoundingClientRect());
   return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
 });
-loaded.gradeOptionCount = await page.locator("#gradeLevel .multi-select-option").count();
 loaded.lifetimeMargins = await page.locator("#candidateRows tr").evaluateAll(
   (rows) => rows.map((row) => row.querySelectorAll("td")[14]?.textContent.trim()),
 );
@@ -535,8 +534,8 @@ if (
 ) {
   throw new Error(`Result columns are in the wrong position: ${JSON.stringify(loaded.headerOrder)}`);
 }
-if (loaded.overlappingHeaders || loaded.gradeOptionCount < 1) {
-  throw new Error(`Result columns overlap or grade filter is empty: ${JSON.stringify(loaded)}`);
+if (loaded.overlappingHeaders) {
+  throw new Error(`Result columns overlap: ${JSON.stringify(loaded)}`);
 }
 const positiveIntervalDiscounts = loaded.suggestedDiscountsAfterInterval
   .map((value) => Number(value?.replace("%", "")))

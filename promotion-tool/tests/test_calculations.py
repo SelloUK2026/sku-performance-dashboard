@@ -234,15 +234,6 @@ class PromotionCalculationTests(unittest.TestCase):
         self.assertFalse(excluded["eligible"])
         self.assertIn("Outside selected brand", excluded["reasons"])
 
-    def test_grade_filter_matches_any_selected_grade(self):
-        row = dict(self.rows[0], grade=4)
-        included = calculate_candidate(row, dict(CRITERIA, grades=["2", "4"]))
-        excluded = calculate_candidate(row, dict(CRITERIA, grades=["1", "3"]))
-
-        self.assertTrue(included["eligible"])
-        self.assertFalse(excluded["eligible"])
-        self.assertIn("Outside selected grade", excluded["reasons"])
-
     def test_single_value_filter_requests_remain_supported(self):
         row = dict(
             self.rows[0],

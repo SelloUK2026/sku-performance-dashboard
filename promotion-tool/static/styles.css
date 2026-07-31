@@ -130,7 +130,6 @@ form > label, .field-grid label, .filter-field {
 }
 .field-grid { display: grid; gap: 10px; }
 .field-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.field-grid .compact-filter { margin-bottom: 12px; }
 input, select {
   width: 100%;
   min-width: 0;

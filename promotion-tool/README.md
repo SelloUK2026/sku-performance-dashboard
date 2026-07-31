@@ -55,8 +55,8 @@ to the browser or committed to GitHub.
 - Workbook-matched reverse pricing, discount cap, optional discount intervals,
   price rounding, profit, and margin.
 - Editable grade-to-profit-margin matrix from `Template - General`.
-- Wooper grade and first-arrival filters, with multi-select dropdowns for grade,
-  main category, subcategory, and brand.
+- Wooper minimum-grade and first-arrival filters, with multi-select dropdowns
+  for main category, subcategory, and brand.
 - All-platform lifetime profit margin after returns and return rate from the
   SKU-dashboard PowerBI history.
 - SKU-dashboard suggested freight precedence and WMS at 8% of promotion

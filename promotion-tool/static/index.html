@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-layout">
+  <link rel="stylesheet" href="/styles.css?v=20260731-layout2">
 </head>
 <body>
   <header class="app-header">
@@ -62,15 +62,9 @@
 
         <div class="section-label">Nomination filters</div>
         <div class="field-grid two">
-          <div class="filter-field compact-filter">
-            <span class="field-label">Grade level</span>
-            <div class="multi-select" id="gradeLevel">
-              <button class="multi-select-trigger" type="button" aria-haspopup="true" aria-expanded="false">
-                <span class="multi-select-value">All grades</span>
-              </button>
-              <div class="multi-select-menu" role="group" hidden></div>
-            </div>
-          </div>
+          <label>Minimum grade level
+            <input id="minGrade" type="number" min="0" max="7" step="1" value="0">
+          </label>
           <label>Minimum stock
             <input id="minStock" type="number" min="0" step="1" value="1">
           </label>
@@ -329,6 +323,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-layout"></script>
+  <script src="/app.js?v=20260731-layout2"></script>
 </body>
 </html>

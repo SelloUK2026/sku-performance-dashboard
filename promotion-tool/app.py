@@ -1190,15 +1190,7 @@ def calculate_candidate(row: dict, criteria: dict) -> dict:
     return_rate = normalise_number(row.get("return_rate"))
     minimum_discount = normalise_number(criteria.get("min_discount"), 0)
 
-    selected_grades = {
-        int(normalise_number(value))
-        for value in criteria.get("grades", [])
-        if str(value).strip()
-    }
-    if selected_grades:
-        if int(grade) not in selected_grades:
-            reasons.append("Outside selected grade")
-    elif grade < normalise_number(criteria.get("min_grade"), 0):
+    if grade < normalise_number(criteria.get("min_grade"), 0):
         reasons.append("Grade below threshold")
     if stock < normalise_number(criteria.get("min_stock"), 0):
         reasons.append("Stock below threshold")

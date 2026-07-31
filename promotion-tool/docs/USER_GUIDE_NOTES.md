@@ -80,9 +80,9 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
 - Available filters include grade, main category, subcategory, brand, stock,
   estimated selling months, first-arrival cutoff, minimum discount, and return
   review threshold.
-- Grade, main category, subcategory, and brand are multi-select dropdowns.
-  Select any number of values in each dropdown; a SKU may match any selected
-  value within that filter, while different filters are applied together.
+- Main category, subcategory, and brand are multi-select dropdowns. Select any
+  number of values in each dropdown; a SKU may match any selected value within
+  that filter, while different filters are applied together.
 - An empty multi-select dropdown means all values. Use the clear icon in the
   open dropdown to return to all values.
 - Return rate at or above the default 6% threshold is highlighted red and marks
@@ -168,8 +168,7 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   price, Promo margin, SOH, Lifetime margin, or Return rate.
 - Moved SOH immediately after Promo margin, followed by Sold, Lifetime margin,
   and Return rate.
-- Changed grade filtering from a minimum numeric threshold to a multi-select
-  grade-level filter.
+- Kept grade filtering as an editable minimum grade-level threshold.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30

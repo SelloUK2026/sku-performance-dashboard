@@ -39,8 +39,7 @@ const UI_TEXT = {
     commissionRatesReview: "{count} commission rates need review",
     uploadTable: "Upload table",
     nominationFilters: "Nomination filters",
-    gradeLevel: "Grade level",
-    allGrades: "All grades",
+    minimumGrade: "Minimum grade level",
     minimumStock: "Minimum stock",
     minimumMonths: "Minimum months",
     minimumDiscount: "Minimum discount",
@@ -195,8 +194,7 @@ const UI_TEXT = {
     commissionRatesReview: "{count}个佣金率需要审核",
     uploadTable: "上传表格",
     nominationFilters: "提名筛选",
-    gradeLevel: "等级",
-    allGrades: "所有等级",
+    minimumGrade: "最低等级",
     minimumStock: "最低库存",
     minimumMonths: "最低可售月数",
     minimumDiscount: "最低折扣",
@@ -348,7 +346,7 @@ const GUIDE_STEPS = {
     summary: "Use Wooper product data to control which products may participate.",
     points: [
       "Filter by grade, main category, subcategory, brand, stock, and estimated selling months.",
-      "Grade, main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
+      "Main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
       "Use the first-arrival cutoff to exclude newer products.",
       "Minimum discount removes products that cannot support the required campaign discount.",
     ],
@@ -444,7 +442,7 @@ const GUIDE_STEPS = {
 GUIDE_STEPS.zh[3].points.splice(
   1,
   0,
-  "\u7b49\u7ea7\u3001\u4e3b\u7c7b\u522b\u3001\u5b50\u7c7b\u522b\u548c\u54c1\u724c\u53ef\u591a\u9009\uff1b\u672a\u9009\u62e9\u4efb\u4f55\u503c\u65f6\u8868\u793a\u5168\u90e8\u3002",
+  "\u4e3b\u7c7b\u522b\u3001\u5b50\u7c7b\u522b\u548c\u54c1\u724c\u53ef\u591a\u9009\uff1b\u672a\u9009\u62e9\u4efb\u4f55\u503c\u65f6\u8868\u793a\u5168\u90e8\u3002",
 );
 GUIDE_STEPS.zh[2].points.splice(
   1,
@@ -512,7 +510,6 @@ function translateMessage(message) {
     "Rounding leaves margin slightly below target": "价格舍入导致利润率略低于目标",
     "Final discount leaves margin below target": "最终折扣导致利润率低于目标",
     "Grade below threshold": "等级低于筛选条件",
-    "Outside selected grade": "不属于所选等级",
     "Stock below threshold": "库存低于筛选条件",
     "Saleable months below threshold": "可售月数低于筛选条件",
     "Available discount below minimum": "可用折扣低于最低要求",
@@ -620,7 +617,7 @@ function applyLanguage(language, { persist = true } = {}) {
     ["platform", "platform"],
     ["campaignType", "campaignType"],
     ["campaignName", "campaignName"],
-    ["gradeLevel", "gradeLevel"],
+    ["minGrade", "minimumGrade"],
     ["minStock", "minimumStock"],
     ["minMonths", "minimumMonths"],
     ["minDiscount", "minimumDiscount"],
@@ -860,7 +857,7 @@ function criteriaFromForm() {
     platform: element("platform").value,
     campaign_name: element("campaignName").value.trim(),
     campaign_type: element("campaignType").value,
-    grades: selectedMultiValues("gradeLevel"),
+    min_grade: Number(element("minGrade").value || 0),
     min_stock: Number(element("minStock").value || 0),
     min_months: Number(element("minMonths").value || 0),
     min_discount: Number(element("minDiscount").value || 0) / 100,
@@ -964,14 +961,6 @@ function populateMultiSelect(id, values, placeholder) {
 }
 
 function updateWooperFilters() {
-  populateMultiSelect(
-    "gradeLevel",
-    state.rows
-      .map((row) => Number(row.grade))
-      .filter(Number.isFinite)
-      .map(String),
-    t("allGrades"),
-  );
   populateMultiSelect("mainCategory", state.rows.map((row) => row.main_category), t("allMainCategories"));
   populateMultiSelect("subcategory", state.rows.map((row) => row.subcategory), t("allSubcategories"));
   populateMultiSelect("brand", state.rows.map((row) => row.brand), t("allBrands"));
@@ -1586,6 +1575,7 @@ function exportSelected() {
 }
 
 function resetCriteria() {
+  element("minGrade").value = 0;
   element("minStock").value = 1;
   element("minMonths").value = 0;
   element("minDiscount").value = 5;
@@ -1593,7 +1583,7 @@ function resetCriteria() {
   document.querySelectorAll(".multi-select-option input").forEach((input) => {
     input.checked = false;
   });
-  ["gradeLevel", "mainCategory", "subcategory", "brand"].forEach(updateMultiSelectSummary);
+  ["mainCategory", "subcategory", "brand"].forEach(updateMultiSelectSummary);
   element("firstArrivalCutoff").value = "";
   element("maxDiscount").value = 25;
   element("defaultCommission").value = 26.4;
