@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-column-order">
+  <link rel="stylesheet" href="/styles.css?v=20260731-override-discount">
 </head>
 <body>
   <header class="app-header">
@@ -225,7 +225,7 @@
                 <span class="header-meta">VAT included</span>
               </th>
               <th data-header-key="suggested">Suggested</th>
-              <th data-header-key="final">Final</th>
+              <th class="final-discount-column" data-header-key="final">Final</th>
               <th class="price-column" id="promoPriceHeader">
                 <span class="header-title">Promo price</span>
                 <span class="header-meta">VAT included</span>
@@ -361,6 +361,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-column-order"></script>
+  <script src="/app.js?v=20260731-override-discount"></script>
 </body>
 </html>

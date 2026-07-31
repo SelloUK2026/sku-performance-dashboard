@@ -539,6 +539,32 @@ tbody tr.excluded td { color: #59625f; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.final-discount-column,
+.final-discount-cell {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+.final-discount-cell .input-suffix {
+  width: 82px;
+  margin-left: auto;
+}
+.final-discount-cell .override-input {
+  appearance: textfield;
+  height: 35px;
+  padding: 6px 25px 6px 7px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.final-discount-cell .override-input::-webkit-inner-spin-button,
+.final-discount-cell .override-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.final-discount-cell .input-suffix span {
+  right: 8px;
+  top: 10px;
+}
 .sku-primary { display: block; font-weight: 700; color: var(--ink); }
 .sku-secondary { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
 .number { text-align: right; font-variant-numeric: tabular-nums; }
