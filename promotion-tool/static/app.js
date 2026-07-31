@@ -91,11 +91,14 @@ const UI_TEXT = {
     promoPrice: "Promo price",
     promoMargin: "Promo margin",
     proposed: "proposed",
+    promoMarginHighlightNote: "Red text means Promo margin is negative. Promo margin and Lifetime margin are highlighted red when Lifetime margin exceeds Promo margin by more than 5 percentage points.",
     sold: "Sold",
     lifetimeMargin: "Lifetime margin",
     afterReturns: "after returns",
+    lifetimeMarginHighlightNote: "Red text means Lifetime margin is negative. Promo margin and Lifetime margin are highlighted red when Lifetime margin exceeds Promo margin by more than 5 percentage points.",
     returnRate: "Return rate",
     allPlatforms: "all platforms",
+    returnRateHighlightNote: "Return rate is highlighted red when it is at or above the Return review threshold set in Criteria (default 6%).",
     decision: "Decision",
     reason: "Reason",
     noCandidates: "No candidates match this view",
@@ -244,11 +247,14 @@ const UI_TEXT = {
     promoPrice: "促销价",
     promoMargin: "促销利润率",
     proposed: "建议值",
+    promoMarginHighlightNote: "促销利润率为负数时显示红色文字。当生命周期利润率比促销利润率高出超过5个百分点时，促销利润率和生命周期利润率均以红色高亮。",
     sold: "销量",
     lifetimeMargin: "生命周期利润率",
     afterReturns: "计入退货后",
+    lifetimeMarginHighlightNote: "生命周期利润率为负数时显示红色文字。当生命周期利润率比促销利润率高出超过5个百分点时，促销利润率和生命周期利润率均以红色高亮。",
     returnRate: "退货率",
     allPlatforms: "所有平台",
+    returnRateHighlightNote: "当退货率达到或超过筛选条件中的退货率审核阈值（默认6%）时，以红色高亮。",
     decision: "结果",
     reason: "原因",
     noCandidates: "当前视图没有候选商品",
@@ -370,6 +376,8 @@ const GUIDE_STEPS = {
       "Use Eligible, Excluded, and Warnings to focus the review.",
       "Return rates at or above 6% are highlighted red for review.",
       "A lifetime margin more than 5 points above promo margin is highlighted red for review.",
+      "Hover or focus the information icons in the table headers to review the red-highlight rules.",
+      "The header row stays visible while scrolling through long SKU lists.",
       "Select only the SKUs you want to nominate.",
       "Choose whether exported prices include VAT; the CSV header records the selection.",
     ],
@@ -451,6 +459,12 @@ GUIDE_STEPS.zh[2].points.splice(
   "\u591a\u4e2aCA SKU\u53ef\u4ee5\u6620\u5c04\u5230\u540c\u4e00\u4e2aWooper SKU\u3002",
   "CA SKU\u4ee5-ALL\u7ed3\u5c3e\u65f6\u4e3a\u7236SKU\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u5c06\u5176\u6807\u8bb0\u4e3a\u4e0d\u5b58\u5728SKU\u3002",
   "\u5df2\u5b8c\u6210\u7684\u6620\u5c04\u548c\u5df2\u4e0b\u67b6\u72b6\u6001\u4fdd\u5b58\u5728Supabase\u4e2d\uff0c\u4ee5\u540e\u5237\u65b0\u65f6\u4f1a\u81ea\u52a8\u91cd\u7528\u3002",
+);
+GUIDE_STEPS.zh[5].points.splice(
+  3,
+  0,
+  "\u5c06\u9f20\u6807\u79fb\u5230\u8868\u5934\u7684\u4fe1\u606f\u56fe\u6807\u4e0a\uff0c\u6216\u4f7f\u7528\u952e\u76d8\u805a\u7126\u56fe\u6807\uff0c\u53ef\u67e5\u770b\u7ea2\u8272\u9ad8\u4eae\u89c4\u5219\u3002",
+  "\u6eda\u52a8\u67e5\u770b\u8f83\u957f\u7684SKU\u6e05\u5355\u65f6\uff0c\u8868\u5934\u4f1a\u4fdd\u6301\u53ef\u89c1\u3002",
 );
 
 const state = {
@@ -683,13 +697,33 @@ function applyLanguage(language, { persist = true } = {}) {
     "promoPrice",
     state.exportPriceIncludesVat ? "included" : "excluded",
   );
-  const metricHeaders = document.querySelectorAll("th.metric-column");
-  metricHeaders[0].querySelector(".header-title").textContent = t("promoMargin");
-  metricHeaders[0].querySelector(".header-meta").textContent = t("proposed");
-  metricHeaders[1].querySelector(".header-title").textContent = t("lifetimeMargin");
-  metricHeaders[1].querySelector(".header-meta").textContent = t("afterReturns");
-  metricHeaders[2].querySelector(".header-title").textContent = t("returnRate");
-  metricHeaders[2].querySelector(".header-meta").textContent = t("allPlatforms");
+  [
+    {
+      id: "promoMarginHeader",
+      title: "promoMargin",
+      meta: "proposed",
+      note: "promoMarginHighlightNote",
+    },
+    {
+      id: "lifetimeMarginHeader",
+      title: "lifetimeMargin",
+      meta: "afterReturns",
+      note: "lifetimeMarginHighlightNote",
+    },
+    {
+      id: "returnRateHeader",
+      title: "returnRate",
+      meta: "allPlatforms",
+      note: "returnRateHighlightNote",
+    },
+  ].forEach(({ id, title, meta, note }) => {
+    const header = element(id);
+    header.querySelector(".header-title").textContent = t(title);
+    header.querySelector(".header-meta").textContent = t(meta);
+    const info = header.querySelector(".header-note");
+    info.dataset.tooltip = t(note);
+    info.setAttribute("aria-label", t(note));
+  });
 
   setStaticText(".empty-state strong", "noCandidates");
   setStaticText(".empty-state span", "adjustFilters");

@@ -267,6 +267,50 @@ loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll
 loaded.headerOrder = await page.locator("thead th").evaluateAll(
   (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
 );
+loaded.headerNoteCount = await page.locator(".header-note").count();
+loaded.promoHighlightNote = await page.locator(
+  "#promoMarginHeader .header-note",
+).getAttribute("data-tooltip");
+loaded.returnHighlightNote = await page.locator(
+  "#returnRateHeader .header-note",
+).getAttribute("data-tooltip");
+const returnHeaderNote = page.locator("#returnRateHeader .header-note");
+await returnHeaderNote.hover();
+await page.waitForTimeout(180);
+await page.screenshot({
+  path: "analysis/header-highlight-note.png",
+});
+loaded.returnTooltipVisible = await returnHeaderNote.evaluate((node) => {
+  const tooltip = getComputedStyle(node, "::after");
+  return tooltip.visibility === "visible" && Number(tooltip.opacity) > 0;
+});
+loaded.stickyHeader = await page.locator(".table-shell").evaluate(async (shell) => {
+  const previous = {
+    flex: shell.style.flex,
+    height: shell.style.height,
+    maxHeight: shell.style.maxHeight,
+    scrollTop: shell.scrollTop,
+  };
+  shell.style.flex = "0 0 220px";
+  shell.style.height = "220px";
+  shell.style.maxHeight = "220px";
+  await new Promise(requestAnimationFrame);
+  shell.scrollTop = 160;
+  await new Promise(requestAnimationFrame);
+  const header = shell.querySelector("thead th");
+  const shellTop = shell.getBoundingClientRect().top;
+  const headerTop = header.getBoundingClientRect().top;
+  const result = {
+    position: getComputedStyle(header).position,
+    scrolled: shell.scrollTop > 0,
+    topDelta: Math.abs(headerTop - shellTop),
+  };
+  shell.scrollTop = previous.scrollTop;
+  shell.style.flex = previous.flex;
+  shell.style.height = previous.height;
+  shell.style.maxHeight = previous.maxHeight;
+  return result;
+});
 loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers) => {
   const rects = headers.map((header) => header.getBoundingClientRect());
   return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
@@ -286,6 +330,9 @@ const chineseResultRow = page.locator("#candidateRows tr").filter({ hasText: "AI
 loaded.chineseDecision = await chineseResultRow.locator("td").nth(16).textContent();
 loaded.chineseReason = await chineseResultRow.locator("td").nth(17).textContent();
 loaded.chineseCaHeader = await page.locator("#caPriceHeader").textContent();
+loaded.chineseReturnHighlightNote = await page.locator(
+  "#returnRateHeader .header-note",
+).getAttribute("data-tooltip");
 loaded.chineseRowCount = await page.locator("#candidateRows tr").count();
 await page.screenshot({
   path: "analysis/chinese-results.png",
@@ -321,6 +368,21 @@ const mobile = {
   noPageOverflow: await mobilePage.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   ),
+  layout: await mobilePage.evaluate(() => {
+    const workspace = document.querySelector(".workspace");
+    const criteria = document.querySelector(".criteria-panel");
+    const results = document.querySelector(".results-panel");
+    return {
+      innerWidth: window.innerWidth,
+      scrollX: window.scrollX,
+      workspaceColumns: getComputedStyle(workspace).gridTemplateColumns,
+      workspaceWidth: workspace.getBoundingClientRect().width,
+      criteriaX: criteria.getBoundingClientRect().x,
+      criteriaWidth: criteria.getBoundingClientRect().width,
+      resultsX: results.getBoundingClientRect().x,
+      resultsWidth: results.getBoundingClientRect().width,
+    };
+  }),
 };
 await mobilePage.screenshot({
   path: "analysis/user-guide-mobile.png",
@@ -341,7 +403,30 @@ if (mobile.startupCaMappingVisible) {
 }
 await mobilePage.locator("#firstSampleButton").click();
 await mobilePage.waitForSelector("#candidateRows tr");
+mobile.resultsPanelConstrained = await mobilePage.locator(".results-panel").evaluate((panel) => {
+  const style = getComputedStyle(panel);
+  return style.height !== "auto" && panel.clientHeight <= 760;
+});
+mobile.stickyHeaderPosition = await mobilePage.locator("thead th").first().evaluate(
+  (header) => getComputedStyle(header).position,
+);
 const mobileVatControls = await mobilePage.locator(".vat-controls").boundingBox();
+mobile.pageScrollWidth = await mobilePage.evaluate(() => document.documentElement.scrollWidth);
+mobile.vatControlsBox = mobileVatControls;
+mobile.populatedLayout = await mobilePage.evaluate(() => {
+  const workspace = document.querySelector(".workspace");
+  const results = document.querySelector(".results-panel");
+  const toolbar = document.querySelector(".table-toolbar");
+  return {
+    workspaceColumns: getComputedStyle(workspace).gridTemplateColumns,
+    workspaceWidth: workspace.getBoundingClientRect().width,
+    resultsX: results.getBoundingClientRect().x,
+    resultsWidth: results.getBoundingClientRect().width,
+    toolbarX: toolbar.getBoundingClientRect().x,
+    toolbarWidth: toolbar.getBoundingClientRect().width,
+    scrollX: window.scrollX,
+  };
+});
 mobile.vatControlsVisible = await mobilePage.locator(".vat-controls").isVisible();
 mobile.vatControlsFit = mobileVatControls
   && mobileVatControls.x >= 0
@@ -517,10 +602,22 @@ if (loaded.returnRateReviewCount < 1) {
   throw new Error(`Review metrics are not highlighted: ${JSON.stringify(loaded)}`);
 }
 if (
+  loaded.headerNoteCount !== 3
+  || !loaded.promoHighlightNote?.includes("5 percentage points")
+  || !loaded.returnHighlightNote?.includes("Return review threshold")
+  || !loaded.returnTooltipVisible
+  || loaded.stickyHeader?.position !== "sticky"
+  || !loaded.stickyHeader?.scrolled
+  || loaded.stickyHeader?.topDelta > 2
+) {
+  throw new Error(`Header guidance or sticky scrolling failed: ${JSON.stringify(loaded)}`);
+}
+if (
   loaded.chineseDecision?.trim() !== "排除"
   || !loaded.chineseReason?.includes("库存低于筛选条件")
   || !loaded.chineseReason?.includes("退货率达到或超过6%审核阈值")
   || loaded.chineseCaHeader.replace(/\s+/g, " ").trim() !== "CA價 含VAT"
+  || !loaded.chineseReturnHighlightNote?.includes("默认6%")
   || loaded.chineseRowCount !== loaded.rowCount
 ) {
   throw new Error(`Dynamic Chinese results are incomplete: ${JSON.stringify(loaded)}`);
@@ -574,12 +671,14 @@ if (
   || !mobile.commissionModalFits
   || !mobile.commissionActionsVisible
   || !mobile.startupCaMappingFits
+  || !mobile.resultsPanelConstrained
+  || mobile.stickyHeaderPosition !== "sticky"
   || mobile.chineseTitle !== "选择平台"
   || mobile.chineseCounter !== "第1步，共6步"
   || mobile.chineseCommissionTitle !== "缺少佣金率"
   || !mobile.chineseCommissionSummary?.includes("DingTalk")
 ) {
-  throw new Error("User guide does not fit the mobile viewport.");
+  throw new Error(`User guide or mobile results layout failed: ${JSON.stringify(mobile)}`);
 }
 
 console.log(JSON.stringify({

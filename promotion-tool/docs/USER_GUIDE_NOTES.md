@@ -89,6 +89,10 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
   an otherwise eligible SKU for review.
 - When lifetime margin minus promo margin is more than 5 percentage points,
   both margin cells are highlighted red and the SKU is marked for review.
+- Hover or keyboard-focus the information icon in the Promo margin, Lifetime
+  margin, or Return rate header to see the corresponding red-highlight rule.
+- The table header remains visible while the user scrolls through a long SKU
+  result list.
 - These two checks are review warnings, not exclusion reasons.
 - The discount always references the editable grade-to-profit-margin matrix.
 - Suggested freight follows the SKU dashboard precedence: Suggested Freight,
@@ -169,6 +173,10 @@ Manual mappings and non-existing statuses remain durable between refreshes.
 - Moved SOH immediately after Promo margin, followed by Sold, Lifetime margin,
   and Return rate.
 - Kept grade filtering as an editable minimum grade-level threshold.
+- Added bilingual hover and keyboard-focus notes to the margin and return-rate
+  headers to explain their red-highlight rules.
+- Kept the result header visible while scrolling through long SKU lists on
+  desktop and mobile layouts.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
 ### 2026-07-30

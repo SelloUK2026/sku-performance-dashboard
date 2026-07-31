@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-layout2">
+  <link rel="stylesheet" href="/styles.css?v=20260731-header-notes">
 </head>
 <body>
   <header class="app-header">
@@ -222,18 +222,27 @@
                 <span class="header-title">Promo price</span>
                 <span class="header-meta">VAT included</span>
               </th>
-              <th class="metric-column">
-                <span class="header-title">Promo margin</span>
+              <th class="metric-column" id="promoMarginHeader">
+                <span class="header-heading">
+                  <span class="header-title">Promo margin</span>
+                  <span class="header-note" tabindex="0" aria-label="Promo margin highlight rule"></span>
+                </span>
                 <span class="header-meta">proposed</span>
               </th>
               <th data-header-key="SOH">SOH</th>
               <th data-header-key="sold">Sold</th>
-              <th class="metric-column">
-                <span class="header-title">Lifetime margin</span>
+              <th class="metric-column" id="lifetimeMarginHeader">
+                <span class="header-heading">
+                  <span class="header-title">Lifetime margin</span>
+                  <span class="header-note" tabindex="0" aria-label="Lifetime margin highlight rule"></span>
+                </span>
                 <span class="header-meta">after returns</span>
               </th>
-              <th class="metric-column">
-                <span class="header-title">Return rate</span>
+              <th class="metric-column" id="returnRateHeader">
+                <span class="header-heading">
+                  <span class="header-title">Return rate</span>
+                  <span class="header-note" tabindex="0" aria-label="Return rate highlight rule"></span>
+                </span>
                 <span class="header-meta">all platforms</span>
               </th>
               <th class="decision-column" data-header-key="decision">Decision</th>
@@ -323,6 +332,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-layout2"></script>
+  <script src="/app.js?v=20260731-header-notes"></script>
 </body>
 </html>
