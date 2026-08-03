@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260731-override-discount">
+  <link rel="stylesheet" href="/styles.css?v=20260803-saved-worktables">
 </head>
 <body>
   <header class="app-header">
@@ -23,6 +23,8 @@
       <button class="button secondary" id="importButton">Import data</button>
       <button class="button secondary" id="mappingButton" hidden>Resolve mappings</button>
       <button class="button secondary" id="commissionButton" hidden>Commission table</button>
+      <button class="button secondary" id="savedWorktablesButton">Saved worktables</button>
+      <button class="button secondary save-worktable-button" id="saveWorktableButton">Save worktable</button>
       <button class="button primary" id="exportButton">Export selected</button>
       <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm" hidden>
       <input id="commissionFileInput" type="file" accept=".csv,.xlsx,.xlsm" hidden>
@@ -157,6 +159,13 @@
     </aside>
 
     <section class="results-panel">
+      <div class="saved-record-banner" id="savedRecordBanner" hidden>
+        <div>
+          <strong id="savedRecordTitle">Saved worktable</strong>
+          <span id="savedRecordMeta">Read-only historical record</span>
+        </div>
+        <button class="button secondary" id="returnToDraft">Return to current worktable</button>
+      </div>
       <div class="summary-strip">
         <div><span>Imported</span><strong id="importedCount">0</strong></div>
         <div><span>Eligible</span><strong id="eligibleCount">0</strong></div>
@@ -334,6 +343,72 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="saveWorktableModal">
+    <section class="modal save-worktable-modal" role="dialog" aria-modal="true" aria-labelledby="saveWorktableTitle">
+      <span class="eyebrow">Record tracking</span>
+      <h2 id="saveWorktableTitle">Save worktable</h2>
+      <p id="saveWorktableHelp">Confirm the promotion details. Saved worktables are permanent read-only records.</p>
+      <div class="field-grid two save-worktable-fields">
+        <label>Promotion platform
+          <select id="savePlatform"></select>
+        </label>
+        <label>Event name
+          <input id="saveEventName" maxlength="160">
+        </label>
+      </div>
+      <div class="save-worktable-summary" id="saveWorktableSummary"></div>
+      <p class="form-error" id="saveWorktableError" hidden></p>
+      <div class="modal-actions">
+        <button class="button plain" id="cancelSaveWorktable">Cancel</button>
+        <button class="button primary" id="confirmSaveWorktable">Save permanent record</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="savedWorktablesModal">
+    <section class="modal saved-worktables-modal" role="dialog" aria-modal="true" aria-labelledby="savedWorktablesTitle">
+      <div class="archive-heading">
+        <div>
+          <span class="eyebrow">Record tracking</span>
+          <h2 id="savedWorktablesTitle">Saved worktables</h2>
+        </div>
+        <button class="icon-button" id="closeSavedWorktablesIcon" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <div class="archive-filters">
+        <label>Promotion platform
+          <select id="archivePlatform"></select>
+        </label>
+        <label>Event name
+          <input id="archiveEventName" type="search" placeholder="Search event name">
+        </label>
+        <label>Creation date
+          <input id="archiveCreatedOn" type="date">
+        </label>
+        <button class="button secondary" id="searchSavedWorktables">Search</button>
+      </div>
+      <div class="archive-status" id="archiveStatus">Loading saved worktables...</div>
+      <div class="archive-table-shell">
+        <table class="archive-table">
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Platform</th>
+              <th>Event name</th>
+              <th>SKUs</th>
+              <th>Selected</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="savedWorktableRows"></tbody>
+        </table>
+      </div>
+      <div class="archive-empty" id="archiveEmpty" hidden>No saved worktables match these filters.</div>
+      <div class="modal-actions">
+        <button class="button plain" id="closeSavedWorktables">Close</button>
+      </div>
+    </section>
+  </div>
+
   <div class="modal-backdrop" id="guideModal">
     <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
       <div class="guide-heading">
@@ -361,6 +436,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260731-override-discount"></script>
+  <script src="/app.js?v=20260803-saved-worktables"></script>
 </body>
 </html>

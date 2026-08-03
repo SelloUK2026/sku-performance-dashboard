@@ -173,6 +173,37 @@ const UI_TEXT = {
     uploadCommissionFirst: "Upload UK Product Commission Rate List from DingTalk first",
     selectEligibleSku: "Select at least one eligible SKU",
     selectedExported: "{count} selected SKUs exported",
+    saveWorktable: "Save worktable",
+    savedWorktables: "Saved worktables",
+    recordTracking: "Record tracking",
+    saveWorktableHelp: "Confirm the promotion details. Saved worktables are permanent read-only records.",
+    promotionPlatform: "Promotion platform",
+    eventName: "Event name",
+    savePermanentRecord: "Save permanent record",
+    cancel: "Cancel",
+    candidates: "Candidates",
+    sourceRows: "Source rows",
+    worktableSaved: "Worktable saved as a permanent record",
+    worktableSaveFailed: "Worktable could not be saved",
+    saveRequiresRows: "Import and calculate at least one SKU before saving",
+    platformMustMatch: "Promotion platform must match the current calculation",
+    eventNameRequired: "Enter an event name",
+    worktableArchive: "Saved worktables",
+    searchEventName: "Search event name",
+    creationDate: "Creation date",
+    created: "Created",
+    skus: "SKUs",
+    view: "View",
+    search: "Search",
+    loadingSavedWorktables: "Loading saved worktables...",
+    savedWorktableCount: "{count} saved worktable(s)",
+    noSavedWorktables: "No saved worktables match these filters.",
+    savedWorktableLoadFailed: "Saved worktables could not be loaded",
+    viewingSavedRecord: "Viewing saved record: {platform} - {event}",
+    readOnlyHistoricalRecord: "Created {date}. This historical record is read-only and will not recalculate.",
+    returnToCurrent: "Return to current worktable",
+    savedRecord: "Saved worktable",
+    allPromotionPlatforms: "All platforms",
   },
   zh: {
     caSkuMappingRequired: "\u9700\u8981\u6620\u5c04CA SKU",
@@ -332,6 +363,37 @@ const UI_TEXT = {
     uploadCommissionFirst: "请先上传DingTalk中的UK Product Commission Rate List",
     selectEligibleSku: "请至少选择一个符合条件的SKU",
     selectedExported: "已导出{count}个选定SKU",
+    saveWorktable: "\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    savedWorktables: "\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    recordTracking: "\u8bb0\u5f55\u8ffd\u8e2a",
+    saveWorktableHelp: "\u8bf7\u786e\u8ba4\u4fc3\u9500\u8be6\u7ec6\u4fe1\u606f\u3002\u5df2\u4fdd\u5b58\u7684\u5de5\u4f5c\u8868\u662f\u6c38\u4e45\u7684\u53ea\u8bfb\u8bb0\u5f55\u3002",
+    promotionPlatform: "\u4fc3\u9500\u5e73\u53f0",
+    eventName: "\u6d3b\u52a8\u540d\u79f0",
+    savePermanentRecord: "\u4fdd\u5b58\u6c38\u4e45\u8bb0\u5f55",
+    cancel: "\u53d6\u6d88",
+    candidates: "\u5019\u9009SKU",
+    sourceRows: "\u6e90\u6570\u636e\u884c",
+    worktableSaved: "\u5de5\u4f5c\u8868\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u8bb0\u5f55",
+    worktableSaveFailed: "\u65e0\u6cd5\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    saveRequiresRows: "\u8bf7\u5148\u5bfc\u5165\u5e76\u8ba1\u7b97\u81f3\u5c11\u4e00\u4e2aSKU",
+    platformMustMatch: "\u4fc3\u9500\u5e73\u53f0\u5fc5\u987b\u4e0e\u5f53\u524d\u8ba1\u7b97\u4e00\u81f4",
+    eventNameRequired: "\u8bf7\u8f93\u5165\u6d3b\u52a8\u540d\u79f0",
+    worktableArchive: "\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    searchEventName: "\u641c\u7d22\u6d3b\u52a8\u540d\u79f0",
+    creationDate: "\u521b\u5efa\u65e5\u671f",
+    created: "\u521b\u5efa\u65f6\u95f4",
+    skus: "SKU\u6570\u91cf",
+    view: "\u67e5\u770b",
+    search: "\u641c\u7d22",
+    loadingSavedWorktables: "\u6b63\u5728\u52a0\u8f7d\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868...",
+    savedWorktableCount: "{count}\u4e2a\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    noSavedWorktables: "\u6ca1\u6709\u7b26\u5408\u7b5b\u9009\u6761\u4ef6\u7684\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868\u3002",
+    savedWorktableLoadFailed: "\u65e0\u6cd5\u52a0\u8f7d\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    viewingSavedRecord: "\u6b63\u5728\u67e5\u770b\u5df2\u4fdd\u5b58\u8bb0\u5f55\uff1a{platform} - {event}",
+    readOnlyHistoricalRecord: "\u521b\u5efa\u4e8e{date}\u3002\u6b64\u5386\u53f2\u8bb0\u5f55\u4e3a\u53ea\u8bfb\uff0c\u4e0d\u4f1a\u91cd\u65b0\u8ba1\u7b97\u3002",
+    returnToCurrent: "\u8fd4\u56de\u5f53\u524d\u5de5\u4f5c\u8868",
+    savedRecord: "\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
+    allPromotionPlatforms: "\u6240\u6709\u5e73\u53f0",
   },
 };
 
@@ -492,6 +554,14 @@ GUIDE_STEPS.zh[5].points.splice(
   "\u5c06\u9f20\u6807\u79fb\u5230\u8868\u5934\u7684\u4fe1\u606f\u56fe\u6807\u4e0a\uff0c\u6216\u4f7f\u7528\u952e\u76d8\u805a\u7126\u56fe\u6807\uff0c\u53ef\u67e5\u770b\u7ea2\u8272\u9ad8\u4eae\u89c4\u5219\u3002",
   "\u6eda\u52a8\u67e5\u770b\u8f83\u957f\u7684SKU\u6e05\u5355\u65f6\uff0c\u8868\u5934\u4f1a\u4fdd\u6301\u53ef\u89c1\u3002",
 );
+GUIDE_STEPS.en[5].points.push(
+  "Save a completed worktable as a permanent record. Staff can search saved records by platform, event name, and creation date, then reopen the exact read-only result.",
+  "When a worktable has unsaved changes, closing the browser tab triggers the browser's standard unsaved-changes warning.",
+);
+GUIDE_STEPS.zh[5].points.push(
+  "\u5c06\u5df2\u5b8c\u6210\u7684\u5de5\u4f5c\u8868\u4fdd\u5b58\u4e3a\u6c38\u4e45\u8bb0\u5f55\u3002\u5458\u5de5\u53ef\u6309\u5e73\u53f0\u3001\u6d3b\u52a8\u540d\u79f0\u548c\u521b\u5efa\u65e5\u671f\u641c\u7d22\uff0c\u5e76\u91cd\u65b0\u67e5\u770b\u5b8c\u5168\u4e00\u81f4\u7684\u53ea\u8bfb\u7ed3\u679c\u3002",
+  "\u5de5\u4f5c\u8868\u6709\u672a\u4fdd\u5b58\u66f4\u6539\u65f6\uff0c\u5173\u95ed\u6d4f\u89c8\u5668\u6807\u7b7e\u9875\u4f1a\u89e6\u53d1\u6d4f\u89c8\u5668\u7684\u6807\u51c6\u672a\u4fdd\u5b58\u66f4\u6539\u63d0\u793a\u3002",
+);
 
 const state = {
   rows: [],
@@ -530,6 +600,12 @@ const state = {
   calculationStatus: { key: "ready", values: {} },
   importSequence: 0,
   importOperation: null,
+  dirty: false,
+  savingWorktable: false,
+  savedRecord: null,
+  draftBackup: null,
+  applyingSnapshot: false,
+  archiveRows: [],
   criteriaCollapsed: (() => {
     try {
       return localStorage.getItem(CRITERIA_STORAGE_KEY) === "true";
@@ -764,6 +840,8 @@ function applyLanguage(language, { persist = true } = {}) {
   element("importButton").textContent = t("importData");
   element("mappingButton").textContent = t("resolveMappings");
   element("commissionButton").textContent = t("commissionTable");
+  element("savedWorktablesButton").textContent = t("savedWorktables");
+  element("saveWorktableButton").textContent = t("saveWorktable");
   element("exportButton").textContent = t("exportSelected");
 
   setStaticText(".panel-heading .eyebrow", "campaignSetup");
@@ -886,6 +964,29 @@ function applyLanguage(language, { persist = true } = {}) {
   element("reuploadCommission").textContent = t("reuploadFile");
   element("applySuggestedCommissions").textContent = t("applyRates");
   updateImportProgressText();
+  setStaticText("#saveWorktableModal .eyebrow", "recordTracking");
+  setStaticText("#saveWorktableTitle", "saveWorktable");
+  setStaticText("#saveWorktableHelp", "saveWorktableHelp");
+  setControlLabel("savePlatform", "promotionPlatform");
+  setControlLabel("saveEventName", "eventName");
+  element("cancelSaveWorktable").textContent = t("cancel");
+  element("confirmSaveWorktable").textContent = t("savePermanentRecord");
+  setStaticText("#savedWorktablesModal .eyebrow", "recordTracking");
+  setStaticText("#savedWorktablesTitle", "savedWorktables");
+  setControlLabel("archivePlatform", "promotionPlatform");
+  setControlLabel("archiveEventName", "eventName");
+  setControlLabel("archiveCreatedOn", "creationDate");
+  element("archiveEventName").placeholder = t("searchEventName");
+  element("searchSavedWorktables").textContent = t("search");
+  element("closeSavedWorktables").textContent = t("close");
+  element("closeSavedWorktablesIcon").title = t("close");
+  element("closeSavedWorktablesIcon").setAttribute("aria-label", t("close"));
+  const archiveHeaderKeys = ["created", "platform", "eventName", "skus", "selected"];
+  document.querySelectorAll(".archive-table thead th").forEach((header, index) => {
+    if (archiveHeaderKeys[index]) header.textContent = t(archiveHeaderKeys[index]);
+  });
+  element("archiveEmpty").textContent = t("noSavedWorktables");
+  element("returnToDraft").textContent = t("returnToCurrent");
   setStaticText("#guideModal .eyebrow", "userGuide");
   element("guideCloseIcon").title = t("close");
   element("guideCloseIcon").setAttribute("aria-label", t("close"));
@@ -897,6 +998,11 @@ function applyLanguage(language, { persist = true } = {}) {
   setCalculationStatus(state.calculationStatus.key, state.calculationStatus.values);
   if (element("mappingModal").classList.contains("visible")) openMappingModal();
   if (element("commissionMissingModal").classList.contains("visible")) openCommissionMissingModal();
+  if (element("savedWorktablesModal").classList.contains("visible")) {
+    populateWorktablePlatforms();
+    renderSavedWorktables();
+  }
+  if (state.savedRecord) setSavedRecordMode(state.savedRecord);
   if (element("guideModal").classList.contains("visible")) renderGuide();
   render();
 
@@ -1060,6 +1166,320 @@ function criteriaFromForm() {
   };
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function worktableSnapshot() {
+  return {
+    schema_version: 1,
+    calculation_version: "2026-08-03-saved-worktables",
+    promotion_data_refreshed_at: state.config.promotionDataRefreshedAt || null,
+    criteria: criteriaFromForm(),
+    rows: cloneJson(state.rows),
+    candidates: cloneJson(state.candidates),
+    selected_skus: [...state.selected],
+    source: {
+      kind: state.sourceKind,
+      file: state.sourceFile,
+      row_count: state.sourceRows,
+    },
+    commission: {
+      table_loaded: state.commissionTableLoaded,
+      file_name: state.commissionFileName,
+      rows: cloneJson(state.commissionRows),
+      missing: cloneJson(state.commissionMissing),
+    },
+    view: {
+      filter: state.filter,
+      search: state.search,
+    },
+  };
+}
+
+function setMultiSelectValues(id, values) {
+  const selected = new Set((values || []).map(String));
+  element(id).querySelectorAll(".multi-select-option input").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+  updateMultiSelectSummary(id);
+}
+
+function applyCriteriaSnapshot(criteria = {}) {
+  if ([...element("platform").options].some((option) => option.value === criteria.platform)) {
+    element("platform").value = criteria.platform;
+  }
+  element("campaignName").value = criteria.campaign_name || "";
+  element("campaignType").value = criteria.campaign_type || "theme";
+  element("minGrade").value = Number(criteria.min_grade ?? 0);
+  element("minStock").value = Number(criteria.min_stock ?? 1);
+  element("minMonths").value = Number(criteria.min_months ?? 0);
+  element("minDiscount").value = Number(criteria.min_discount ?? 0.05) * 100;
+  element("maxReturnRate").value = Number(criteria.max_return_rate ?? 0.06) * 100;
+  element("firstArrivalCutoff").value = criteria.exclude_first_arrival_on_or_after || "";
+  element("maxDiscount").value = Number(criteria.max_discount ?? 0.25) * 100;
+  element("defaultCommission").value = Number(criteria.default_commission ?? 0) * 100;
+  element("rounding").checked = criteria.rounding !== false;
+  element("discountIntervalEnabled").checked = Boolean(criteria.use_discount_interval);
+  element("discountInterval").value = Number(criteria.discount_interval ?? 0.05) * 100;
+  element("discountInterval").disabled = !element("discountIntervalEnabled").checked;
+  setPriceSource(criteria.price_source || "ca", { recalculate: false });
+  setVatSetting(
+    "input",
+    criteria.input_price_includes_vat === false ? "excluded" : "included",
+    { recalculate: false },
+  );
+  setVatSetting(
+    "export",
+    criteria.export_price_includes_vat === false ? "excluded" : "included",
+    { recalculate: false },
+  );
+  document.querySelectorAll(".grade-margin").forEach((input) => {
+    const margin = criteria.grade_margins?.[input.dataset.grade];
+    input.value = Number.isFinite(Number(margin))
+      ? Number(margin) * 100
+      : DEFAULT_MARGINS[input.dataset.grade];
+  });
+  updateWooperFilters();
+  setMultiSelectValues("mainCategory", criteria.main_categories);
+  setMultiSelectValues("subcategory", criteria.subcategories);
+  setMultiSelectValues("brand", criteria.brands);
+}
+
+function updateSaveButton() {
+  element("saveWorktableButton").disabled = (
+    state.savedRecord !== null
+    || !state.dirty
+    || !state.candidates.length
+    || state.savingWorktable
+  );
+}
+
+function markDirty() {
+  if (state.savedRecord || state.applyingSnapshot || !state.candidates.length) return;
+  state.dirty = true;
+  updateSaveButton();
+}
+
+function setSavedRecordMode(record) {
+  state.savedRecord = record || null;
+  const readOnly = Boolean(record);
+  document.body.classList.toggle("readonly-worktable", readOnly);
+  document.querySelector(".results-panel").classList.toggle("viewing-saved-record", readOnly);
+  element("savedRecordBanner").hidden = !readOnly;
+  element("criteriaForm").querySelectorAll("input, select, button").forEach((control) => {
+    control.disabled = readOnly;
+  });
+  document.querySelectorAll(".vat-option, .price-source-option").forEach((control) => {
+    control.disabled = readOnly;
+  });
+  ["loadSample", "importButton", "mappingButton", "commissionButton"].forEach((id) => {
+    element(id).disabled = readOnly;
+  });
+  if (readOnly) {
+    element("savedRecordTitle").textContent = t("viewingSavedRecord", {
+      platform: record.platform,
+      event: record.event_name,
+    });
+    element("savedRecordMeta").textContent = t("readOnlyHistoricalRecord", {
+      date: formatSavedDate(record.created_at),
+    });
+  }
+  updateSaveButton();
+  render();
+}
+
+function applyWorktableSnapshot(snapshot) {
+  state.applyingSnapshot = true;
+  try {
+    state.rows = cloneJson(snapshot.rows || []);
+    state.candidates = cloneJson(snapshot.candidates || []);
+    state.selected = new Set(snapshot.selected_skus || []);
+    state.unresolved = [];
+    state.mappingRows = [];
+    state.sourceKind = snapshot.source?.kind || "file";
+    state.sourceFile = snapshot.source?.file || "";
+    state.sourceRows = Number(snapshot.source?.row_count || state.rows.length);
+    state.commissionTableLoaded = Boolean(snapshot.commission?.table_loaded);
+    state.commissionFileName = snapshot.commission?.file_name || "";
+    state.commissionRows = cloneJson(snapshot.commission?.rows || []);
+    state.commissionMissing = cloneJson(snapshot.commission?.missing || []);
+    state.filter = snapshot.view?.filter || "all";
+    state.search = snapshot.view?.search || "";
+    element("searchInput").value = state.search;
+    document.querySelectorAll(".filter-button").forEach((button) => {
+      button.classList.toggle("active", button.dataset.filter === state.filter);
+    });
+    applyCriteriaSnapshot(snapshot.criteria || {});
+    updateMappingButton();
+    updateCommissionRequirement();
+    setCalculationStatus("rowsCalculated", { count: state.candidates.length });
+  } finally {
+    state.applyingSnapshot = false;
+  }
+}
+
+function formatSavedDate(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value || "");
+  return new Intl.DateTimeFormat(state.language === "zh" ? "zh-CN" : "en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed);
+}
+
+function populateWorktablePlatforms() {
+  const names = Object.keys(state.config.defaultCommissions || {});
+  const options = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  element("savePlatform").innerHTML = options;
+  element("archivePlatform").innerHTML = `<option value="">${escapeHtml(t("allPromotionPlatforms"))}</option>${options}`;
+}
+
+function openSaveWorktableModal() {
+  if (!state.candidates.length) {
+    showToast(t("saveRequiresRows"), "error");
+    return;
+  }
+  populateWorktablePlatforms();
+  element("savePlatform").value = element("platform").value;
+  element("saveEventName").value = element("campaignName").value.trim();
+  element("saveWorktableError").hidden = true;
+  element("saveWorktableSummary").innerHTML = `
+    <div><span>${escapeHtml(t("candidates"))}</span><strong>${number(state.candidates.length)}</strong></div>
+    <div><span>${escapeHtml(t("eligible"))}</span><strong>${number(state.candidates.filter((row) => row.eligible).length)}</strong></div>
+    <div><span>${escapeHtml(t("selected"))}</span><strong>${number(state.selected.size)}</strong></div>
+  `;
+  element("saveWorktableModal").classList.add("visible");
+}
+
+function closeSaveWorktableModal() {
+  if (state.savingWorktable) return;
+  element("saveWorktableModal").classList.remove("visible");
+}
+
+async function saveWorktable() {
+  const platform = element("savePlatform").value;
+  const eventName = element("saveEventName").value.trim();
+  const errorNode = element("saveWorktableError");
+  if (platform !== element("platform").value) {
+    errorNode.textContent = t("platformMustMatch");
+    errorNode.hidden = false;
+    return;
+  }
+  if (!eventName) {
+    errorNode.textContent = t("eventNameRequired");
+    errorNode.hidden = false;
+    return;
+  }
+  element("campaignName").value = eventName;
+  const snapshot = worktableSnapshot();
+  snapshot.criteria.campaign_name = eventName;
+  state.savingWorktable = true;
+  element("confirmSaveWorktable").disabled = true;
+  updateSaveButton();
+  try {
+    const response = await fetch("/api/worktables", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, event_name: eventName, snapshot }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || t("worktableSaveFailed"));
+    state.dirty = false;
+    element("saveWorktableModal").classList.remove("visible");
+    showToast(t("worktableSaved"));
+  } catch (error) {
+    errorNode.textContent = translateMessage(error.message || t("worktableSaveFailed"));
+    errorNode.hidden = false;
+  } finally {
+    state.savingWorktable = false;
+    element("confirmSaveWorktable").disabled = false;
+    updateSaveButton();
+  }
+}
+
+function renderSavedWorktables() {
+  element("savedWorktableRows").innerHTML = state.archiveRows.map((record) => `
+    <tr>
+      <td class="archive-date" data-label="${escapeHtml(t("created"))}">${escapeHtml(formatSavedDate(record.created_at))}</td>
+      <td data-label="${escapeHtml(t("platform"))}">${escapeHtml(record.platform)}</td>
+      <td class="archive-event" data-label="${escapeHtml(t("eventName"))}">${escapeHtml(record.event_name)}</td>
+      <td class="number" data-label="${escapeHtml(t("skus"))}">${number(record.candidate_count)}</td>
+      <td class="number" data-label="${escapeHtml(t("selected"))}">${number(record.selected_count)}</td>
+      <td><button class="button secondary record-view-button" type="button" data-worktable-id="${escapeHtml(record.id)}">${escapeHtml(t("view"))}</button></td>
+    </tr>
+  `).join("");
+  element("archiveEmpty").hidden = state.archiveRows.length > 0;
+  element("archiveStatus").textContent = t("savedWorktableCount", { count: state.archiveRows.length });
+}
+
+async function loadSavedWorktables() {
+  element("archiveStatus").textContent = t("loadingSavedWorktables");
+  element("archiveEmpty").hidden = true;
+  const params = new URLSearchParams();
+  const platform = element("archivePlatform").value;
+  const eventName = element("archiveEventName").value.trim();
+  const createdOn = element("archiveCreatedOn").value;
+  if (platform) params.set("platform", platform);
+  if (eventName) params.set("event_name", eventName);
+  if (createdOn) params.set("created_on", createdOn);
+  try {
+    const response = await fetch(`/api/worktables?${params}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || t("savedWorktableLoadFailed"));
+    state.archiveRows = payload.worktables || [];
+    renderSavedWorktables();
+  } catch (error) {
+    state.archiveRows = [];
+    element("savedWorktableRows").innerHTML = "";
+    element("archiveStatus").textContent = translateMessage(error.message || t("savedWorktableLoadFailed"));
+    element("archiveEmpty").hidden = false;
+  }
+}
+
+function openSavedWorktablesModal() {
+  populateWorktablePlatforms();
+  element("savedWorktablesModal").classList.add("visible");
+  loadSavedWorktables();
+}
+
+function closeSavedWorktablesModal() {
+  element("savedWorktablesModal").classList.remove("visible");
+}
+
+async function viewSavedWorktable(id) {
+  try {
+    const response = await fetch(`/api/worktables/${encodeURIComponent(id)}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || t("savedWorktableLoadFailed"));
+    if (!state.savedRecord) {
+      state.draftBackup = {
+        snapshot: worktableSnapshot(),
+        dirty: state.dirty,
+      };
+    }
+    applyWorktableSnapshot(payload.worktable.snapshot || {});
+    state.dirty = false;
+    setSavedRecordMode(payload.worktable);
+    closeSavedWorktablesModal();
+  } catch (error) {
+    element("archiveStatus").textContent = translateMessage(error.message || t("savedWorktableLoadFailed"));
+  }
+}
+
+function returnToDraft() {
+  const backup = state.draftBackup;
+  state.savedRecord = null;
+  setSavedRecordMode(null);
+  if (backup) {
+    applyWorktableSnapshot(backup.snapshot);
+    state.dirty = backup.dirty;
+  }
+  state.draftBackup = null;
+  updateSaveButton();
+  render();
+}
+
 function isVariableCommissionPlatform() {
   return state.config.variableCommissionPlatforms.includes(element("platform").value);
 }
@@ -1159,12 +1579,15 @@ async function loadConfig() {
   element("wooperSkuList").innerHTML = config.wooperSkus
     .map((sku) => `<option value="${escapeHtml(sku)}"></option>`)
     .join("");
+  populateWorktablePlatforms();
   state.caUnresolved = config.caUnresolved || [];
   updateMappingButton();
   setPlatformDefault();
+  updateSaveButton();
 }
 
 async function calculate({ selectEligible = false, signal } = {}) {
+  if (state.savedRecord) return;
   if (state.unresolved.length) {
     state.mappingScope = "platform";
     state.mappingRows = state.unresolved;
@@ -1190,6 +1613,7 @@ async function calculate({ selectEligible = false, signal } = {}) {
       : new Set([...state.selected].filter((sku) => eligibleSkus.has(sku)));
     render();
     setCalculationStatus("rowsCalculated", { count: state.candidates.length });
+    markDirty();
   } catch (error) {
     if (isAbortError(error)) return;
     setCalculationStatus("calculationFailed");
@@ -1221,6 +1645,7 @@ function decisionCell(row) {
 }
 
 function renderRows() {
+  const readOnly = Boolean(state.savedRecord);
   const rows = state.candidates
     .filter(candidateMatches)
     .sort((left, right) => (
@@ -1239,7 +1664,7 @@ function renderRows() {
       <tr class="${selected ? "selected" : ""} ${row.eligible ? "" : "excluded"}">
         <td class="select-column">
           <input class="row-select" type="checkbox" data-sku="${escapeHtml(row.sku)}"
-            ${selected ? "checked" : ""} ${row.eligible ? "" : "disabled"}
+            ${selected ? "checked" : ""} ${row.eligible && !readOnly ? "" : "disabled"}
             aria-label="${escapeHtml(t("selectSku", { sku: row.sku }))}">
         </td>
         <td>
@@ -1258,7 +1683,8 @@ function renderRows() {
           <div class="input-suffix">
             <input class="override-input" data-sku="${escapeHtml(row.sku)}" type="number"
               min="-100" max="100" step="1"
-              value="${number(row.final_discount * 100, 1)}" aria-label="${escapeHtml(t("finalDiscountFor", { sku: row.sku }))}">
+              value="${number(row.final_discount * 100, 1)}" ${readOnly ? "disabled" : ""}
+              aria-label="${escapeHtml(t("finalDiscountFor", { sku: row.sku }))}">
             <span>%</span>
           </div>
         </td>
@@ -1299,6 +1725,7 @@ function renderSummary() {
     && visibleEligible.every((row) => state.selected.has(row.sku));
   element("selectAll").indeterminate = visibleEligible.some((row) => state.selected.has(row.sku))
     && !element("selectAll").checked;
+  element("selectAll").disabled = Boolean(state.savedRecord);
 }
 
 function render() {
@@ -1862,6 +2289,18 @@ function bindEvents() {
   element("languageButton").addEventListener("click", toggleLanguage);
   element("guideLanguageButton").addEventListener("click", toggleLanguage);
   element("helpButton").addEventListener("click", openGuide);
+  element("saveWorktableButton").addEventListener("click", openSaveWorktableModal);
+  element("savedWorktablesButton").addEventListener("click", openSavedWorktablesModal);
+  element("cancelSaveWorktable").addEventListener("click", closeSaveWorktableModal);
+  element("confirmSaveWorktable").addEventListener("click", saveWorktable);
+  element("closeSavedWorktables").addEventListener("click", closeSavedWorktablesModal);
+  element("closeSavedWorktablesIcon").addEventListener("click", closeSavedWorktablesModal);
+  element("searchSavedWorktables").addEventListener("click", loadSavedWorktables);
+  element("returnToDraft").addEventListener("click", returnToDraft);
+  element("savedWorktableRows").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-worktable-id]");
+    if (button) viewSavedWorktable(button.dataset.worktableId);
+  });
   element("guideCloseIcon").addEventListener("click", closeGuide);
   element("guideCloseButton").addEventListener("click", closeGuide);
   element("guidePrevious").addEventListener("click", showPreviousGuideStep);
@@ -1971,12 +2410,14 @@ function bindEvents() {
       if (event.target.checked) state.selected.add(row.sku);
       else state.selected.delete(row.sku);
     });
+    markDirty();
     render();
   });
   element("candidateRows").addEventListener("change", (event) => {
     if (event.target.matches(".row-select")) {
       if (event.target.checked) state.selected.add(event.target.dataset.sku);
       else state.selected.delete(event.target.dataset.sku);
+      markDirty();
       render();
     }
     if (event.target.matches(".override-input")) {
@@ -1991,6 +2432,12 @@ function bindEvents() {
     if (event.key === "Escape" && element("importProgressModal").classList.contains("visible")) {
       cancelImportOperation();
       return;
+    }
+    if (event.key === "Escape" && element("saveWorktableModal").classList.contains("visible")) {
+      closeSaveWorktableModal();
+    }
+    if (event.key === "Escape" && element("savedWorktablesModal").classList.contains("visible")) {
+      closeSavedWorktablesModal();
     }
     if (event.key === "Escape") {
       document.querySelectorAll(".multi-select.open").forEach((control) => {
@@ -2014,6 +2461,11 @@ function bindEvents() {
     ) {
       closeMappingModal();
     }
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (!state.dirty || state.savedRecord) return;
+    event.preventDefault();
+    event.returnValue = "";
   });
 }
 

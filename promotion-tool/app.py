@@ -9,13 +9,14 @@ import math
 import os
 import re
 import time
+import uuid
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
 from urllib.error import HTTPError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from openpyxl import load_workbook
@@ -67,6 +68,8 @@ _SUPABASE_CA_PRICE_CACHE = {
     "exact": None,
     "canonical": None,
 }
+WORKTABLE_SCHEMA_VERSION = 1
+MAX_WORKTABLE_SNAPSHOT_BYTES = 12 * 1024 * 1024
 
 DEFAULT_COMMISSIONS = {
     "eBay": 0.11,
@@ -272,6 +275,110 @@ def supabase_select_all(table, params=None, page_size=1000):
         offset += page_size
 
 
+def validate_worktable_id(value):
+    try:
+        return str(uuid.UUID(str(value or "")))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValueError("Invalid saved worktable ID.") from exc
+
+
+def list_saved_worktables(platform="", event_name="", created_on="", limit=100):
+    if not supabase_enabled():
+        raise RuntimeError("Saved worktables require Supabase.")
+    params = {
+        "select": (
+            "id,platform,event_name,source_file,source_row_count,"
+            "candidate_count,eligible_count,selected_count,created_at,created_on"
+        ),
+        "order": "created_at.desc",
+        "limit": max(1, min(int(limit or 100), 250)),
+    }
+    platform = str(platform or "").strip()
+    event_name = str(event_name or "").strip()
+    created_on = str(created_on or "").strip()
+    if platform:
+        params["platform"] = f"eq.{platform}"
+    if event_name:
+        params["event_name"] = f"ilike.*{event_name[:160]}*"
+    if created_on:
+        try:
+            date.fromisoformat(created_on)
+        except ValueError as exc:
+            raise ValueError("Creation date must use YYYY-MM-DD.") from exc
+        params["created_on"] = f"eq.{created_on}"
+    return supabase_request("GET", "promotion_worktables", params=params)
+
+
+def get_saved_worktable(worktable_id):
+    if not supabase_enabled():
+        raise RuntimeError("Saved worktables require Supabase.")
+    rows = supabase_request(
+        "GET",
+        "promotion_worktables",
+        params={
+            "select": "*",
+            "id": f"eq.{validate_worktable_id(worktable_id)}",
+            "limit": 1,
+        },
+    )
+    return rows[0] if rows else None
+
+
+def create_saved_worktable(payload):
+    if not supabase_enabled():
+        raise RuntimeError("Saved worktables require Supabase.")
+    platform = str(payload.get("platform") or "").strip()
+    event_name = str(payload.get("event_name") or "").strip()
+    snapshot = payload.get("snapshot")
+    if not platform:
+        raise ValueError("Promotion platform is required.")
+    if len(platform) > 120:
+        raise ValueError("Promotion platform is too long.")
+    if not event_name:
+        raise ValueError("Event name is required.")
+    if len(event_name) > 160:
+        raise ValueError("Event name is too long.")
+    if not isinstance(snapshot, dict):
+        raise ValueError("Worktable snapshot is required.")
+    candidates = snapshot.get("candidates")
+    rows = snapshot.get("rows")
+    selected_skus = snapshot.get("selected_skus")
+    if not isinstance(candidates, list) or not candidates:
+        raise ValueError("Calculate at least one SKU before saving.")
+    if not isinstance(rows, list) or not isinstance(selected_skus, list):
+        raise ValueError("Worktable snapshot is incomplete.")
+    snapshot = dict(snapshot)
+    snapshot["schema_version"] = WORKTABLE_SCHEMA_VERSION
+    encoded_snapshot = json.dumps(
+        snapshot,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if len(encoded_snapshot) > MAX_WORKTABLE_SNAPSHOT_BYTES:
+        raise ValueError("This worktable is too large to save.")
+    source = snapshot.get("source") if isinstance(snapshot.get("source"), dict) else {}
+    record = {
+        "platform": platform,
+        "event_name": event_name,
+        "source_file": str(source.get("file") or "").strip() or None,
+        "source_row_count": max(0, int(source.get("row_count") or len(rows))),
+        "candidate_count": len(candidates),
+        "eligible_count": sum(bool(row.get("eligible")) for row in candidates),
+        "selected_count": len({str(sku) for sku in selected_skus if str(sku)}),
+        "snapshot": snapshot,
+    }
+    saved = supabase_request(
+        "POST",
+        "promotion_worktables",
+        rows=[record],
+        prefer="return=representation",
+    )
+    if not saved:
+        raise RuntimeError("Supabase did not return the saved worktable.")
+    return saved[0]
+
+
 def persisted_mapping_rows(
     mapping_scope,
     platform="",
@@ -442,6 +549,21 @@ def supabase_inventory_skus():
         for row in supabase_select_all("inventory", {"select": "sku"})
         if row.get("sku")
     )
+
+
+def promotion_data_refreshed_at():
+    if not supabase_enabled():
+        return None
+    rows = supabase_request(
+        "GET",
+        "promotion_sku_data",
+        params={
+            "select": "refreshed_at",
+            "order": "refreshed_at.desc",
+            "limit": 1,
+        },
+    )
+    return rows[0].get("refreshed_at") if rows else None
 
 
 def supabase_promotion_inventory():
@@ -1673,8 +1795,36 @@ class Handler(SimpleHTTPRequestHandler):
                     "mappingStorage": (
                         "supabase" if supabase_enabled() else "local"
                     ),
+                    "promotionDataRefreshedAt": promotion_data_refreshed_at(),
                 }
             )
+            return
+        if parsed.path == "/api/worktables":
+            try:
+                query = parse_qs(parsed.query)
+                rows = list_saved_worktables(
+                    platform=(query.get("platform") or [""])[0],
+                    event_name=(query.get("event_name") or [""])[0],
+                    created_on=(query.get("created_on") or [""])[0],
+                    limit=(query.get("limit") or [100])[0],
+                )
+                self.send_json({"worktables": rows})
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, status=400)
+            except RuntimeError as exc:
+                self.send_json({"error": str(exc)}, status=503)
+            return
+        if parsed.path.startswith("/api/worktables/"):
+            try:
+                record = get_saved_worktable(parsed.path.rsplit("/", 1)[-1])
+                if record is None:
+                    self.send_json({"error": "Saved worktable not found."}, status=404)
+                else:
+                    self.send_json({"worktable": record})
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, status=400)
+            except RuntimeError as exc:
+                self.send_json({"error": str(exc)}, status=503)
             return
         super().do_GET()
 
@@ -1683,6 +1833,10 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.require_authorization(parsed.path):
             return
         try:
+            if parsed.path == "/api/worktables":
+                record = create_saved_worktable(self.read_json())
+                self.send_json({"worktable": record}, status=201)
+                return
             if parsed.path == "/api/calculate":
                 payload = self.read_json()
                 criteria = payload.get("criteria", {})

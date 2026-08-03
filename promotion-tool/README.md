@@ -74,6 +74,11 @@ to the browser or committed to GitHub.
 - Collapsible criteria panel that remembers the user's preference and expands
   the results workspace.
 - Selected nomination CSV export.
+- Shared Supabase archive of immutable saved worktables, searchable by platform,
+  event name, and Sydney creation date.
+- Saved records preserve imported rows, criteria, commissions, overrides,
+  selections, and calculated results without recalculating from newer data.
+- Browser unsaved-changes warning after a calculated worktable is modified.
 - First-visit six-step walkthrough with a permanent Help button.
 - Ten reference rows copied from the manual workbook for regression testing.
 
