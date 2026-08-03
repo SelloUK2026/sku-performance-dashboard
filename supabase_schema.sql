@@ -151,6 +151,47 @@ create index if not exists sku_mappings_wooper_sku_idx
   on public.sku_mappings (wooper_sku)
   where wooper_sku is not null;
 
+create table if not exists public.promotion_worktables (
+  id uuid primary key default gen_random_uuid(),
+  platform text not null,
+  event_name text not null,
+  source_file text,
+  source_row_count integer not null default 0 check (source_row_count >= 0),
+  candidate_count integer not null default 0 check (candidate_count >= 0),
+  eligible_count integer not null default 0 check (eligible_count >= 0),
+  selected_count integer not null default 0 check (selected_count >= 0),
+  snapshot jsonb not null check (jsonb_typeof(snapshot) = 'object'),
+  created_at timestamptz not null default now(),
+  created_on date not null default ((timezone('Australia/Sydney', now()))::date),
+  check (length(btrim(platform)) between 1 and 120),
+  check (length(btrim(event_name)) between 1 and 160)
+);
+
+create index if not exists promotion_worktables_created_at_idx
+  on public.promotion_worktables (created_at desc);
+create index if not exists promotion_worktables_platform_created_idx
+  on public.promotion_worktables (platform, created_at desc);
+create index if not exists promotion_worktables_created_on_idx
+  on public.promotion_worktables (created_on, created_at desc);
+create index if not exists promotion_worktables_event_name_lower_idx
+  on public.promotion_worktables (lower(event_name));
+
+create or replace function public.prevent_promotion_worktable_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'Saved promotion worktables are immutable';
+end;
+$$;
+
+drop trigger if exists promotion_worktables_prevent_update
+  on public.promotion_worktables;
+create trigger promotion_worktables_prevent_update
+before update on public.promotion_worktables
+for each row execute function public.prevent_promotion_worktable_update();
+
 alter table public.sales enable row level security;
 alter table public.sku_master enable row level security;
 alter table public.inventory enable row level security;
@@ -161,13 +202,16 @@ alter table public.product_images enable row level security;
 alter table public.channeladvisor_products enable row level security;
 alter table public.promotion_sku_data enable row level security;
 alter table public.sku_mappings enable row level security;
+alter table public.promotion_worktables enable row level security;
 
 grant select, insert, update, delete
   on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
   to service_role;
+grant select, insert, delete on public.promotion_worktables to service_role;
 revoke all
   on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
   from anon, authenticated;
+revoke all on public.promotion_worktables from anon, authenticated;
 
 drop policy if exists "dashboard read sales" on public.sales;
 drop policy if exists "dashboard read sku master" on public.sku_master;
