@@ -22,6 +22,8 @@ from app import (  # noqa: E402
     calculate_candidate,
     commission_rows_from_workbook,
     combined_platform_mappings,
+    create_saved_worktable,
+    list_saved_worktables,
     map_imported_rows,
     normalise_date,
     resolve_wooper_sku,
@@ -86,6 +88,73 @@ class PromotionCalculationTests(unittest.TestCase):
             self.assertTrue(valid_basic_authorization(valid_header))
             self.assertFalse(valid_basic_authorization(invalid_header))
             self.assertFalse(valid_basic_authorization("Bearer token"))
+
+    def test_create_saved_worktable_inserts_a_complete_snapshot(self):
+        snapshot = {
+            "criteria": {"platform": "Debenhams", "campaign_name": "Summer Sale"},
+            "rows": [{"sku": "AI1005-BK-UK"}],
+            "candidates": [
+                {"sku": "AI1005-BK-UK", "eligible": True},
+                {"sku": "AI1010-WH-UK", "eligible": False},
+            ],
+            "selected_skus": ["AI1005-BK-UK"],
+            "source": {"file": "offers.xlsx", "row_count": 2},
+        }
+        saved = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "platform": "Debenhams",
+            "event_name": "Summer Sale",
+        }
+        with (
+            patch("app.supabase_enabled", return_value=True),
+            patch("app.supabase_request", return_value=[saved]) as request,
+        ):
+            actual = create_saved_worktable(
+                {
+                    "platform": "Debenhams",
+                    "event_name": "Summer Sale",
+                    "snapshot": snapshot,
+                }
+            )
+        self.assertEqual(actual, saved)
+        method, table = request.call_args.args[:2]
+        inserted = request.call_args.kwargs["rows"][0]
+        self.assertEqual((method, table), ("POST", "promotion_worktables"))
+        self.assertEqual(request.call_args.kwargs["prefer"], "return=representation")
+        self.assertEqual(inserted["candidate_count"], 2)
+        self.assertEqual(inserted["eligible_count"], 1)
+        self.assertEqual(inserted["selected_count"], 1)
+        self.assertEqual(inserted["snapshot"]["schema_version"], 1)
+
+    def test_create_saved_worktable_requires_calculated_rows(self):
+        with patch("app.supabase_enabled", return_value=True):
+            with self.assertRaisesRegex(ValueError, "Calculate at least one SKU"):
+                create_saved_worktable(
+                    {
+                        "platform": "Debenhams",
+                        "event_name": "Summer Sale",
+                        "snapshot": {
+                            "rows": [],
+                            "candidates": [],
+                            "selected_skus": [],
+                        },
+                    }
+                )
+
+    def test_saved_worktable_archive_filters_by_platform_event_and_date(self):
+        with (
+            patch("app.supabase_enabled", return_value=True),
+            patch("app.supabase_request", return_value=[]) as request,
+        ):
+            list_saved_worktables(
+                platform="Debenhams",
+                event_name="Summer",
+                created_on="2026-08-03",
+            )
+        params = request.call_args.kwargs["params"]
+        self.assertEqual(params["platform"], "eq.Debenhams")
+        self.assertEqual(params["event_name"], "ilike.*Summer*")
+        self.assertEqual(params["created_on"], "eq.2026-08-03")
 
     def test_sample_rows_match_corrected_wms_results(self):
         for row in self.rows:
