@@ -389,7 +389,7 @@ loaded.priceHeaderWidths = await page.locator("th.price-column").evaluateAll(
 loaded.priceHeaderLineCounts = await page.locator("th.price-column").evaluateAll(
   (headers) => headers.map((header) => header.querySelectorAll("span").length),
 );
-loaded.headerOrder = await page.locator("thead th").evaluateAll(
+loaded.headerOrder = await page.locator(".table-shell > table > thead th").evaluateAll(
   (headers) => headers.map((header) => header.textContent.replace(/\s+/g, " ").trim()),
 );
 loaded.firstRowSoh = await page.locator("#candidateRows tr td").nth(5).textContent();
@@ -466,7 +466,7 @@ await page.screenshot({
   path: "analysis/sticky-results-header.png",
 });
 await page.setViewportSize(desktopViewport);
-loaded.overlappingHeaders = await page.locator("thead th").evaluateAll((headers) => {
+loaded.overlappingHeaders = await page.locator(".table-shell > table > thead th").evaluateAll((headers) => {
   const rects = headers.map((header) => header.getBoundingClientRect());
   return rects.slice(1).some((rect, index) => rect.left < rects[index].right - 1);
 });
