@@ -572,7 +572,969 @@ def supabase_promotion_inventory():
     now = time.monotonic()
     if (
         _SUPABASE_PROMOTION_CACHE["rows"] is not None
-        and now …9137 tokens truncated…rm = str(first_value(platform_headers) or default_platform).strip()
+        and now < _SUPABASE_PROMOTION_CACHE["expires_at"]
+    ):
+        return _SUPABASE_PROMOTION_CACHE["rows"]
+
+    rows = supabase_select_all(
+        "promotion_sku_data",
+        {
+            "select": (
+                "sku,main_category,subcategory,brand,inventory_status,"
+                "grade_level,estimated_months_to_sell,stock_on_hand,cogs,"
+                "first_arrival_date,suggested_freight,sold_qty,sales_amt,"
+                "return_rate,lifetime_profit_margin"
+            ),
+            "order": "sku.asc",
+        },
+    )
+    inventory = {}
+    for row in rows:
+        sku = str(row.get("sku") or "").strip().upper()
+        if not sku:
+            continue
+        inventory[sku] = {
+            "sku": sku,
+            "main_category": row.get("main_category"),
+            "subcategory": row.get("subcategory"),
+            "brand": row.get("brand"),
+            "inventory_status": row.get("inventory_status"),
+            "grade": nullable_number(row.get("grade_level")),
+            "estimated_months": nullable_number(
+                row.get("estimated_months_to_sell")
+            ),
+            "stock": nullable_number(row.get("stock_on_hand")),
+            "cogs": nullable_number(row.get("cogs")),
+            "first_arrival_date": row.get("first_arrival_date"),
+            "avg_freight": nullable_number(row.get("suggested_freight")),
+            "sold_qty": normalise_number(row.get("sold_qty")),
+            "sales_amt": normalise_number(row.get("sales_amt")),
+            "return_rate": nullable_number(row.get("return_rate")),
+            "normal_margin": nullable_number(
+                row.get("lifetime_profit_margin")
+            ),
+            "lifetime_profit_margin": nullable_number(
+                row.get("lifetime_profit_margin")
+            ),
+        }
+    _SUPABASE_PROMOTION_CACHE.update(
+        {
+            "expires_at": now + max(PROMOTION_CACHE_SECONDS, 0),
+            "rows": inventory,
+        }
+    )
+    return inventory
+
+
+def supabase_channeladvisor_prices():
+    if not supabase_enabled():
+        return {}, {}
+    now = time.monotonic()
+    if (
+        _SUPABASE_CA_PRICE_CACHE["exact"] is not None
+        and now < _SUPABASE_CA_PRICE_CACHE["expires_at"]
+    ):
+        return (
+            _SUPABASE_CA_PRICE_CACHE["exact"],
+            _SUPABASE_CA_PRICE_CACHE["canonical"],
+        )
+
+    rows = supabase_select_all(
+        "channeladvisor_products",
+        {
+            "select": (
+                "platform_sku,wooper_sku,ca_price,mapping_status"
+            ),
+            "ca_price": "not.is.null",
+            "order": "platform_sku.asc",
+        },
+    )
+    exact = {}
+    canonical_candidates = {}
+    for row in rows:
+        platform_sku = str(row.get("platform_sku") or "").strip().upper()
+        ca_price = nullable_number(row.get("ca_price"))
+        if not platform_sku or ca_price is None:
+            continue
+        exact[platform_sku] = ca_price
+        wooper_sku = str(row.get("wooper_sku") or "").strip().upper()
+        if row.get("mapping_status") == "mapped" and wooper_sku:
+            canonical_candidates.setdefault(wooper_sku, set()).add(ca_price)
+    canonical = {
+        sku: next(iter(prices))
+        for sku, prices in canonical_candidates.items()
+        if len(prices) == 1
+    }
+    _SUPABASE_CA_PRICE_CACHE.update(
+        {
+            "expires_at": now + max(PROMOTION_CACHE_SECONDS, 0),
+            "exact": exact,
+            "canonical": canonical,
+        }
+    )
+    return exact, canonical
+
+
+def sample_inventory():
+    rows = json.loads(SAMPLE_PATH.read_text(encoding="utf-8"))["rows"]
+    return {str(row["sku"]).upper(): row for row in rows}
+
+
+def channeladvisor_source_path():
+    if CHANNELADVISOR_PATH:
+        explicit_path = Path(CHANNELADVISOR_PATH)
+        if explicit_path.exists():
+            return explicit_path
+
+    downloads = Path.home() / "Downloads"
+    exports = sorted(
+        downloads.glob("InventoryExport_Marketplace_New_Listing_Template*.xlsx"),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    if exports:
+        return exports[0]
+    return WORKBOOK_PATH
+
+
+def channeladvisor_prices():
+    """Return CA prices indexed by raw SKU and the legacy naming rule."""
+    if PROMOTION_DATA_SOURCE == "supabase" and supabase_enabled():
+        return supabase_channeladvisor_prices()
+
+    source_path = channeladvisor_source_path()
+    if not source_path.exists():
+        return {}, {}
+
+    resolved_path = str(source_path.resolve())
+    mtime_ns = source_path.stat().st_mtime_ns
+    if (
+        _CA_PRICE_CACHE["path"] == resolved_path
+        and _CA_PRICE_CACHE["mtime_ns"] == mtime_ns
+        and _CA_PRICE_CACHE["exact"] is not None
+    ):
+        return _CA_PRICE_CACHE["exact"], _CA_PRICE_CACHE["canonical"]
+
+    workbook = load_workbook(source_path, data_only=True, read_only=True)
+    try:
+        sheet = workbook["Image"] if "Image" in workbook.sheetnames else workbook.active
+        sheet.reset_dimensions()
+        row_iterator = sheet.iter_rows(values_only=True)
+        headers = [clean_header(value) for value in next(row_iterator, ())]
+        sku_index = headers.index("inventory number")
+        price_index = headers.index("buy it now price")
+        exact = {}
+        canonical_candidates = {}
+        for values in row_iterator:
+            platform_sku = str(values[sku_index] or "").strip().upper()
+            price = nullable_number(values[price_index])
+            if not platform_sku or price is None or price <= 0:
+                continue
+            exact[platform_sku] = price
+            canonical = ca_price_sku(platform_sku)
+            canonical_candidates.setdefault(canonical, set()).add(price)
+        canonical = {
+            sku: next(iter(prices))
+            for sku, prices in canonical_candidates.items()
+            if len(prices) == 1
+        }
+    finally:
+        workbook.close()
+
+    _CA_PRICE_CACHE.update(
+        {
+            "path": resolved_path,
+            "mtime_ns": mtime_ns,
+            "exact": exact,
+            "canonical": canonical,
+        }
+    )
+    return exact, canonical
+
+
+def align_channeladvisor_prices(inventory_skus, mappings=None, exact_prices=None):
+    """Align raw ChannelAdvisor SKUs to verified Wooper SKUs."""
+    inventory_skus = {str(sku).strip().upper() for sku in inventory_skus}
+    mappings = {
+        str(platform_sku).strip().upper(): str(wooper_sku).strip().upper()
+        for platform_sku, wooper_sku in (mappings or {}).items()
+    }
+    if exact_prices is None:
+        exact_prices, _ = channeladvisor_prices()
+
+    records = {}
+    canonical_candidates = {}
+    for platform_sku, price in exact_prices.items():
+        platform_key = str(platform_sku or "").strip().upper()
+        if platform_key.endswith("-ALL"):
+            records[platform_key] = {
+                "platform_sku": platform_key,
+                "wooper_sku": None,
+                "ca_price": price,
+                "mapping_status": "non_existing",
+                "mapping_source": "parent_sku_rule",
+            }
+            continue
+
+        saved_mapping = mappings.get(platform_key)
+        if saved_mapping == NON_EXISTING_SKU:
+            records[platform_key] = {
+                "platform_sku": platform_key,
+                "wooper_sku": None,
+                "ca_price": price,
+                "mapping_status": "non_existing",
+                "mapping_source": "saved",
+            }
+            continue
+
+        wooper_sku = resolve_wooper_sku(
+            platform_key,
+            inventory_skus,
+            mappings=mappings,
+        )
+        if wooper_sku is None:
+            mapping_status = "unresolved"
+            mapping_source = "unresolved"
+        elif saved_mapping == wooper_sku:
+            mapping_status = "mapped"
+            mapping_source = "saved"
+        elif platform_key == wooper_sku:
+            mapping_status = "mapped"
+            mapping_source = "exact"
+        else:
+            mapping_status = "mapped"
+            mapping_source = "rule"
+
+        records[platform_key] = {
+            "platform_sku": platform_key,
+            "wooper_sku": wooper_sku,
+            "ca_price": price,
+            "mapping_status": mapping_status,
+            "mapping_source": mapping_source,
+        }
+        if wooper_sku:
+            canonical_candidates.setdefault(wooper_sku, set()).add(price)
+
+    canonical_prices = {
+        sku: next(iter(prices))
+        for sku, prices in canonical_candidates.items()
+        if len(prices) == 1
+    }
+    return records, canonical_prices
+
+
+def inventory_source_path():
+    if WOOPER_INVENTORY_PATH:
+        explicit_path = Path(WOOPER_INVENTORY_PATH)
+        if explicit_path.exists():
+            return explicit_path
+
+    downloads = Path.home() / "Downloads"
+    exports = sorted(
+        downloads.glob("InventoryReportExport_Normal_UK_*.xlsx"),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    if exports:
+        return exports[0]
+    return WORKBOOK_PATH
+
+
+def workbook_inventory():
+    """Load the Wooper Inventory Report and reuse it until the workbook changes."""
+    source_path = inventory_source_path()
+    if not source_path.exists():
+        return {}
+
+    workbook_path = str(source_path.resolve())
+    mtime_ns = source_path.stat().st_mtime_ns
+    if (
+        _INVENTORY_CACHE["path"] == workbook_path
+        and _INVENTORY_CACHE["mtime_ns"] == mtime_ns
+        and _INVENTORY_CACHE["rows"] is not None
+    ):
+        return _INVENTORY_CACHE["rows"]
+
+    workbook = load_workbook(source_path, data_only=True, read_only=True)
+    try:
+        sheet = (
+            workbook["Inventory Report"]
+            if "Inventory Report" in workbook.sheetnames
+            else workbook.active
+        )
+        sheet.reset_dimensions()
+        row_iterator = sheet.iter_rows(values_only=True)
+        raw_headers = next(row_iterator, ())
+        headers = [
+            clean_header(str(value or "").split("/", 1)[0])
+            for value in raw_headers
+        ]
+        field_headers = {
+            "sku": "product sku",
+            "main_category": "main category",
+            "subcategory": "subcategory",
+            "brand": "brand",
+            "inventory_status": "inventory status",
+            "grade": "grade level",
+            "estimated_months": "estimated months to sell",
+            "stock": "total inventory qty",
+            "cogs": "cogs",
+        }
+        indexes = {
+            field: headers.index(header)
+            for field, header in field_headers.items()
+            if header in headers
+        }
+        if "sku" not in indexes:
+            raise ValueError("Inventory Report does not contain a Product SKU column")
+
+        inventory = {}
+        for values in row_iterator:
+            sku = str(values[indexes["sku"]] or "").strip().upper()
+            if not sku:
+                continue
+            inventory[sku] = {
+                field: values[index]
+                for field, index in indexes.items()
+                if field != "sku"
+            }
+            inventory[sku]["sku"] = sku
+    finally:
+        workbook.close()
+
+    _INVENTORY_CACHE.update(
+        {"path": workbook_path, "mtime_ns": mtime_ns, "rows": inventory}
+    )
+    return inventory
+
+
+def workbook_first_arrivals():
+    """Match the dashboard's SKU-master then earliest-inbound date fallback."""
+    source_path = WORKBOOK_PATH
+    if not source_path.exists():
+        return {}
+
+    workbook_path = str(source_path.resolve())
+    mtime_ns = source_path.stat().st_mtime_ns
+    if (
+        _FIRST_ARRIVAL_CACHE["path"] == workbook_path
+        and _FIRST_ARRIVAL_CACHE["mtime_ns"] == mtime_ns
+        and _FIRST_ARRIVAL_CACHE["rows"] is not None
+    ):
+        return _FIRST_ARRIVAL_CACHE["rows"]
+
+    workbook = load_workbook(source_path, data_only=True, read_only=True)
+    try:
+        master_arrivals = {}
+        if "SKU" in workbook.sheetnames:
+            sheet = workbook["SKU"]
+            sheet.reset_dimensions()
+            row_iterator = sheet.iter_rows(values_only=True)
+            headers = [clean_header(value) for value in next(row_iterator, ())]
+            if "sku master" in headers and "first arrival date" in headers:
+                sku_index = headers.index("sku master")
+                arrival_index = headers.index("first arrival date")
+                for values in row_iterator:
+                    sku = str(values[sku_index] or "").strip().upper()
+                    arrival = normalise_date(values[arrival_index])
+                    if sku and arrival:
+                        master_arrivals[sku] = arrival
+
+        inbound_arrivals = {}
+        if "Container report" in workbook.sheetnames:
+            sheet = workbook["Container report"]
+            sheet.reset_dimensions()
+            row_iterator = sheet.iter_rows(values_only=True)
+            headers = [clean_header(value) for value in next(row_iterator, ())]
+            if "sku" in headers and "inbound time" in headers:
+                sku_index = headers.index("sku")
+                inbound_index = headers.index("inbound time")
+                for values in row_iterator:
+                    sku = str(values[sku_index] or "").strip().upper()
+                    arrival = normalise_date(values[inbound_index])
+                    if not sku or not arrival:
+                        continue
+                    existing = inbound_arrivals.get(sku)
+                    if existing is None or arrival < existing:
+                        inbound_arrivals[sku] = arrival
+
+        arrivals = dict(inbound_arrivals)
+        arrivals.update(master_arrivals)
+    finally:
+        workbook.close()
+
+    _FIRST_ARRIVAL_CACHE.update(
+        {"path": workbook_path, "mtime_ns": mtime_ns, "rows": arrivals}
+    )
+    return arrivals
+
+
+def select_suggested_freight(
+    suggested_freight,
+    valid_qty,
+    avg_actual_freight,
+    sello_tools_calculation,
+):
+    suggested = nullable_number(suggested_freight)
+    if suggested is not None:
+        return suggested
+    average = nullable_number(avg_actual_freight)
+    if normalise_number(valid_qty) > 5 and average is not None:
+        return average
+    return nullable_number(sello_tools_calculation)
+
+
+def workbook_suggested_freight():
+    """Load the same per-unit suggested freight used by the SKU dashboard."""
+    source_path = WORKBOOK_PATH
+    if not source_path.exists():
+        return {}
+
+    workbook_path = str(source_path.resolve())
+    mtime_ns = source_path.stat().st_mtime_ns
+    if (
+        _FREIGHT_CACHE["path"] == workbook_path
+        and _FREIGHT_CACHE["mtime_ns"] == mtime_ns
+        and _FREIGHT_CACHE["rows"] is not None
+    ):
+        return _FREIGHT_CACHE["rows"]
+
+    workbook = load_workbook(source_path, data_only=True, read_only=True)
+    try:
+        if "Freight" not in workbook.sheetnames:
+            return {}
+        sheet = workbook["Freight"]
+        sheet.reset_dimensions()
+        row_iterator = sheet.iter_rows(values_only=True)
+        headers = [clean_header(value) for value in next(row_iterator, ())]
+        field_headers = {
+            "sku": "sku",
+            "suggested_freight": "suggested freight",
+            "valid_qty": "valid qty",
+            "avg_actual_freight": "avg actual freight",
+            "sello_tools_calculation": "sello tools calculation",
+        }
+        indexes = {
+            field: headers.index(header)
+            for field, header in field_headers.items()
+            if header in headers
+        }
+        if "sku" not in indexes:
+            return {}
+
+        freight = {}
+        for values in row_iterator:
+            sku = str(values[indexes["sku"]] or "").strip().upper()
+            if not sku:
+                continue
+            value = select_suggested_freight(
+                values[indexes["suggested_freight"]]
+                if "suggested_freight" in indexes
+                else None,
+                values[indexes["valid_qty"]] if "valid_qty" in indexes else None,
+                values[indexes["avg_actual_freight"]]
+                if "avg_actual_freight" in indexes
+                else None,
+                values[indexes["sello_tools_calculation"]]
+                if "sello_tools_calculation" in indexes
+                else None,
+            )
+            if value is not None:
+                freight[sku] = value
+    finally:
+        workbook.close()
+
+    _FREIGHT_CACHE.update(
+        {"path": workbook_path, "mtime_ns": mtime_ns, "rows": freight}
+    )
+    return freight
+
+
+def aggregate_lifetime_metrics(rows):
+    totals = {}
+    for row in rows:
+        sku = str(row.get("sku_code") or "").strip().upper()
+        if not sku:
+            continue
+        item = totals.setdefault(
+            sku,
+            {
+                "sold_qty": 0.0,
+                "sales_amt": 0.0,
+                "net_sales": 0.0,
+                "return_amount": 0.0,
+                "profit_incl_rn": 0.0,
+            },
+        )
+        item["sold_qty"] += normalise_number(row.get("sku_qty"))
+        item["sales_amt"] += normalise_number(row.get("sales_amt"))
+        item["net_sales"] += (
+            normalise_number(row.get("sales_amt"))
+            + normalise_number(row.get("extra_freight"))
+            - normalise_number(row.get("promo_rebate"))
+        )
+        item["return_amount"] += (
+            normalise_number(row.get("refund_amt"))
+            + normalise_number(row.get("resend_amt"))
+        )
+        item["profit_incl_rn"] += normalise_number(row.get("profit_incl_rn"))
+
+    metrics = {}
+    for sku, item in totals.items():
+        net_sales = item["net_sales"]
+        metrics[sku] = {
+            **item,
+            "return_rate": item["return_amount"] / net_sales if net_sales else None,
+            "lifetime_profit_margin": (
+                item["profit_incl_rn"] / net_sales if net_sales else None
+            ),
+            "normal_margin": (
+                item["profit_incl_rn"] / net_sales if net_sales else None
+            ),
+        }
+    return metrics
+
+
+def workbook_lifetime_metrics():
+    """Aggregate all-platform lifetime metrics using the dashboard definitions."""
+    source_path = WORKBOOK_PATH
+    if not source_path.exists():
+        return {}
+
+    workbook_path = str(source_path.resolve())
+    mtime_ns = source_path.stat().st_mtime_ns
+    if (
+        _PERFORMANCE_CACHE["path"] == workbook_path
+        and _PERFORMANCE_CACHE["mtime_ns"] == mtime_ns
+        and _PERFORMANCE_CACHE["rows"] is not None
+    ):
+        return _PERFORMANCE_CACHE["rows"]
+
+    with _PERFORMANCE_BUILD_LOCK:
+        if (
+            _PERFORMANCE_CACHE["path"] == workbook_path
+            and _PERFORMANCE_CACHE["mtime_ns"] == mtime_ns
+            and _PERFORMANCE_CACHE["rows"] is not None
+        ):
+            return _PERFORMANCE_CACHE["rows"]
+
+        if LIFETIME_METRICS_PATH.exists():
+            try:
+                cached = json.loads(
+                    LIFETIME_METRICS_PATH.read_text(encoding="utf-8")
+                )
+                if (
+                    cached.get("source_path") == workbook_path
+                    and cached.get("source_mtime_ns") == mtime_ns
+                ):
+                    metrics = cached.get("metrics", {})
+                    _PERFORMANCE_CACHE.update(
+                        {
+                            "path": workbook_path,
+                            "mtime_ns": mtime_ns,
+                            "rows": metrics,
+                        }
+                    )
+                    return metrics
+            except (OSError, ValueError, TypeError):
+                pass
+
+        workbook = load_workbook(source_path, data_only=True, read_only=True)
+        try:
+            if "PowerBI" not in workbook.sheetnames:
+                return {}
+            sheet = workbook["PowerBI"]
+            sheet.reset_dimensions()
+            row_iterator = sheet.iter_rows(values_only=True)
+            headers = [clean_header(value) for value in next(row_iterator, ())]
+            field_headers = {
+                "sku_code": "sku code",
+                "sku_qty": "sku qty",
+                "sales_amt": "sales amt",
+                "extra_freight": "extra freight",
+                "promo_rebate": "promo rebate",
+                "resend_amt": "resend amt",
+                "refund_amt": "refund amt",
+                "profit_incl_rn": "profit incl rn",
+            }
+            indexes = {
+                field: headers.index(header)
+                for field, header in field_headers.items()
+                if header in headers
+            }
+            if "sku_code" not in indexes:
+                return {}
+            metrics = aggregate_lifetime_metrics(
+                {
+                    field: values[index]
+                    for field, index in indexes.items()
+                }
+                for values in row_iterator
+            )
+        finally:
+            workbook.close()
+
+        LIFETIME_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        cache_payload = {
+            "source_path": workbook_path,
+            "source_mtime_ns": mtime_ns,
+            "metrics": metrics,
+        }
+        temporary_path = LIFETIME_METRICS_PATH.with_suffix(".tmp")
+        temporary_path.write_text(
+            json.dumps(cache_payload, ensure_ascii=True),
+            encoding="utf-8",
+        )
+        temporary_path.replace(LIFETIME_METRICS_PATH)
+        _PERFORMANCE_CACHE.update(
+            {"path": workbook_path, "mtime_ns": mtime_ns, "rows": metrics}
+        )
+        return metrics
+
+
+def wooper_inventory():
+    if PROMOTION_DATA_SOURCE == "supabase" and supabase_enabled():
+        return supabase_promotion_inventory()
+
+    inventory = dict(workbook_inventory())
+    for sku, first_arrival in workbook_first_arrivals().items():
+        if sku in inventory:
+            inventory[sku] = {
+                **inventory[sku],
+                "first_arrival_date": first_arrival,
+            }
+    for sku, suggested_freight in workbook_suggested_freight().items():
+        if sku in inventory:
+            inventory[sku] = {
+                **inventory[sku],
+                "avg_freight": suggested_freight,
+            }
+    for sku, metrics in workbook_lifetime_metrics().items():
+        if sku in inventory:
+            inventory[sku] = {**inventory[sku], **metrics}
+    for sku, sample_row in sample_inventory().items():
+        inventory[sku] = {**inventory.get(sku, {}), **sample_row, "sku": sku}
+    return inventory
+
+
+def resolve_wooper_sku(
+    platform_sku,
+    inventory_skus,
+    mappings=None,
+    explicit_wooper_sku=None,
+):
+    platform_key = str(platform_sku or "").strip().upper()
+    inventory_skus = {str(sku).strip().upper() for sku in inventory_skus}
+    mappings = mappings or {}
+    candidates = [
+        mappings.get(platform_key),
+        explicit_wooper_sku,
+        platform_key,
+        ca_price_sku(platform_key),
+    ]
+    for candidate in candidates:
+        candidate_key = str(candidate or "").strip().upper()
+        if candidate_key and candidate_key in inventory_skus:
+            return candidate_key
+    return None
+
+
+def calculate_candidate(row: dict, criteria: dict) -> dict:
+    result = dict(row)
+    legacy_price = nullable_number(row.get("price"))
+    offer_price = nullable_number(row.get("offer_price"))
+    if offer_price is None:
+        offer_price = legacy_price
+    ca_price = nullable_number(row.get("ca_price"))
+    requested_price_source = str(criteria.get("price_source") or "ca").lower()
+    valid_ca_price = ca_price is not None and ca_price > 0
+    valid_offer_price = offer_price is not None and offer_price > 0
+    if requested_price_source == "ca":
+        price = ca_price if valid_ca_price else offer_price
+        calculation_price_source = (
+            "ca" if valid_ca_price else "offer" if valid_offer_price else None
+        )
+    else:
+        price = offer_price if valid_offer_price else ca_price
+        calculation_price_source = (
+            "offer" if valid_offer_price else "ca" if valid_ca_price else None
+        )
+    price = price or 0
+    cogs = normalise_number(row.get("cogs"))
+    sold_qty = normalise_number(row.get("sold_qty"))
+    postage = normalise_number(row.get("postage"))
+    avg_freight = nullable_number(row.get("avg_freight"))
+    if avg_freight is None:
+        avg_freight = postage / sold_qty if sold_qty else 0
+
+    commission = nullable_number(row.get("commission"))
+    if commission is None:
+        commission = normalise_number(criteria.get("default_commission"), 0.264)
+
+    margins = criteria.get("grade_margins", {})
+    target_margin = normalise_number(margins.get(grade_key(row.get("grade"))), 0.12)
+    max_discount = normalise_number(criteria.get("max_discount"), 0.25)
+    wms_rate = normalise_number(criteria.get("wms_rate"), 0.08)
+    vat_rate = normalise_number(criteria.get("vat_rate"), 0.20)
+    input_price_includes_vat = criteria.get("input_price_includes_vat", True)
+    export_price_includes_vat = criteria.get("export_price_includes_vat", True)
+    vat_multiplier = 1 + vat_rate
+    calculation_price_includes_vat = (
+        True if calculation_price_source == "ca" else input_price_includes_vat
+    )
+    price_including_vat = (
+        price if calculation_price_includes_vat else price * vat_multiplier
+    )
+
+    denominator = 1 - commission - wms_rate - target_margin
+    if price_including_vat <= 0 or denominator <= 0:
+        suggested_discount = 0
+        calculation_error = "Price or margin settings make reverse pricing impossible"
+    else:
+        suggested_discount = (
+            1
+            - (
+                ((cogs + avg_freight) / denominator)
+                * vat_multiplier
+                / price_including_vat
+            )
+        )
+        suggested_discount = min(suggested_discount, max_discount)
+        discount_interval = normalise_number(
+            criteria.get("discount_interval"),
+            0.05,
+        )
+        if (
+            criteria.get("use_discount_interval", False)
+            and discount_interval > 0
+            and suggested_discount > 0
+        ):
+            suggested_discount = (
+                math.floor((suggested_discount + 1e-12) / discount_interval)
+                * discount_interval
+            )
+        calculation_error = ""
+
+    override_discount = nullable_number(row.get("override_discount"))
+    final_discount = (
+        override_discount if override_discount is not None else suggested_discount
+    )
+    raw_promo_price = price_including_vat * (1 - final_discount)
+    if criteria.get("rounding", True):
+        promo_price_including_vat = excel_mround(raw_promo_price, 0.1)
+        if final_discount < max_discount:
+            promo_price_including_vat -= 0.05
+    else:
+        promo_price_including_vat = raw_promo_price
+    promo_price_including_vat = max(promo_price_including_vat, 0)
+
+    ex_vat_price = (
+        promo_price_including_vat / vat_multiplier
+        if vat_multiplier
+        else promo_price_including_vat
+    )
+    promo_price = (
+        promo_price_including_vat
+        if export_price_includes_vat
+        else ex_vat_price
+    )
+    wms_fee = ex_vat_price * wms_rate
+    profit = (
+        ex_vat_price * (1 - commission)
+        - cogs
+        - avg_freight
+        - wms_fee
+    )
+    promo_margin = profit / ex_vat_price if ex_vat_price else None
+
+    reasons = []
+    warnings = []
+    if requested_price_source == "offer" and calculation_price_source == "ca":
+        warnings.append("Offer price unavailable; CA price used")
+    if requested_price_source == "ca" and calculation_price_source == "offer":
+        warnings.append("CA price unavailable; offer price used")
+    if row.get("commission_requires_review"):
+        warnings.append("Commission rate needs confirmation")
+    grade = normalise_number(row.get("grade"))
+    stock = normalise_number(row.get("stock"))
+    estimated_months = normalise_number(row.get("estimated_months"))
+    return_rate = normalise_number(row.get("return_rate"))
+    minimum_discount = normalise_number(criteria.get("min_discount"), 0)
+
+    if grade < normalise_number(criteria.get("min_grade"), 0):
+        reasons.append("Grade below threshold")
+    if stock < normalise_number(criteria.get("min_stock"), 0):
+        reasons.append("Stock below threshold")
+    if estimated_months < normalise_number(criteria.get("min_months"), 0):
+        reasons.append("Saleable months below threshold")
+    if suggested_discount < minimum_discount:
+        reasons.append("Available discount below minimum")
+    if final_discount < 0:
+        reasons.append("Target margin requires a price increase")
+
+    categories = [
+        clean_header(value)
+        for value in criteria.get("categories", [])
+        if clean_header(value)
+    ]
+    if categories:
+        candidate_category = clean_header(row.get("subcategory"))
+        if not any(category in candidate_category for category in categories):
+            reasons.append("Outside selected categories")
+
+    def selected_values(plural_key: str, singular_key: str) -> list[str]:
+        raw_values = criteria.get(plural_key)
+        if raw_values is None:
+            raw_values = criteria.get(singular_key)
+        if not isinstance(raw_values, (list, tuple, set)):
+            raw_values = [raw_values]
+        return [clean_header(value) for value in raw_values if clean_header(value)]
+
+    main_categories = selected_values("main_categories", "main_category")
+    if (
+        main_categories
+        and clean_header(row.get("main_category")) not in main_categories
+    ):
+        reasons.append("Outside selected main category")
+    subcategories = selected_values("subcategories", "subcategory")
+    if subcategories and clean_header(row.get("subcategory")) not in subcategories:
+        reasons.append("Outside selected subcategory")
+    brands = selected_values("brands", "brand")
+    if brands and clean_header(row.get("brand")) not in brands:
+        reasons.append("Outside selected brand")
+
+    cutoff = normalise_date(criteria.get("exclude_first_arrival_on_or_after"))
+    first_arrival = normalise_date(row.get("first_arrival_date"))
+    if cutoff and first_arrival and first_arrival >= cutoff:
+        reasons.append("First arrival is inside the excluded new-product period")
+
+    return_review_threshold = normalise_number(
+        criteria.get("max_return_rate"),
+        0.06,
+    )
+    return_rate_review = return_rate >= return_review_threshold
+    if return_rate_review:
+        warnings.append(
+            "Return rate is at or above "
+            f"{return_review_threshold * 100:g}% review threshold"
+        )
+
+    lifetime_margin = nullable_number(row.get("lifetime_profit_margin"))
+    lifetime_margin_gap = (
+        lifetime_margin - promo_margin
+        if lifetime_margin is not None and promo_margin is not None
+        else None
+    )
+    margin_gap_review = (
+        lifetime_margin_gap is not None
+        and lifetime_margin_gap > 0.05 + 1e-12
+    )
+    if margin_gap_review:
+        warnings.append(
+            "Lifetime margin exceeds promo margin by more than 5 points"
+        )
+
+    if promo_margin is not None and promo_margin + 0.0001 < target_margin:
+        if override_discount is not None:
+            warnings.append("Override discount leaves margin below target")
+        elif criteria.get("rounding", True):
+            warnings.append("Rounding leaves margin slightly below target")
+        else:
+            warnings.append("Final discount leaves margin below target")
+    if calculation_error:
+        reasons.append(calculation_error)
+
+    result.update(
+        {
+            "avg_freight": avg_freight,
+            "commission": commission,
+            "offer_price": offer_price,
+            "ca_price": ca_price,
+            "price": price,
+            "price_including_vat": price_including_vat,
+            "calculation_price_source": calculation_price_source,
+            "requested_price_source": requested_price_source,
+            "target_margin": target_margin,
+            "suggested_discount": suggested_discount,
+            "final_discount": final_discount,
+            "use_discount_interval": criteria.get(
+                "use_discount_interval",
+                False,
+            ),
+            "discount_interval": normalise_number(
+                criteria.get("discount_interval"),
+                0.05,
+            ),
+            "promo_price": promo_price,
+            "promo_price_including_vat": promo_price_including_vat,
+            "promo_price_excluding_vat": ex_vat_price,
+            "input_price_includes_vat": input_price_includes_vat,
+            "export_price_includes_vat": export_price_includes_vat,
+            "promo_profit": profit,
+            "promo_margin": promo_margin,
+            "return_rate_review": return_rate_review,
+            "lifetime_margin_gap": lifetime_margin_gap,
+            "margin_gap_review": margin_gap_review,
+            "wms_fee": wms_fee,
+            "eligible": not reasons,
+            "reasons": reasons,
+            "warnings": warnings,
+        }
+    )
+    return result
+
+
+def rows_from_csv(data: bytes):
+    text = data.decode("utf-8-sig")
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def rows_from_workbook(data: bytes):
+    workbook = load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+    sheet = workbook.active
+    sheet.reset_dimensions()
+    iterator = sheet.iter_rows(values_only=True)
+    headers = next(iterator, None)
+    if not headers:
+        return []
+    return [
+        {str(headers[index] or ""): value for index, value in enumerate(values)}
+        for values in iterator
+        if any(value not in (None, "") for value in values)
+    ]
+
+
+def normalise_commission_rows(rows, default_platform=""):
+    platform_headers = {"platform", "platform name", "marketplace"}
+    category_headers = {"category", "product category", "commission category"}
+    sku_headers = {
+        "sku",
+        "sku code",
+        "wooper sku",
+        "core sku",
+        "inventory number",
+    }
+    commission_headers = ALIASES["commission"] | {"rate"}
+    normalised = {}
+    conflicts = []
+
+    for source_row in rows:
+        cleaned = {
+            clean_header(header): value
+            for header, value in source_row.items()
+        }
+
+        def first_value(headers):
+            return next(
+                (
+                    cleaned[header]
+                    for header in headers
+                    if header in cleaned and cleaned[header] not in (None, "")
+                ),
+                None,
+            )
+
+        platform = str(first_value(platform_headers) or default_platform).strip()
         sku = str(first_value(sku_headers) or "").strip().upper()
         category = str(first_value(category_headers) or "").strip()
         commission = nullable_number(first_value(commission_headers))
