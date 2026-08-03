@@ -214,6 +214,22 @@ Manual mappings and non-existing statuses remain durable between refreshes.
 - Sorted displayed result rows from A to Z by the core Wooper SKU.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
 
+### 2026-08-03
+
+- Added Save worktable with mandatory confirmation of promotion platform and
+  event name.
+- Saved worktables are immutable historical records. They preserve the exact
+  imported rows, criteria, VAT settings, commissions, mappings, overrides,
+  selections, and calculated results that were visible when saved.
+- Added a shared staff archive searchable by platform, event name, and Sydney
+  creation date.
+- Opening a saved record is read-only and does not recalculate against newer
+  Supabase data or newer calculation logic.
+- The current draft is retained in memory while a saved record is reviewed, so
+  Return to current worktable restores the staff member's active work.
+- A calculated worktable with unsaved changes triggers the browser's standard
+  warning when the user closes or reloads the tab.
+
 ### 2026-07-30
 
 - Added the six-step in-app walkthrough and permanent Help button.
