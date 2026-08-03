@@ -503,6 +503,8 @@ loaded.exportHasCaPriceHeader = exportCsv.includes("CA Price - Normal Price (VAT
 loaded.exportHasInputVatHeader = exportCsv.includes("Offer Price (VAT Excluded)");
 loaded.exportHasPromoVatHeader = exportCsv.includes("Promotion Price (VAT Excluded)");
 loaded.exportHasPriceSourceHeader = exportCsv.includes("Calculation Price Source");
+loaded.exportHasCostHeaders = exportCsv.includes('"SKU","COGS","Avg Freight","CA Price - Normal Price (VAT Included)"');
+loaded.exportHasCostValues = /,"\d+\.\d{2}","\d+\.\d{2}",/.test(exportCsv.split("\r\n")[1] || "");
 
 await page.screenshot({
   path: "analysis/browser-smoke.png",
@@ -936,6 +938,8 @@ if (
   || !loaded.exportHasInputVatHeader
   || !loaded.exportHasPromoVatHeader
   || !loaded.exportHasPriceSourceHeader
+  || !loaded.exportHasCostHeaders
+  || !loaded.exportHasCostValues
 ) {
   throw new Error(
     `VAT basis was not recorded in the table and export headers: ${JSON.stringify(loaded)}`,
