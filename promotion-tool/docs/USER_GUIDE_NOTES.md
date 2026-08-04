@@ -139,8 +139,9 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
 - VAT-inclusive promotion prices are the internal pricing and rounding basis.
 - A VAT-excluded export price is the VAT-inclusive result divided by 1.20.
 - The Normal Price and Promotion Price CSV headers state their VAT basis.
-- The CSV export includes COGS, Avg Freight, and Commission Rate for calculation
-  review; these fields do not appear in the on-screen result table.
+- The CSV export includes SOH, Months, COGS, Avg Freight, and Commission Rate for
+  calculation review. COGS, Avg Freight, and Commission Rate do not appear in
+  the on-screen result table.
 - Only selected candidates are included in the export.
 
 ## Demo data behavior
