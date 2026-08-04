@@ -503,8 +503,8 @@ loaded.exportHasCaPriceHeader = exportCsv.includes("CA Price - Normal Price (VAT
 loaded.exportHasInputVatHeader = exportCsv.includes("Offer Price (VAT Excluded)");
 loaded.exportHasPromoVatHeader = exportCsv.includes("Promotion Price (VAT Excluded)");
 loaded.exportHasPriceSourceHeader = exportCsv.includes("Calculation Price Source");
-loaded.exportHasCostHeaders = exportCsv.includes('"SKU","COGS","Avg Freight","Commission Rate","CA Price - Normal Price (VAT Included)"');
-loaded.exportHasCostValues = /,"\d+\.\d{2}","\d+\.\d{2}","\d+\.\d{2}%",/.test(exportCsv.split("\r\n")[1] || "");
+loaded.exportHasCostHeaders = exportCsv.includes('"SKU","SOH","Months","COGS","Avg Freight","Commission Rate","CA Price - Normal Price (VAT Included)"');
+loaded.exportHasCostValues = /,"\d+","\d+\.\d","\d+\.\d{2}","\d+\.\d{2}","\d+\.\d{2}%",/.test(exportCsv.split("\r\n")[1] || "");
 
 await page.screenshot({
   path: "analysis/browser-smoke.png",
