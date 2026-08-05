@@ -143,9 +143,6 @@ Only a SKU that fails all five checks is shown in the mapping dialog.
   calculation review. COGS, Avg Freight, and Commission Rate do not appear in
   the on-screen result table.
 - Only selected candidates are included in the export.
-- The Eligible view contains only eligible SKUs without warnings. The Warnings
-  view contains only eligible SKUs that require review. Excluded SKUs appear
-  only in All and Excluded, even when they also carry warning details.
 
 ## Demo data behavior
 
