@@ -289,6 +289,25 @@ const loaded = {
   brandOptions: await page.locator("#brand .multi-select-option").count(),
   eligibleCount: await page.locator("#eligibleCount").textContent(),
 };
+loaded.allEligibleDecisionCount = await page.locator("#candidateRows .badge.eligible").count();
+loaded.allReviewDecisionCount = await page.locator("#candidateRows .badge.warning").count();
+loaded.allExcludedDecisionCount = await page.locator("#candidateRows .badge.excluded").count();
+await page.locator('.filter-button[data-filter="eligible"]').click();
+loaded.eligibleFilterRowCount = await page.locator("#candidateRows tr").count();
+loaded.eligibleFilterWrongDecisionCount = await page.locator(
+  "#candidateRows .badge.warning, #candidateRows .badge.excluded",
+).count();
+await page.locator('.filter-button[data-filter="warning"]').click();
+loaded.warningFilterRowCount = await page.locator("#candidateRows tr").count();
+loaded.warningFilterWrongDecisionCount = await page.locator(
+  "#candidateRows .badge.eligible, #candidateRows .badge.excluded",
+).count();
+await page.locator('.filter-button[data-filter="excluded"]').click();
+loaded.excludedFilterRowCount = await page.locator("#candidateRows tr").count();
+loaded.excludedFilterWrongDecisionCount = await page.locator(
+  "#candidateRows .badge.eligible, #candidateRows .badge.warning",
+).count();
+await page.locator('.filter-button[data-filter="all"]').click();
 loaded.criteriaWidthExpanded = await page.locator(".criteria-panel").evaluate(
   (panel) => Math.round(panel.getBoundingClientRect().width),
 );
@@ -847,6 +866,16 @@ if (
   || !loaded.multiCategoryCleared
 ) {
   throw new Error(`Multi-select filters are incomplete: ${JSON.stringify(loaded)}`);
+}
+if (
+  loaded.eligibleFilterRowCount !== loaded.allEligibleDecisionCount
+  || loaded.eligibleFilterWrongDecisionCount !== 0
+  || loaded.warningFilterRowCount !== loaded.allReviewDecisionCount
+  || loaded.warningFilterWrongDecisionCount !== 0
+  || loaded.excludedFilterRowCount !== loaded.allExcludedDecisionCount
+  || loaded.excludedFilterWrongDecisionCount !== 0
+) {
+  throw new Error(`Decision filters overlap: ${JSON.stringify(loaded)}`);
 }
 if (loaded.normalMarginRowReason?.toLowerCase().includes("normal margin")) {
   throw new Error(

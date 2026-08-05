@@ -459,7 +459,7 @@ const GUIDE_STEPS = {
     title: "Approve and export",
     summary: "Review the decisions before creating the platform submission file.",
     points: [
-      "Use Eligible, Excluded, and Warnings to focus the review.",
+      "Eligible shows clean eligible SKUs, Warnings shows review SKUs only, and Excluded shows criteria failures.",
       "Return rates at or above 6% are highlighted red for review.",
       "A lifetime margin more than 5 points above promo margin is highlighted red for review.",
       "Hover or focus the information icons in the table headers to review the red-highlight rules.",
@@ -1622,9 +1622,15 @@ async function calculate({ selectEligible = false, signal } = {}) {
 }
 
 function candidateMatches(row) {
-  if (state.filter === "eligible" && !row.eligible) return false;
+  if (
+    state.filter === "eligible"
+    && (!row.eligible || (row.warnings || []).length)
+  ) return false;
   if (state.filter === "excluded" && row.eligible) return false;
-  if (state.filter === "warning" && !(row.warnings || []).length) return false;
+  if (
+    state.filter === "warning"
+    && (!row.eligible || !(row.warnings || []).length)
+  ) return false;
   if (!state.search) return true;
   const haystack = [
     row.sku,
