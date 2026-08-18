@@ -18,6 +18,7 @@ from threading import Lock
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from openpyxl import load_workbook
 
@@ -564,6 +565,25 @@ def promotion_data_refreshed_at():
         },
     )
     return rows[0].get("refreshed_at") if rows else None
+
+
+def active_protection_rows(as_of=None):
+    if not supabase_enabled():
+        return []
+    as_of = as_of or datetime.now(ZoneInfo("Australia/Sydney")).date()
+    as_of_text = as_of.isoformat() if isinstance(as_of, date) else str(as_of)
+    return supabase_select_all(
+        "promotion_protection_list",
+        {
+            "select": (
+                "sku,protection_owner,protected_ca_price,protection_start,"
+                "protection_end,refreshed_at"
+            ),
+            "protection_start": f"lte.{as_of_text}",
+            "protection_end": f"gte.{as_of_text}",
+            "order": "sku.asc",
+        },
+    )
 
 
 def supabase_promotion_inventory():
@@ -1408,6 +1428,18 @@ def calculate_candidate(row: dict, criteria: dict) -> dict:
     if cutoff and first_arrival and first_arrival >= cutoff:
         reasons.append("First arrival is inside the excluded new-product period")
 
+    protected_skus = {
+        str(value or "").strip().upper()
+        for value in criteria.get("protected_skus", [])
+        if str(value or "").strip()
+    }
+    protection_list_excluded = (
+        bool(criteria.get("exclude_current_protection_list"))
+        and str(row.get("sku") or "").strip().upper() in protected_skus
+    )
+    if protection_list_excluded:
+        reasons.append("SKU is in the current protection period")
+
     return_review_threshold = normalise_number(
         criteria.get("max_return_rate"),
         0.06,
@@ -1475,6 +1507,7 @@ def calculate_candidate(row: dict, criteria: dict) -> dict:
             "return_rate_review": return_rate_review,
             "lifetime_margin_gap": lifetime_margin_gap,
             "margin_gap_review": margin_gap_review,
+            "protection_list_excluded": protection_list_excluded,
             "wms_fee": wms_fee,
             "eligible": not reasons,
             "reasons": reasons,
@@ -1782,6 +1815,7 @@ class Handler(SimpleHTTPRequestHandler):
                 )
                 for status in ("mapped", "unresolved", "non_existing")
             }
+            protection_rows = active_protection_rows()
             self.send_json(
                 {
                     "defaultCommissions": DEFAULT_COMMISSIONS,
@@ -1796,6 +1830,7 @@ class Handler(SimpleHTTPRequestHandler):
                         "supabase" if supabase_enabled() else "local"
                     ),
                     "promotionDataRefreshedAt": promotion_data_refreshed_at(),
+                    "activeProtectionCount": len(protection_rows),
                 }
             )
             return
@@ -1839,7 +1874,15 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             if parsed.path == "/api/calculate":
                 payload = self.read_json()
-                criteria = payload.get("criteria", {})
+                criteria = dict(payload.get("criteria", {}))
+                if criteria.get("exclude_current_protection_list"):
+                    criteria["protected_skus"] = sorted(
+                        {
+                            str(row.get("sku") or "").strip().upper()
+                            for row in active_protection_rows()
+                            if row.get("sku")
+                        }
+                    )
                 candidates = [
                     calculate_candidate(row, criteria)
                     for row in payload.get("rows", [])

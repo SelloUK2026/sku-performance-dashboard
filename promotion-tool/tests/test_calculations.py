@@ -5,6 +5,7 @@ import io
 import json
 import sys
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from app import (  # noqa: E402
     NON_EXISTING_SKU,
     aggregate_lifetime_metrics,
     align_channeladvisor_prices,
+    active_protection_rows,
     ca_price_sku,
     calculate_candidate,
     commission_rows_from_workbook,
@@ -125,6 +127,48 @@ class PromotionCalculationTests(unittest.TestCase):
         self.assertEqual(inserted["eligible_count"], 1)
         self.assertEqual(inserted["selected_count"], 1)
         self.assertEqual(inserted["snapshot"]["schema_version"], 1)
+
+    @patch("app.supabase_enabled", return_value=True)
+    @patch("app.supabase_select_all")
+    def test_active_protection_rows_uses_inclusive_date_filters(
+        self,
+        select_all,
+        _supabase_enabled,
+    ):
+        select_all.return_value = [{"sku": "ACTIVE-UK"}]
+
+        rows = active_protection_rows(date(2026, 8, 18))
+
+        self.assertEqual(rows, [{"sku": "ACTIVE-UK"}])
+        params = select_all.call_args.args[1]
+        self.assertEqual(params["protection_start"], "lte.2026-08-18")
+        self.assertEqual(params["protection_end"], "gte.2026-08-18")
+
+    def test_current_protection_list_excludes_mapped_wooper_sku(self):
+        result = calculate_candidate(
+            dict(self.rows[0], sku="PROTECTED-UK"),
+            dict(
+                CRITERIA,
+                exclude_current_protection_list=True,
+                protected_skus=["protected-uk"],
+            ),
+        )
+
+        self.assertFalse(result["eligible"])
+        self.assertTrue(result["protection_list_excluded"])
+        self.assertIn("SKU is in the current protection period", result["reasons"])
+
+    def test_protection_list_is_optional(self):
+        result = calculate_candidate(
+            dict(self.rows[0], sku="PROTECTED-UK"),
+            dict(
+                CRITERIA,
+                exclude_current_protection_list=False,
+                protected_skus=["PROTECTED-UK"],
+            ),
+        )
+
+        self.assertNotIn("SKU is in the current protection period", result["reasons"])
 
     def test_create_saved_worktable_requires_calculated_rows(self):
         with patch("app.supabase_enabled", return_value=True):

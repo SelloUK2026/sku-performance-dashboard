@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260805-decision-filters">
+  <link rel="stylesheet" href="/styles.css?v=20260818-protection-list">
 </head>
 <body>
   <header class="app-header">
@@ -118,6 +118,13 @@
         <label>Exclude first arrivals on or after
           <input id="firstArrivalCutoff" type="date">
         </label>
+        <div class="toggle-row protection-list-toggle">
+          <span id="protectionListLabel">Exclude current protection list</span>
+          <label class="switch">
+            <input id="excludeProtectionList" type="checkbox">
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
 
         <div class="section-label">Pricing rules</div>
         <div class="field-grid two">
@@ -130,7 +137,7 @@
         </div>
 
         <div class="toggle-row">
-          <span>Round promotional prices</span>
+          <span id="roundingLabel">Round promotional prices</span>
           <label class="switch">
             <input id="rounding" type="checkbox" checked>
             <span aria-hidden="true"></span>
@@ -139,7 +146,7 @@
 
         <div class="discount-interval-controls">
           <div class="toggle-row">
-            <span>Use discount interval</span>
+            <span id="discountIntervalLabel">Use discount interval</span>
             <label class="switch">
               <input id="discountIntervalEnabled" type="checkbox">
               <span aria-hidden="true"></span>
@@ -436,6 +443,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260805-decision-filters"></script>
+  <script src="/app.js?v=20260818-protection-list"></script>
 </body>
 </html>

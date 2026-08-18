@@ -129,6 +129,24 @@ create table if not exists public.promotion_sku_data (
   refreshed_at timestamptz not null default now()
 );
 
+create table if not exists public.promotion_protection_list (
+  sku text not null,
+  protection_start date not null,
+  protection_end date not null,
+  protection_owner text,
+  protected_ca_price numeric,
+  source_row integer,
+  source_spreadsheet_id text not null,
+  source_sheet text not null default '保護清單',
+  refreshed_at timestamptz not null default now(),
+  primary key (sku, protection_start, protection_end),
+  check (length(btrim(sku)) > 0),
+  check (protection_end >= protection_start)
+);
+
+create index if not exists promotion_protection_active_idx
+  on public.promotion_protection_list (protection_start, protection_end, sku);
+
 create table if not exists public.sku_mappings (
   mapping_scope text not null
     check (mapping_scope in ('channeladvisor', 'platform')),
@@ -201,15 +219,18 @@ alter table public.price_history enable row level security;
 alter table public.product_images enable row level security;
 alter table public.channeladvisor_products enable row level security;
 alter table public.promotion_sku_data enable row level security;
+alter table public.promotion_protection_list enable row level security;
 alter table public.sku_mappings enable row level security;
 alter table public.promotion_worktables enable row level security;
 
 grant select, insert, update, delete
-  on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
+  on public.channeladvisor_products, public.promotion_sku_data,
+  public.promotion_protection_list, public.sku_mappings
   to service_role;
 grant select, insert, delete on public.promotion_worktables to service_role;
 revoke all
-  on public.channeladvisor_products, public.promotion_sku_data, public.sku_mappings
+  on public.channeladvisor_products, public.promotion_sku_data,
+  public.promotion_protection_list, public.sku_mappings
   from anon, authenticated;
 revoke all on public.promotion_worktables from anon, authenticated;
 
