@@ -9,7 +9,7 @@ const DEFAULT_MARGINS = {
   7: 3,
 };
 
-const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v9";
+const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v10";
 const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
 const CRITERIA_STORAGE_KEY = "promotion-nomination-criteria-collapsed";
 const SKU_COLLATOR = new Intl.Collator("en-GB", { numeric: true, sensitivity: "base" });
@@ -57,6 +57,8 @@ const UI_TEXT = {
     selectedCount: "{count} selected",
     clearSelection: "Clear selection",
     excludeFirstArrivals: "Exclude first arrivals on or after",
+    excludeProtectionList: "Exclude current protection list",
+    excludeProtectionListCount: "Exclude current protection list ({count} active today)",
     pricingRules: "Pricing rules",
     maximumDiscount: "Maximum discount",
     defaultCommission: "Default commission",
@@ -254,6 +256,8 @@ const UI_TEXT = {
     brand: "品牌",
     allBrands: "所有品牌",
     excludeFirstArrivals: "排除首次到货日在此日期或之后的商品",
+    excludeProtectionList: "排除当前保护清单SKU",
+    excludeProtectionListCount: "排除当前保护清单SKU（今日生效{count}个）",
     pricingRules: "定价规则",
     maximumDiscount: "最大折扣",
     defaultCommission: "默认佣金率",
@@ -439,6 +443,7 @@ const GUIDE_STEPS = {
       "Filter by grade, main category, subcategory, brand, stock, and estimated selling months.",
       "Main category, subcategory, and brand allow multiple selections; an empty selection means all values.",
       "Use the first-arrival cutoff to exclude newer products.",
+      "Enable the protection-list option to exclude mapped Wooper SKUs whose protection period includes today. Start and end dates are both inclusive.",
       "Minimum discount removes products that cannot support the required campaign discount.",
       "Collapse the Criteria panel when the settings are no longer needed; the results table expands and the panel can be reopened at any time.",
     ],
@@ -505,6 +510,7 @@ const GUIDE_STEPS = {
       points: [
         "可按等级、主类别、子类别、品牌、库存和预计可售月数筛选。",
         "使用首次到货日期截止条件排除新品。",
+        "启用保护清单选项后，会排除保护期包含今天的已映射Wooper SKU；开始和结束日期均包含在内。",
         "最低折扣会排除无法支持活动所需折扣的商品。",
         "不再需要调整设置时可收起筛选条件面板；结果表会展开，并可随时重新打开面板。",
       ],
@@ -645,6 +651,7 @@ function translateMessage(message) {
     "Outside selected subcategory": "不属于所选子类别",
     "Outside selected brand": "不属于所选品牌",
     "First arrival is inside the excluded new-product period": "首次到货日期在新品排除范围内",
+    "SKU is in the current protection period": "SKU处于当前保护期",
     "Price or margin settings make reverse pricing impossible": "当前价格或利润率设置无法进行反向定价",
   };
   if (exact[message]) return exact[message];
@@ -868,10 +875,16 @@ function applyLanguage(language, { persist = true } = {}) {
   ].forEach(([id, key]) => setControlLabel(id, key));
   element("campaignType").options[0].textContent = t("themeEvent");
   element("campaignType").options[1].textContent = t("singleDeal");
+  element("protectionListLabel").textContent = t(
+    Number.isFinite(Number(state.config.activeProtectionCount))
+      ? "excludeProtectionListCount"
+      : "excludeProtectionList",
+    { count: Number(state.config.activeProtectionCount || 0) },
+  );
   document.querySelectorAll(".section-label")[0].textContent = t("nominationFilters");
   document.querySelectorAll(".section-label")[1].textContent = t("pricingRules");
-  document.querySelectorAll(".toggle-row > span")[0].textContent = t("roundPromoPrices");
-  document.querySelectorAll(".toggle-row > span")[1].textContent = t("useDiscountInterval");
+  element("roundingLabel").textContent = t("roundPromoPrices");
+  element("discountIntervalLabel").textContent = t("useDiscountInterval");
   document.querySelector(".margin-header span:first-child").textContent = t("minimumMarginByGrade");
   document.querySelector(".margin-header span:last-child").textContent = t("target");
   document.querySelectorAll(".margin-cell > span").forEach((node, index) => {
@@ -1152,6 +1165,7 @@ function criteriaFromForm() {
     subcategories: selectedMultiValues("subcategory"),
     brands: selectedMultiValues("brand"),
     exclude_first_arrival_on_or_after: element("firstArrivalCutoff").value,
+    exclude_current_protection_list: element("excludeProtectionList").checked,
     max_discount: Number(element("maxDiscount").value || 0) / 100,
     default_commission: Number(element("defaultCommission").value || 0) / 100,
     rounding: element("rounding").checked,
@@ -1217,6 +1231,9 @@ function applyCriteriaSnapshot(criteria = {}) {
   element("minDiscount").value = Number(criteria.min_discount ?? 0.05) * 100;
   element("maxReturnRate").value = Number(criteria.max_return_rate ?? 0.06) * 100;
   element("firstArrivalCutoff").value = criteria.exclude_first_arrival_on_or_after || "";
+  element("excludeProtectionList").checked = Boolean(
+    criteria.exclude_current_protection_list,
+  );
   element("maxDiscount").value = Number(criteria.max_discount ?? 0.25) * 100;
   element("defaultCommission").value = Number(criteria.default_commission ?? 0) * 100;
   element("rounding").checked = criteria.rounding !== false;
@@ -2501,3 +2518,4 @@ loadConfig()
     else maybeOpenStartupMappings();
   })
   .catch((error) => showToast(translateMessage(error.message), "error"));
+
