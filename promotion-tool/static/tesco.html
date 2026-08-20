@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title data-i18n="pageTitle">Tesco Promotion Selection</title>
+  <link rel="stylesheet" href="/styles.css?v=20260820-tesco">
+  <link rel="stylesheet" href="/tesco.css?v=20260820-tesco-4">
+</head>
+<body class="tesco-page">
+  <header class="app-header">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">TS</div>
+      <div>
+        <h1 data-i18n="pageTitle">Tesco Promotion Selection</h1>
+        <p data-i18n="pageSubtitle">Second-stage nomination</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="environment"><span></span><b id="offerStatus" data-i18n="checkingOffers">Checking Offer SKU data</b></span>
+      <button class="button secondary" id="languageButton" type="button">中文</button>
+      <button class="header-help" id="helpButton" title="Open user guide" aria-label="Open user guide" data-i18n-title="openGuide" data-i18n-aria="openGuide">?</button>
+      <a class="button secondary" href="/" data-i18n="promotionCalculation">Promotion calculation</a>
+      <button class="button primary" id="exportButton" disabled data-i18n="generateForm">Generate nomination form</button>
+    </div>
+  </header>
+
+  <main class="tesco-workspace">
+    <section class="setup-band" aria-labelledby="setupTitle">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="eventSetup">Event setup</span><h2 id="setupTitle" data-i18n="tescoEvent">Tesco event</h2></div>
+        <div class="setup-progress" id="setupProgress">0 of 2 files loaded</div>
+      </div>
+      <div class="setup-grid">
+        <label><span data-i18n="eventName">Event name</span><input id="eventName" placeholder="e.g. August Bank Holiday" data-i18n-placeholder="eventNamePlaceholder"></label>
+        <label><span data-i18n="promotionStart">Promotion start</span><input id="startDate" type="date"></label>
+        <label><span data-i18n="promotionEnd">Promotion end</span><input id="endDate" type="date"></label>
+        <label><span data-i18n="sellerName">Seller name</span><input id="sellerName" value="Traderight Group"></label>
+        <label><span data-i18n="totalSkuLimit">Total SKU limit</span><input id="totalLimit" type="number" min="1" placeholder="No overall limit" data-i18n-placeholder="noOverallLimit"></label>
+        <div class="upload-actions">
+          <button class="button plain" id="candidateButton" data-i18n="importWorktable">Import approved worktable</button>
+          <button class="button plain" id="catalogueButton" data-i18n="importCatalogue">Import Tesco Catalogue</button>
+          <input id="candidateInput" type="file" accept=".csv,.xlsx,.xlsm" hidden>
+          <input id="catalogueInput" type="file" accept=".xlsx,.xlsm" hidden>
+        </div>
+      </div>
+      <div class="file-status-row">
+        <span id="candidateStatus" data-i18n="worktableNotLoaded">Approved worktable not loaded</span>
+        <span id="catalogueStatus" data-i18n="catalogueNotLoaded">Tesco Catalogue not loaded</span>
+      </div>
+    </section>
+
+    <div class="tesco-lower-workspace">
+      <aside class="tesco-sidebar">
+      <section class="category-band" aria-labelledby="categoryTitle">
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="eventRules">Event rules</span><h2 id="categoryTitle" data-i18n="allowedCategories">Allowed event categories</h2></div>
+        <button class="button plain" id="addCategoryButton" data-i18n="addCategory">Add category</button>
+      </div>
+      <div class="category-help" data-i18n="categoryHelp">Enter the groups Tesco specifies for this event. Limits apply to selected SKUs in each group.</div>
+      <div class="category-list" id="categoryList"></div>
+      </section>
+      </aside>
+
+    <div class="tesco-content">
+      <section class="selection-band" aria-labelledby="selectionTitle">
+      <div class="selection-toolbar">
+        <div><span class="eyebrow" data-i18n="productSelection">Product selection</span><h2 id="selectionTitle" data-i18n="approvedCandidates">Approved candidates</h2></div>
+        <label class="search-field"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search SKU, title, brand, or category" data-i18n-placeholder="searchPlaceholder"></label>
+        <div class="selection-summary"><strong id="selectedCount">0</strong> <span data-i18n="selected">selected</span> <span id="quotaStatus">No limit set</span></div>
+      </div>
+      <div class="validation-banner" id="validationBanner" data-i18n="importToBegin">Import the approved worktable and latest Tesco Catalogue to begin.</div>
+      <div class="tesco-table-shell">
+        <table class="tesco-table">
+          <thead><tr>
+            <th class="select-column"><input id="selectAll" type="checkbox" aria-label="Select all visible eligible rows" data-i18n-aria="selectAll"></th>
+            <th data-i18n="product">Product</th><th>SKU</th><th data-i18n="grade">Grade</th><th><span data-i18n="estimated">Est.</span><br><small data-i18n="monthsToSell">months to sell</small></th><th data-i18n="discount">Discount</th><th data-i18n="eventCategory">Event category</th><th data-i18n="level1">Level 1</th>
+            <th><span data-i18n="was">WAS</span><br><small data-i18n="caPrice">CA price</small></th><th><span data-i18n="now">Now</span><br><small data-i18n="promoPrice">Promo price</small></th>
+            <th>SOH</th><th data-i18n="nominationStock">Nomination stock</th><th data-i18n="status">Status</th>
+          </tr></thead>
+          <tbody id="candidateRows"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="emptyState" data-i18n="noCandidates">No approved candidates loaded.</div>
+      </section>
+
+      <section class="history-band" aria-labelledby="historyTitle">
+      <div class="section-heading"><div><span class="eyebrow" data-i18n="overlapRecord">Overlap record</span><h2 id="historyTitle" data-i18n="savedEvents">Saved Tesco events</h2></div></div>
+      <div class="history-list" id="historyList"></div>
+      </section>
+    </div>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="guideModal">
+    <section class="modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+      <span class="eyebrow" data-i18n="tescoGuide">Tesco user guide</span><h2 id="guideTitle" data-i18n="secondStageSelection">Second-stage selection</h2>
+      <ol class="tesco-guide">
+        <li data-i18n="guideStep1">Export the Tesco promotion worktable, enter Yes in column T for candidates, then import it here.</li>
+        <li data-i18n="guideStep2">Upload the latest Tesco Catalogue for the event. The latest Offer SKU file is already captured when Tesco data is first imported in the calculation tool.</li>
+        <li data-i18n="guideStep3">Enter the event dates, Tesco-defined categories and limits. Assign an event category and fixed Level 1 group to each selected SKU.</li>
+        <li data-i18n="guideStep4">A Tesco SKU used in an overlapping saved event is blocked. Another Tesco SKU for the same Wooper product remains available.</li>
+        <li data-i18n="guideStep5">Generate the form only when the quota and required fields pass. The saved snapshot becomes the overlap record for future events.</li>
+      </ol>
+      <div class="modal-actions"><button class="button primary" id="closeGuide" data-i18n="close">Close</button></div>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="/tesco.js?v=20260820-i18n-1"></script>
+</body>
+</html>
