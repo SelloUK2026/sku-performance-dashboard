@@ -250,4 +250,3 @@ create policy "dashboard read freight" on public.freight for select using (true)
 create policy "dashboard read container" on public.container_report for select using (true);
 create policy "dashboard read price history" on public.price_history for select using (true);
 create policy "dashboard read images" on public.product_images for select using (true);
-
