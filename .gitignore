@@ -7,4 +7,6 @@ node_modules/
 .env
 .env.*
 data/lifetime_metrics.json
-
+promotion-tool/data/sku_mappings.json
+promotion-tool/data/tesco_nomination_events.json
+promotion-tool/data/tesco_nominations/
