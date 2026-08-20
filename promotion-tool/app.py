@@ -20,14 +20,21 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.formatting.rule import FormulaRule
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.worksheet.datavalidation import DataValidation
 
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 SAMPLE_PATH = BASE_DIR / "sample_data.json"
+DATA_DIR = BASE_DIR / "data"
 MAPPINGS_PATH = BASE_DIR / "data" / "sku_mappings.json"
 LIFETIME_METRICS_PATH = BASE_DIR / "data" / "lifetime_metrics.json"
+TESCO_OFFERS_PATH = DATA_DIR / "tesco_latest_offers.json"
+TESCO_EVENTS_PATH = DATA_DIR / "tesco_nomination_events.json"
+TESCO_NOMINATIONS_DIR = DATA_DIR / "tesco_nominations"
 NON_EXISTING_SKU = "__NON_EXISTING__"
 WORKBOOK_PATH = Path(
     os.environ.get(
@@ -71,6 +78,18 @@ _SUPABASE_CA_PRICE_CACHE = {
 }
 WORKTABLE_SCHEMA_VERSION = 1
 MAX_WORKTABLE_SNAPSHOT_BYTES = 12 * 1024 * 1024
+TESCO_LEVEL_1 = [
+    "Baby",
+    "BWS",
+    "Celebration",
+    "Electricals",
+    "Health & Beauty",
+    "Home",
+    "Outdoor",
+    "Pet",
+    "Sports & Leisure",
+    "Toys",
+]
 
 DEFAULT_COMMISSIONS = {
     "eBay": 0.11,
@@ -1708,6 +1727,519 @@ def map_imported_rows(
     return mapped
 
 
+def source_value(row, names, default=None):
+    cleaned = {clean_header(header): value for header, value in row.items()}
+    for name in names:
+        value = cleaned.get(clean_header(name))
+        if value not in (None, ""):
+            return value
+    return default
+
+
+def write_json_file(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def read_json_file(path, default):
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return default
+
+
+def capture_tesco_offers(source_rows, mapped_rows):
+    mapped_by_sku = {
+        str(row.get("platform_sku") or "").strip().upper(): row
+        for row in mapped_rows
+    }
+    offers = []
+    for row in source_rows:
+        tesco_sku = str(
+            source_value(
+                row,
+                ("Platform SKU", "SKU", "Merchant SKU", "Seller SKU"),
+                "",
+            )
+        ).strip().upper()
+        if not tesco_sku:
+            continue
+        mapped = mapped_by_sku.get(tesco_sku, {})
+        price = source_value(
+            row,
+            ("Buy It Now Price", "Buy Now Price", "CA Price", "Normal Price", "Price"),
+        )
+        offers.append(
+            {
+                "tesco_sku": tesco_sku,
+                "product_id": str(
+                    source_value(row, ("Product ID", "Product-ID", "Offer ID"), "")
+                ).strip(),
+                "wooper_sku": str(mapped.get("sku") or "").strip().upper(),
+                "ca_price": nullable_number(mapped.get("ca_price"))
+                or nullable_number(price),
+                "mapping_status": mapped.get("mapping_status", "unresolved"),
+            }
+        )
+    captured_at = datetime.now(ZoneInfo("Australia/Sydney")).isoformat()
+    if supabase_enabled():
+        stored_offers = [dict(offer, captured_at=captured_at) for offer in offers]
+        if stored_offers:
+            supabase_request(
+                "POST",
+                "promotion_tesco_offers",
+                rows=stored_offers,
+                params={"on_conflict": "tesco_sku"},
+                prefer="resolution=merge-duplicates,return=minimal",
+            )
+        supabase_request(
+            "DELETE",
+            "promotion_tesco_offers",
+            params={"captured_at": f"lt.{captured_at}"},
+        )
+    else:
+        write_json_file(
+            TESCO_OFFERS_PATH,
+            {"captured_at": captured_at, "offers": offers},
+        )
+    return offers
+
+
+def latest_tesco_offers():
+    if supabase_enabled():
+        return supabase_select_all(
+            "promotion_tesco_offers",
+            {
+                "select": (
+                    "tesco_sku,product_id,wooper_sku,ca_price,"
+                    "mapping_status,captured_at"
+                ),
+                "order": "tesco_sku.asc",
+            },
+        )
+    return read_json_file(TESCO_OFFERS_PATH, {"offers": []}).get("offers", [])
+
+
+def latest_tesco_offers_captured_at(offers=None):
+    offers = offers if offers is not None else latest_tesco_offers()
+    if offers and supabase_enabled():
+        return max(
+            (str(row.get("captured_at") or "") for row in offers),
+            default="",
+        ) or None
+    return read_json_file(TESCO_OFFERS_PATH, {}).get("captured_at")
+
+
+def tesco_candidates_from_rows(rows, inventory=None):
+    inventory = inventory or {}
+    candidates = []
+    seen_tesco_skus = set()
+    for row in rows:
+        approval = str(source_value(row, ("Approval",), "")).strip().lower()
+        if approval not in {"yes", "y", "true", "1"}:
+            continue
+        platform = str(source_value(row, ("Platform",), "")).strip()
+        if platform and clean_header(platform) != "tesco":
+            continue
+        tesco_sku = str(
+            source_value(row, ("Platform SKU", "Tesco SKU", "SKU"), "")
+        ).strip().upper()
+        wooper_sku = str(
+            source_value(row, ("SKU", "Wooper SKU", "Core SKU"), "")
+        ).strip().upper()
+        if not tesco_sku or tesco_sku in seen_tesco_skus:
+            continue
+        seen_tesco_skus.add(tesco_sku)
+        performance = inventory.get(wooper_sku, {})
+        candidates.append(
+            {
+                "tesco_sku": tesco_sku,
+                "wooper_sku": wooper_sku,
+                "product_id": str(source_value(row, ("Product ID",), "")).strip(),
+                "ca_price": nullable_number(
+                    source_value(
+                        row,
+                        (
+                            "CA Price - Normal Price (VAT Included)",
+                            "CA Price",
+                            "Normal Price",
+                        ),
+                    )
+                ),
+                "promo_price": nullable_number(
+                    source_value(
+                        row,
+                        (
+                            "Promotion Price (VAT Included)",
+                            "Promotion Price (VAT Excluded)",
+                            "Promotion Price",
+                        ),
+                    )
+                ),
+                "discount": nullable_number(source_value(row, ("Final Discount",))),
+                "soh": normalise_number(source_value(row, ("SOH", "Stock")), 0),
+                "grade": nullable_number(source_value(row, ("Grade", "Grade Level")))
+                if source_value(row, ("Grade", "Grade Level")) not in (None, "")
+                else nullable_number(performance.get("grade")),
+                "months": nullable_number(source_value(row, ("Months",)))
+                if source_value(row, ("Months",)) not in (None, "")
+                else nullable_number(performance.get("estimated_months")),
+                "lifetime_margin": nullable_number(
+                    source_value(row, ("Lifetime Profit Margin (After Returns)",))
+                ),
+                "return_rate": nullable_number(
+                    source_value(row, ("Return Rate (All Platforms)",))
+                ),
+            }
+        )
+    return candidates
+
+
+def tesco_catalogue_from_workbook(data, inventory=None, mappings=None):
+    inventory = inventory or {}
+    mappings = mappings or {}
+    workbook = load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+    best_rows = []
+    for sheet in workbook.worksheets:
+        sheet.reset_dimensions()
+        values = sheet.iter_rows(values_only=True)
+        header = None
+        for _ in range(12):
+            possible = next(values, None)
+            if possible is None:
+                break
+            names = {clean_header(value) for value in possible if value not in (None, "")}
+            if "sku" in names and ("title" in names or "product title" in names):
+                header = [str(value or "") for value in possible]
+                break
+        if not header:
+            continue
+        rows = []
+        for item in values:
+            source = {
+                header[index]: value
+                for index, value in enumerate(item[: len(header)])
+            }
+            tesco_sku = str(source_value(source, ("SKU", "Tesco SKU"), "")).strip().upper()
+            if not tesco_sku or tesco_sku in {"SKU", "TESCO SKU"}:
+                continue
+            image = source_value(
+                source,
+                ("Image 1", "Image URL 1", "Main Image", "Image URL", "Image"),
+                "",
+            )
+            rows.append(
+                {
+                    "tesco_sku": tesco_sku,
+                    "wooper_sku": resolve_wooper_sku(
+                        tesco_sku,
+                        inventory,
+                        mappings=mappings,
+                    ) or "",
+                    "category_path": str(
+                        source_value(source, ("Category Code", "Cat Path", "Category Path"), "")
+                    ).strip(),
+                    "title": str(source_value(source, ("Title", "Product Title"), "")).strip(),
+                    "brand": str(source_value(source, ("Brand",), "")).strip(),
+                    "barcode": str(
+                        source_value(source, ("Barcode", "EAN", "EAN / GTIN"), "")
+                    ).strip(),
+                    "image_url": str(image or "").strip(),
+                }
+            )
+        if len(rows) > len(best_rows):
+            best_rows = rows
+    return best_rows
+
+
+def tesco_events():
+    if supabase_enabled():
+        events = supabase_select_all(
+            "promotion_tesco_events",
+            {
+                "select": (
+                    "id,event_name,start_date,end_date,created_at,source,rows"
+                ),
+                "order": "created_at.asc",
+            },
+        )
+        if events:
+            return events
+        local_events = read_json_file(TESCO_EVENTS_PATH, {"events": []}).get(
+            "events", []
+        )
+        if not local_events:
+            return []
+        seed_rows = []
+        for event in local_events:
+            source = event.get("source")
+            if not isinstance(source, dict):
+                source = {"file": str(source or "Promotion Master.xlsx")}
+            seed_rows.append(
+                {
+                    "id": str(
+                        uuid.uuid5(
+                            uuid.NAMESPACE_URL,
+                            f"tesco-promotion-event:{event.get('id')}",
+                        )
+                    ),
+                    "event_name": str(event.get("event_name") or "Saved event"),
+                    "start_date": str(event.get("start_date") or ""),
+                    "end_date": str(event.get("end_date") or ""),
+                    "created_at": str(event.get("created_at") or datetime.now(ZoneInfo("Australia/Sydney")).isoformat()),
+                    "source": source,
+                    "rows": event.get("rows") or [],
+                }
+            )
+        return supabase_request(
+            "POST",
+            "promotion_tesco_events",
+            rows=seed_rows,
+            params={"on_conflict": "id"},
+            prefer="resolution=ignore-duplicates,return=representation",
+        )
+    return read_json_file(TESCO_EVENTS_PATH, {"events": []}).get("events", [])
+
+
+def dates_overlap(start_a, end_a, start_b, end_b):
+    return bool(start_a and end_a and start_b and end_b and start_a <= end_b and start_b <= end_a)
+
+
+def tesco_conflicts(start_date, end_date):
+    conflicts = {}
+    for event in tesco_events():
+        if not dates_overlap(
+            str(event.get("start_date") or ""),
+            str(event.get("end_date") or ""),
+            start_date,
+            end_date,
+        ):
+            continue
+        for row in event.get("rows", []):
+            sku = str(row.get("tesco_sku") or "").strip().upper()
+            if sku:
+                conflicts.setdefault(sku, []).append(event.get("event_name") or "Saved event")
+    return conflicts
+
+
+def build_tesco_nomination_workbook(payload):
+    rows = payload.get("rows") or []
+    if not rows:
+        raise ValueError("Select at least one Tesco SKU.")
+    event_name = str(payload.get("event_name") or "").strip()
+    start_date = str(payload.get("start_date") or "").strip()
+    end_date = str(payload.get("end_date") or "").strip()
+    if not event_name or not start_date or not end_date:
+        raise ValueError("Event name, start date, and end date are required.")
+    total_limit = int(normalise_number(payload.get("total_limit"), 0))
+    if total_limit and len(rows) > total_limit:
+        raise ValueError("The total Tesco SKU limit has been exceeded.")
+    category_limits = {
+        str(item.get("name") or "").strip(): int(normalise_number(item.get("limit"), 0))
+        for item in payload.get("category_limits", [])
+        if str(item.get("name") or "").strip()
+    }
+    for category, limit in category_limits.items():
+        category_count = sum(row.get("event_category") == category for row in rows)
+        if limit and category_count > limit:
+            raise ValueError(f"The {category} SKU limit has been exceeded.")
+    conflicts = tesco_conflicts(start_date, end_date)
+    blocked = [row.get("tesco_sku") for row in rows if str(row.get("tesco_sku") or "").upper() in conflicts]
+    if blocked:
+        raise ValueError("Overlapping Tesco SKU(s): " + ", ".join(blocked))
+    for row in rows:
+        if not str(row.get("event_category") or "").strip():
+            raise ValueError(f"Select an event category for {row.get('tesco_sku')}.")
+        if row.get("level_1") not in TESCO_LEVEL_1:
+            raise ValueError(f"Select a valid Level 1 group for {row.get('tesco_sku')}.")
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Sheet1"
+    headers = [
+        "Seller Name",
+        "Brand",
+        "Event",
+        "Level 1",
+        "Level 2",
+        "Start Date",
+        "End Date",
+        "Barcode / EAN",
+        "TPNB",
+        "TPNC",
+        "Product Title",
+        "Was",
+        "Now",
+        "Discount £",
+        "Discount %",
+        "Hero from Seller",
+        "Stock",
+    ]
+    sheet.append(
+        [
+            "Seller Input", "", "", "", "", "", "", "",
+            "Calcs - do not overtype", "", "Seller Input", "", "",
+            "Calcs - do not overtype", "", "Seller Input", "",
+        ]
+    )
+    sheet.merge_cells("A1:H1")
+    sheet.merge_cells("I1:J1")
+    sheet.merge_cells("N1:O1")
+    sheet.merge_cells("P1:Q1")
+    sheet.append(headers)
+    group_fill = PatternFill("solid", fgColor="D9EAD3")
+    calc_fill = PatternFill("solid", fgColor="D9EAF7")
+    for cell in sheet[1]:
+        cell.fill = calc_fill if cell.column in {9, 10, 14, 15} else group_fill
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    header_fill = PatternFill("solid", fgColor="1C2B27")
+    for cell in sheet[2]:
+        cell.fill = header_fill
+        cell.font = Font(color="FFFFFF", bold=True)
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+    seller_name = str(payload.get("seller_name") or "Traderight Group").strip()
+    for index, row in enumerate(rows, start=3):
+        sheet.append(
+            [
+                seller_name,
+                row.get("brand", ""),
+                event_name,
+                row.get("level_1", ""),
+                row.get("category_path", ""),
+                datetime.fromisoformat(start_date),
+                datetime.fromisoformat(end_date),
+                row.get("barcode", ""),
+                "",
+                "",
+                row.get("title", ""),
+                normalise_number(row.get("ca_price"), 0),
+                normalise_number(row.get("promo_price"), 0),
+                f"=L{index}-M{index}",
+                f"=IFERROR((L{index}-M{index})/L{index},0)",
+                "Exclusive Pricing",
+                int(normalise_number(row.get("soh"), 0)) + 100,
+            ]
+        )
+        sheet.cell(index, 6).number_format = "dd/mm/yyyy"
+        sheet.cell(index, 7).number_format = "dd/mm/yyyy"
+        for column in (12, 13, 14):
+            sheet.cell(index, column).number_format = "£0.00"
+        sheet.cell(index, 15).number_format = "0.0%"
+    internal = workbook.create_sheet("Internal Record")
+    internal_headers = [
+        "Platform SKU",
+        "Wooper SKU",
+        "Original Price (CA Price, VAT Included)",
+        "Discounted Price",
+        "Discount %",
+    ]
+    internal.append(internal_headers)
+    for cell in internal[1]:
+        cell.fill = header_fill
+        cell.font = Font(color="FFFFFF", bold=True)
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+    for row in rows:
+        internal.append(
+            [
+                row.get("tesco_sku", ""),
+                row.get("wooper_sku", ""),
+                normalise_number(row.get("ca_price"), 0),
+                normalise_number(row.get("promo_price"), 0),
+                normalise_number(row.get("discount"), 0),
+            ]
+        )
+    for row_number in range(2, len(rows) + 2):
+        internal.cell(row_number, 3).number_format = "£0.00"
+        internal.cell(row_number, 4).number_format = "£0.00"
+        internal.cell(row_number, 5).number_format = "0.0%"
+    for column, width in {"A": 24, "B": 24, "C": 24, "D": 18, "E": 14}.items():
+        internal.column_dimensions[column].width = width
+    internal.freeze_panes = "A2"
+    internal.auto_filter.ref = f"A1:E{len(rows) + 1}"
+
+    levels = workbook.create_sheet("Sheet2")
+    for index, level in enumerate(TESCO_LEVEL_1, start=1):
+        levels.cell(index, 1, level)
+    validation = DataValidation(type="list", formula1="=Sheet2!$A$1:$A$10")
+    sheet.add_data_validation(validation)
+    validation.add("D3:D70")
+    widths = [20, 18, 24, 20, 28, 13, 13, 18, 11, 11, 48, 12, 12, 14, 12, 20, 11]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[chr(64 + index)].width = width
+    sheet.freeze_panes = "A3"
+    sheet.auto_filter.ref = f"A2:Q{len(rows) + 2}"
+    sheet.conditional_formatting.add(
+        f"A3:Q{len(rows) + 2}",
+        FormulaRule(formula=["$L3<=$M3"], fill=PatternFill("solid", fgColor="FCE8E6")),
+    )
+    output = io.BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def save_tesco_event(payload, workbook_bytes):
+    event_id = str(uuid.uuid4())
+    created_at = datetime.now(ZoneInfo("Australia/Sydney")).isoformat()
+    record = {
+        "id": event_id,
+        "event_name": str(payload.get("event_name") or "").strip(),
+        "start_date": str(payload.get("start_date") or "").strip(),
+        "end_date": str(payload.get("end_date") or "").strip(),
+        "created_at": created_at,
+        "source": {
+            "candidate_file": str(payload.get("candidate_file") or "").strip(),
+            "catalogue_file": str(payload.get("catalogue_file") or "").strip(),
+        },
+        "rows": payload.get("rows") or [],
+    }
+    if supabase_enabled():
+        saved = supabase_request(
+            "POST",
+            "promotion_tesco_events",
+            rows=[record],
+            prefer="return=representation",
+        )
+        if not saved:
+            raise RuntimeError("Supabase did not return the saved Tesco event.")
+        return saved[0]
+    events = tesco_events()
+    events.append(record)
+    write_json_file(TESCO_EVENTS_PATH, {"events": events})
+    TESCO_NOMINATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    (TESCO_NOMINATIONS_DIR / f"{event_id}.xlsx").write_bytes(workbook_bytes)
+    return record
+
+
+def delete_tesco_event(event_id):
+    if supabase_enabled():
+        event_id = validate_worktable_id(event_id)
+        rows = supabase_request(
+            "DELETE",
+            "promotion_tesco_events",
+            params={"id": f"eq.{event_id}"},
+            prefer="return=representation",
+        )
+        return rows[0] if rows else None
+    events = tesco_events()
+    remaining = [event for event in events if str(event.get("id")) != event_id]
+    if len(remaining) == len(events):
+        return None
+    removed = next(event for event in events if str(event.get("id")) == event_id)
+    write_json_file(TESCO_EVENTS_PATH, {"events": remaining})
+    nomination_path = TESCO_NOMINATIONS_DIR / f"{event_id}.xlsx"
+    if nomination_path.exists():
+        nomination_path.unlink()
+    return removed
+
+
 def valid_basic_authorization(header_value):
     if not header_value or not header_value.startswith("Basic "):
         return False
@@ -1736,6 +2268,16 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_bytes(self, body, content_type, filename, status=200, extra_headers=None):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, str(value))
         self.end_headers()
         self.wfile.write(body)
 
@@ -1834,6 +2376,18 @@ class Handler(SimpleHTTPRequestHandler):
                 }
             )
             return
+        if parsed.path == "/api/tesco/status":
+            offers = latest_tesco_offers()
+            self.send_json(
+                {
+                    "offerCount": len(offers),
+                    "offersCapturedAt": latest_tesco_offers_captured_at(offers),
+                    "events": tesco_events(),
+                    "level1": TESCO_LEVEL_1,
+                    "storage": "supabase" if supabase_enabled() else "local",
+                }
+            )
+            return
         if parsed.path == "/api/worktables":
             try:
                 query = parse_qs(parsed.query)
@@ -1904,6 +2458,8 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 platform = self.headers.get("X-Platform", "")
                 mapped = map_imported_rows(rows, platform=platform)
+                if clean_header(platform) == "tesco":
+                    capture_tesco_offers(rows, mapped)
                 unresolved = [
                     row for row in mapped if row.get("mapping_status") == "unresolved"
                 ]
@@ -1913,6 +2469,73 @@ class Handler(SimpleHTTPRequestHandler):
                         "sourceRows": len(rows),
                         "unresolved": unresolved,
                     }
+                )
+                return
+            if parsed.path == "/api/tesco/import-candidates":
+                length = int(self.headers.get("Content-Length", "0"))
+                data = self.rfile.read(length)
+                filename = self.headers.get("X-Filename", "").lower()
+                if filename.endswith(".csv"):
+                    rows = rows_from_csv(data)
+                elif filename.endswith((".xlsx", ".xlsm")):
+                    rows = rows_from_workbook(data)
+                else:
+                    self.send_json({"error": "Use the exported CSV, XLSX, or XLSM file."}, status=400)
+                    return
+                candidates = tesco_candidates_from_rows(rows, inventory=wooper_inventory())
+                if not candidates:
+                    self.send_json(
+                        {"error": "No Tesco rows have Yes in the Approval column."},
+                        status=400,
+                    )
+                    return
+                self.send_json(
+                    {
+                        "candidates": candidates,
+                        "approvedRows": len(candidates),
+                        "sourceRows": len(rows),
+                    }
+                )
+                return
+            if parsed.path == "/api/tesco/import-catalogue":
+                length = int(self.headers.get("Content-Length", "0"))
+                data = self.rfile.read(length)
+                filename = self.headers.get("X-Filename", "").lower()
+                if not filename.endswith((".xlsx", ".xlsm")):
+                    self.send_json({"error": "Use the latest Tesco Catalogue XLSX file."}, status=400)
+                    return
+                rows = tesco_catalogue_from_workbook(
+                    data,
+                    inventory=wooper_inventory(),
+                    mappings=combined_platform_mappings("Tesco"),
+                )
+                if not rows:
+                    self.send_json({"error": "No Tesco Catalogue rows were found."}, status=400)
+                    return
+                self.send_json({"catalogue": rows, "sourceRows": len(rows)})
+                return
+            if parsed.path == "/api/tesco/check-overlap":
+                payload = self.read_json()
+                self.send_json(
+                    {
+                        "conflicts": tesco_conflicts(
+                            str(payload.get("start_date") or ""),
+                            str(payload.get("end_date") or ""),
+                        ),
+                        "offers": latest_tesco_offers(),
+                    }
+                )
+                return
+            if parsed.path == "/api/tesco/generate":
+                payload = self.read_json()
+                workbook = build_tesco_nomination_workbook(payload)
+                record = save_tesco_event(payload, workbook)
+                slug = re.sub(r"[^a-z0-9]+", "-", record["event_name"].lower()).strip("-")
+                self.send_bytes(
+                    workbook,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    f"tesco-{slug or 'event'}-nomination.xlsx",
+                    extra_headers={"X-Tesco-Event-Id": record["id"]},
                 )
                 return
             if parsed.path == "/api/import-commissions":
@@ -2040,6 +2663,20 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"error": "Not found"}, status=404)
         except Exception as exc:
             self.send_json({"error": str(exc)}, status=400)
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if not self.require_authorization(parsed.path):
+            return
+        if parsed.path.startswith("/api/tesco/events/"):
+            event_id = parsed.path.rsplit("/", 1)[-1]
+            removed = delete_tesco_event(event_id)
+            if removed is None:
+                self.send_json({"error": "Saved Tesco event not found."}, status=404)
+            else:
+                self.send_json({"removed": removed})
+            return
+        self.send_json({"error": "Not found"}, status=404)
 
 
 def main():

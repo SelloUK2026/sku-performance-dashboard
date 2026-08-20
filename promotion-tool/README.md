@@ -74,6 +74,14 @@ to the browser or committed to GitHub.
 - Collapsible criteria panel that remembers the user's preference and expands
   the results workspace.
 - Selected nomination CSV export.
+- Separate Tesco second-stage selection page with event categories, quota
+  checks, catalogue matching, product images, overlap blocking, and Tesco-form
+  generation.
+- English and Simplified Chinese Tesco interfaces, with CA price shown as
+  `CA價` and VAT terminology retained.
+- Shared Supabase storage for the latest Tesco Offer SKU snapshot and immutable
+  saved Tesco event records; local JSON remains available only as a demo
+  fallback and initial history seed.
 - Shared Supabase archive of immutable saved worktables, searchable by platform,
   event name, and Sydney creation date.
 - Saved records preserve imported rows, criteria, commissions, overrides,

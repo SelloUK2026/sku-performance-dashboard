@@ -216,6 +216,11 @@ Manual mappings and non-existing statuses remain durable between refreshes.
   and expand the results workspace.
 - Sorted displayed result rows from A to Z by the core Wooper SKU.
 - Updated the English and Simplified Chinese filter labels and walkthrough.
+- Added an English / Simplified Chinese switch to the Tesco second-stage page.
+  CA price is displayed as `CA價`; VAT, SKU, Tesco, and Wooper remain unchanged.
+- Tesco saved events and the latest Offer SKU snapshot are shared through
+  Supabase. Saved event rows are fixed snapshots and do not change when the
+  daily product data refreshes.
 
 ### 2026-08-03
 
