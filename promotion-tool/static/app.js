@@ -2244,6 +2244,7 @@ function exportSelected() {
     "Return Rate (All Platforms)",
     "Approval",
     "Remark",
+    "Grade",
   ];
   const body = rows.map((row) => [
     criteria.platform,
@@ -2271,6 +2272,7 @@ function exportSelected() {
       : `${(Number(row.return_rate) * 100).toFixed(2)}%`,
     "",
     (row.warnings || []).join("; "),
+    row.grade == null ? "" : Number(row.grade).toFixed(0),
   ]);
   const csv = "\ufeff" + [headers, ...body].map((row) => row.map(csvValue).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -2518,4 +2520,3 @@ loadConfig()
     else maybeOpenStartupMappings();
   })
   .catch((error) => showToast(translateMessage(error.message), "error"));
-
