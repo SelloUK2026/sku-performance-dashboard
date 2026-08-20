@@ -1,0 +1,75 @@
+.tesco-page { background: #f4f6f5; color: var(--ink); }
+.tesco-page .button { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.tesco-workspace { min-width: 1180px; }
+.tesco-lower-workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); align-items: start; }
+.tesco-sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: #fff; border-right: 1px solid var(--line); }
+.tesco-content { min-width: 0; }
+.setup-band, .category-band, .selection-band, .history-band {
+  background: #fff; border-bottom: 1px solid var(--line); padding: 18px 24px;
+}
+.tesco-sidebar .category-band { padding: 18px; }
+.section-heading, .selection-toolbar, .file-status-row, .category-row, .history-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+.section-heading h2, .selection-toolbar h2 { margin: 3px 0 0; font-size: 20px; letter-spacing: 0; }
+.setup-progress, .selection-summary { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.setup-grid { display: grid; grid-template-columns: 2fr repeat(4, minmax(130px, 1fr)) 2fr; gap: 12px; margin-top: 14px; align-items: end; }
+.setup-grid label, .category-row label { color: var(--muted); font-size: 12px; font-weight: 700; }
+.setup-grid input, .category-row input, .category-row select, .row-select {
+  display: block; width: 100%; min-height: 38px; margin-top: 5px; border: 1px solid var(--line); background: #fff; padding: 7px 9px; color: var(--ink);
+}
+.upload-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.file-status-row { align-items: center; flex-direction: row; justify-content: flex-start; margin-top: 11px; font-size: 12px; color: var(--muted); }
+.file-status-row span { border-left: 3px solid #aab2af; padding-left: 8px; min-width: 240px; overflow-wrap: anywhere; }
+.file-status-row span.loaded { border-left-color: var(--green); color: var(--green); }
+.file-status-row span.warning { border-left-color: #c28a00; color: #765400; }
+.category-help { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+.category-list { display: grid; gap: 8px; }
+.category-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) 38px; align-items: end; justify-content: stretch; background: #f7f9f8; border: 1px solid var(--line); padding: 8px 10px; }
+.category-row label:first-child { grid-column: 1 / -1; min-width: 0; }.category-row label:nth-child(2) { grid-column: 1; grid-row: 2; width: auto; }
+.category-count { grid-column: 2; grid-row: 2; align-self: center; color: var(--green); font-size: 12px; font-weight: 800; padding-top: 18px; }
+.category-remove { grid-column: 3; grid-row: 2; }
+.category-count.over-limit { color: #842f2f; }
+.category-remove { width: 38px; min-width: 38px; height: 38px; border: 1px solid var(--line); background: #fff; font-size: 20px; }
+.selection-band { padding: 0; }
+.selection-toolbar { min-height: 78px; padding: 14px 24px; border-bottom: 1px solid var(--line); }
+.search-field { width: min(440px, 38vw); display: flex; align-items: center; border: 1px solid var(--line); padding: 0 10px; background: #fff; }
+.search-field input { width: 100%; min-height: 38px; border: 0; outline: 0; padding: 7px; }
+.selection-summary strong { color: var(--green); font-size: 20px; margin-right: 4px; }
+.selection-summary span { border-left: 1px solid var(--line); margin-left: 10px; padding-left: 10px; }
+.validation-banner { display: none; padding: 9px 24px; background: #fff4d4; color: #6f5200; border-bottom: 1px solid #edd07b; font-size: 13px; }
+.validation-banner.visible { display: block; }
+.validation-banner.error { background: #fce8e6; border-color: #e8aaa4; color: #842f2f; }
+.tesco-table-shell { max-height: calc(100vh - 260px); overflow: auto; }
+.tesco-table { width: 100%; min-width: 1500px; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.tesco-table th { position: sticky; top: 0; z-index: 4; background: #e9eeec; color: #3a4642; font-size: 11px; text-align: left; padding: 9px 8px; border-bottom: 1px solid #cbd4d0; }
+.tesco-table th small { color: var(--muted); font-weight: 500; }
+.tesco-table td { padding: 9px 8px; border-bottom: 1px solid #e4e9e7; vertical-align: middle; font-size: 12px; }
+.tesco-table tbody tr:hover { background: #f4faf7; }
+.tesco-table tbody tr.blocked { background: #fff4f3; }
+.tesco-table th:nth-child(1) { width: 44px; }.tesco-table th:nth-child(2) { width: 250px; }
+.tesco-table th:nth-child(3) { width: 175px; }.tesco-table th:nth-child(4) { width: 62px; }
+.tesco-table th:nth-child(5) { width: 82px; }.tesco-table th:nth-child(6) { width: 82px; }
+.tesco-table th:nth-child(7) { width: 190px; }.tesco-table th:nth-child(8) { width: 150px; }
+.tesco-table th:nth-child(9), .tesco-table th:nth-child(10) { width: 95px; }
+.tesco-table th:nth-child(11), .tesco-table th:nth-child(12) { width: 92px; }.tesco-table th:nth-child(13) { width: 165px; }
+.product-cell { display: grid; grid-template-columns: 58px 1fr; gap: 9px; align-items: center; min-width: 0; }
+.product-cell img { width: 58px; height: 58px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
+.image-placeholder { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--line); background: #f2f4f3; color: var(--muted); }
+.product-copy { min-width: 0; }.product-copy strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-copy small { display: block; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sku-cell strong, .sku-cell small { display: block; }.sku-cell small { color: var(--muted); margin-top: 4px; }
+.status-pill { display: inline-block; padding: 4px 7px; font-size: 11px; font-weight: 700; background: #e8f4ef; color: #096b4b; border-radius: 3px; }
+.status-pill.warning { background: #fff0cf; color: #765400; }.status-pill.blocked { background: #f9d9d6; color: #8a2923; }
+.empty-state { display: grid; min-height: 180px; place-items: center; color: var(--muted); }
+.history-list { display: grid; gap: 7px; margin-top: 12px; }
+.history-row { justify-content: flex-start; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; }
+.history-row strong { width: 260px; }.history-row span { color: var(--muted); }
+.history-remove { margin-left: auto; border: 1px solid #d7aaa5; background: #fff; color: #842f2f; padding: 6px 10px; font-weight: 700; }
+.history-remove:hover { background: #fce8e6; }
+.history-empty { color: var(--muted); font-size: 13px; }.tesco-guide { padding-left: 22px; color: var(--muted); line-height: 1.55; }
+@media (max-width: 900px) {
+  .tesco-workspace { min-width: 0; }.tesco-lower-workspace { display: block; }.tesco-sidebar { position: static; width: auto; height: auto; overflow: visible; border-right: 0; }.setup-grid { grid-template-columns: 1fr 1fr; }
+  .setup-grid > label:first-child, .upload-actions { grid-column: 1 / -1; }.file-status-row { align-items: stretch; flex-direction: column; }.file-status-row span { min-width: 0; }.selection-toolbar { align-items: flex-start; flex-wrap: wrap; }
+  .search-field { width: 100%; }.tesco-table-shell { max-height: 62vh; }
+}
