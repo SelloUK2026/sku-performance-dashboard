@@ -77,6 +77,12 @@ to the browser or committed to GitHub.
 - Separate Tesco second-stage selection page with event categories, quota
   checks, catalogue matching, product images, overlap blocking, and Tesco-form
   generation.
+- Editable Mirakl discount-end text on each shared Tesco event, plus reviewed
+  import of nomination forms submitted outside the tool for future overlap
+  blocking.
+- Private retention of the latest Tesco Catalogue so standard nomination forms
+  can resolve unique barcodes to exact Tesco SKUs; ambiguous listings require
+  manual confirmation.
 - English and Simplified Chinese Tesco interfaces, with CA price shown as
   `CA價` and VAT terminology retained.
 - Shared Supabase storage for the latest Tesco Offer SKU snapshot and immutable

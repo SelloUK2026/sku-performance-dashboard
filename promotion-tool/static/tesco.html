@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="pageTitle">Tesco Promotion Selection</title>
   <link rel="stylesheet" href="/styles.css?v=20260820-tesco">
-  <link rel="stylesheet" href="/tesco.css?v=20260820-tesco-4">
+  <link rel="stylesheet" href="/tesco.css?v=20260821-external-1">
 </head>
 <body class="tesco-page">
   <header class="app-header">
@@ -85,7 +85,11 @@
       </section>
 
       <section class="history-band" aria-labelledby="historyTitle">
-      <div class="section-heading"><div><span class="eyebrow" data-i18n="overlapRecord">Overlap record</span><h2 id="historyTitle" data-i18n="savedEvents">Saved Tesco events</h2></div></div>
+      <div class="section-heading">
+        <div><span class="eyebrow" data-i18n="overlapRecord">Overlap record</span><h2 id="historyTitle" data-i18n="savedEvents">Saved Tesco events</h2></div>
+        <button class="button plain" id="externalNominationButton" type="button" data-i18n="importSubmittedNomination">Import submitted nomination</button>
+        <input id="externalNominationInput" type="file" accept=".xlsx,.xlsm" hidden>
+      </div>
       <div class="history-list" id="historyList"></div>
       </section>
     </div>
@@ -101,11 +105,25 @@
         <li data-i18n="guideStep3">Enter the event dates, Tesco-defined categories and limits. Assign an event category and fixed Level 1 group to each selected SKU.</li>
         <li data-i18n="guideStep4">A Tesco SKU used in an overlapping saved event is blocked. Another Tesco SKU for the same Wooper product remains available.</li>
         <li data-i18n="guideStep5">Generate the form only when the quota and required fields pass. The saved snapshot becomes the overlap record for future events.</li>
+        <li data-i18n="guideStep6">If a nomination was submitted outside this tool, import the completed nomination form under Saved Tesco events and confirm any unmatched Tesco SKU.</li>
       </ol>
       <div class="modal-actions"><button class="button primary" id="closeGuide" data-i18n="close">Close</button></div>
     </section>
   </div>
+  <div class="modal-backdrop" id="externalImportModal">
+    <section class="modal external-import-modal" role="dialog" aria-modal="true" aria-labelledby="externalImportTitle">
+      <span class="eyebrow" data-i18n="externalRecord">External record</span>
+      <h2 id="externalImportTitle" data-i18n="reviewSubmittedNomination">Review submitted nomination</h2>
+      <p id="externalImportSummary"></p>
+      <div id="externalEventReview" class="external-event-review"></div>
+      <datalist id="tescoSkuOptions"></datalist>
+      <div class="modal-actions">
+        <button class="button secondary" id="cancelExternalImport" type="button" data-i18n="cancel">Cancel</button>
+        <button class="button primary" id="saveExternalImport" type="button" data-i18n="saveEventRecord">Save event record</button>
+      </div>
+    </section>
+  </div>
   <div class="toast" id="toast"></div>
-  <script src="/tesco.js?v=20260820-i18n-1"></script>
+  <script src="/tesco.js?v=20260821-external-1"></script>
 </body>
 </html>

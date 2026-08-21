@@ -33,6 +33,7 @@ DATA_DIR = BASE_DIR / "data"
 MAPPINGS_PATH = BASE_DIR / "data" / "sku_mappings.json"
 LIFETIME_METRICS_PATH = BASE_DIR / "data" / "lifetime_metrics.json"
 TESCO_OFFERS_PATH = DATA_DIR / "tesco_latest_offers.json"
+TESCO_CATALOGUE_PATH = DATA_DIR / "tesco_latest_catalogue.json"
 TESCO_EVENTS_PATH = DATA_DIR / "tesco_nomination_events.json"
 TESCO_NOMINATIONS_DIR = DATA_DIR / "tesco_nominations"
 NON_EXISTING_SKU = "__NON_EXISTING__"
@@ -1959,13 +1960,235 @@ def tesco_catalogue_from_workbook(data, inventory=None, mappings=None):
     return best_rows
 
 
+def capture_tesco_catalogue(rows):
+    captured_at = datetime.now(ZoneInfo("Australia/Sydney")).isoformat()
+    catalogue = []
+    seen = set()
+    for source in rows:
+        tesco_sku = str(source.get("tesco_sku") or "").strip().upper()
+        if not tesco_sku or tesco_sku in seen:
+            continue
+        seen.add(tesco_sku)
+        catalogue.append(
+            {
+                "tesco_sku": tesco_sku,
+                "wooper_sku": str(source.get("wooper_sku") or "").strip().upper(),
+                "barcode": normalise_barcode(source.get("barcode")),
+                "title": str(source.get("title") or "").strip(),
+                "brand": str(source.get("brand") or "").strip(),
+                "category_path": str(source.get("category_path") or "").strip(),
+                "image_url": str(source.get("image_url") or "").strip(),
+                "captured_at": captured_at,
+            }
+        )
+    if supabase_enabled():
+        for offset in range(0, len(catalogue), 500):
+            supabase_request(
+                "POST",
+                "promotion_tesco_catalogue",
+                rows=catalogue[offset : offset + 500],
+                params={"on_conflict": "tesco_sku"},
+                prefer="resolution=merge-duplicates,return=minimal",
+            )
+        supabase_request(
+            "DELETE",
+            "promotion_tesco_catalogue",
+            params={"captured_at": f"lt.{captured_at}"},
+        )
+    else:
+        write_json_file(
+            TESCO_CATALOGUE_PATH,
+            {"captured_at": captured_at, "catalogue": catalogue},
+        )
+    return catalogue
+
+
+def latest_tesco_catalogue():
+    if supabase_enabled():
+        return supabase_select_all(
+            "promotion_tesco_catalogue",
+            {
+                "select": (
+                    "tesco_sku,wooper_sku,barcode,title,brand,category_path,"
+                    "image_url,captured_at"
+                ),
+                "order": "tesco_sku.asc",
+            },
+        )
+    return read_json_file(TESCO_CATALOGUE_PATH, {"catalogue": []}).get(
+        "catalogue", []
+    )
+
+
+def normalise_barcode(value):
+    if value in (None, ""):
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    text = str(value).strip()
+    return text[:-2] if text.endswith(".0") and text[:-2].isdigit() else text
+
+
+def normalise_excel_date(value):
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y"):
+        try:
+            return datetime.strptime(text, pattern).date().isoformat()
+        except ValueError:
+            continue
+    raise ValueError(f"Could not read nomination date: {text}")
+
+
+def workbook_table_rows(sheet, required_headers, scan_rows=15):
+    sheet.reset_dimensions()
+    values = sheet.iter_rows(values_only=True)
+    for _ in range(scan_rows):
+        possible = next(values, None)
+        if possible is None:
+            break
+        headers = [str(value or "") for value in possible]
+        cleaned = {clean_header(value) for value in headers if value not in (None, "")}
+        if all(any(name in cleaned for name in choices) for choices in required_headers):
+            return [
+                {headers[index]: value for index, value in enumerate(row[: len(headers)])}
+                for row in values
+            ]
+    return []
+
+
+def tesco_external_nomination_from_workbook(data, catalogue=None):
+    catalogue = catalogue if catalogue is not None else latest_tesco_catalogue()
+    workbook = load_workbook(io.BytesIO(data), data_only=True, read_only=True)
+    official_rows = []
+    for sheet in workbook.worksheets:
+        rows = workbook_table_rows(
+            sheet,
+            (
+                {"event", "event line"},
+                {"start date"},
+                {"end date"},
+                {"barcode", "barcode/ean", "barcode / ean"},
+            ),
+        )
+        if rows:
+            official_rows = rows
+            break
+    if not official_rows:
+        raise ValueError("No Tesco nomination rows were found in this workbook.")
+
+    internal_rows = []
+    if "Internal Record" in workbook.sheetnames:
+        internal_rows = workbook_table_rows(
+            workbook["Internal Record"],
+            ({"platform sku"}, {"wooper sku"}),
+        )
+
+    by_sku = {
+        str(row.get("tesco_sku") or "").strip().upper(): row
+        for row in catalogue
+        if str(row.get("tesco_sku") or "").strip()
+    }
+    by_barcode = {}
+    for row in catalogue:
+        barcode = normalise_barcode(row.get("barcode"))
+        if barcode:
+            by_barcode.setdefault(barcode, []).append(row)
+
+    grouped = {}
+    official_index = 0
+    for source in official_rows:
+        event_name = str(source_value(source, ("Event", "Event line"), "")).strip()
+        barcode = normalise_barcode(
+            source_value(source, ("Barcode / EAN", "Barcode/EAN", "Barcode", "EAN"), "")
+        )
+        title = str(source_value(source, ("Product Title", "Title"), "")).strip()
+        if not event_name and not barcode and not title:
+            continue
+        start_date = normalise_excel_date(source_value(source, ("Start Date",), ""))
+        end_date = normalise_excel_date(source_value(source, ("End Date",), ""))
+        if not event_name or not start_date or not end_date:
+            raise ValueError("Every nomination row needs an event name, start date, and end date.")
+        if start_date > end_date:
+            raise ValueError(f"The end date is before the start date for {event_name}.")
+
+        internal = internal_rows[official_index] if official_index < len(internal_rows) else {}
+        official_index += 1
+        direct_sku = str(source_value(internal, ("Platform SKU",), "")).strip().upper()
+        direct_wooper = str(source_value(internal, ("Wooper SKU",), "")).strip().upper()
+        matches = by_barcode.get(barcode, []) if barcode else []
+        if direct_sku:
+            matched = by_sku.get(direct_sku, {})
+            tesco_sku = direct_sku
+            wooper_sku = str(matched.get("wooper_sku") or direct_wooper).strip().upper()
+            match_status = "matched"
+            match_source = "internal_record"
+        elif len(matches) == 1:
+            tesco_sku = str(matches[0].get("tesco_sku") or "").strip().upper()
+            wooper_sku = str(matches[0].get("wooper_sku") or "").strip().upper()
+            match_status = "matched"
+            match_source = "barcode"
+        else:
+            tesco_sku = ""
+            wooper_sku = ""
+            match_status = "ambiguous" if len(matches) > 1 else "unmatched"
+            match_source = ""
+        key = (event_name, start_date, end_date)
+        grouped.setdefault(
+            key,
+            {
+                "event_name": event_name,
+                "start_date": start_date,
+                "end_date": end_date,
+                "rows": [],
+            },
+        )["rows"].append(
+            {
+                "tesco_sku": tesco_sku,
+                "wooper_sku": wooper_sku,
+                "barcode": barcode,
+                "title": title,
+                "match_status": match_status,
+                "match_source": match_source,
+                "suggestions": [
+                    {
+                        "tesco_sku": str(item.get("tesco_sku") or "").strip().upper(),
+                        "wooper_sku": str(item.get("wooper_sku") or "").strip().upper(),
+                        "title": str(item.get("title") or "").strip(),
+                    }
+                    for item in matches
+                ],
+            }
+        )
+    events = list(grouped.values())
+    if not events:
+        raise ValueError("No completed Tesco nomination rows were found.")
+    return {
+        "events": events,
+        "catalogue_options": [
+            {
+                "tesco_sku": sku,
+                "wooper_sku": str(row.get("wooper_sku") or "").strip().upper(),
+                "title": str(row.get("title") or "").strip(),
+            }
+            for sku, row in sorted(by_sku.items())
+        ],
+    }
+
+
 def tesco_events():
     if supabase_enabled():
         events = supabase_select_all(
             "promotion_tesco_events",
             {
                 "select": (
-                    "id,event_name,start_date,end_date,created_at,source,rows"
+                    "id,event_name,start_date,end_date,discount_end_date_mirakl,"
+                    "created_at,source,rows"
                 ),
                 "order": "created_at.asc",
             },
@@ -1993,6 +2216,9 @@ def tesco_events():
                     "event_name": str(event.get("event_name") or "Saved event"),
                     "start_date": str(event.get("start_date") or ""),
                     "end_date": str(event.get("end_date") or ""),
+                    "discount_end_date_mirakl": str(
+                        event.get("discount_end_date_mirakl") or ""
+                    ).strip() or None,
                     "created_at": str(event.get("created_at") or datetime.now(ZoneInfo("Australia/Sydney")).isoformat()),
                     "source": source,
                     "rows": event.get("rows") or [],
@@ -2185,7 +2411,7 @@ def build_tesco_nomination_workbook(payload):
     return output.getvalue()
 
 
-def save_tesco_event(payload, workbook_bytes):
+def save_tesco_event(payload, workbook_bytes=None, source=None):
     event_id = str(uuid.uuid4())
     created_at = datetime.now(ZoneInfo("Australia/Sydney")).isoformat()
     record = {
@@ -2193,8 +2419,11 @@ def save_tesco_event(payload, workbook_bytes):
         "event_name": str(payload.get("event_name") or "").strip(),
         "start_date": str(payload.get("start_date") or "").strip(),
         "end_date": str(payload.get("end_date") or "").strip(),
+        "discount_end_date_mirakl": str(
+            payload.get("discount_end_date_mirakl") or ""
+        ).strip() or None,
         "created_at": created_at,
-        "source": {
+        "source": source or {
             "candidate_file": str(payload.get("candidate_file") or "").strip(),
             "catalogue_file": str(payload.get("catalogue_file") or "").strip(),
         },
@@ -2213,9 +2442,114 @@ def save_tesco_event(payload, workbook_bytes):
     events = tesco_events()
     events.append(record)
     write_json_file(TESCO_EVENTS_PATH, {"events": events})
-    TESCO_NOMINATIONS_DIR.mkdir(parents=True, exist_ok=True)
-    (TESCO_NOMINATIONS_DIR / f"{event_id}.xlsx").write_bytes(workbook_bytes)
+    if workbook_bytes is not None:
+        TESCO_NOMINATIONS_DIR.mkdir(parents=True, exist_ok=True)
+        (TESCO_NOMINATIONS_DIR / f"{event_id}.xlsx").write_bytes(workbook_bytes)
     return record
+
+
+def update_tesco_event(event_id, payload):
+    event_id = validate_worktable_id(event_id) if supabase_enabled() else str(event_id)
+    value = str(payload.get("discount_end_date_mirakl") or "").strip()
+    if len(value) > 120:
+        raise ValueError("The Mirakl discount end date must be 120 characters or less.")
+    update = {"discount_end_date_mirakl": value or None}
+    if supabase_enabled():
+        rows = supabase_request(
+            "PATCH",
+            "promotion_tesco_events",
+            rows=update,
+            params={"id": f"eq.{event_id}"},
+            prefer="return=representation",
+        )
+        return rows[0] if rows else None
+    events = tesco_events()
+    record = next((event for event in events if str(event.get("id")) == event_id), None)
+    if record is None:
+        return None
+    record.update(update)
+    write_json_file(TESCO_EVENTS_PATH, {"events": events})
+    return record
+
+
+def import_external_tesco_events(payload, source_filename=""):
+    events = payload.get("events")
+    if not isinstance(events, list) or not events:
+        raise ValueError("No Tesco event was supplied.")
+    catalogue = latest_tesco_catalogue()
+    by_sku = {
+        str(row.get("tesco_sku") or "").strip().upper(): row
+        for row in catalogue
+        if str(row.get("tesco_sku") or "").strip()
+    }
+    existing = {
+        (
+            str(event.get("event_name") or "").strip().casefold(),
+            str(event.get("start_date") or ""),
+            str(event.get("end_date") or ""),
+        )
+        for event in tesco_events()
+    }
+    prepared = []
+    for event in events:
+        event_name = str(event.get("event_name") or "").strip()
+        start_date = normalise_excel_date(event.get("start_date"))
+        end_date = normalise_excel_date(event.get("end_date"))
+        if not event_name or not start_date or not end_date:
+            raise ValueError("Event name, start date, and end date are required.")
+        if len(event_name) > 160:
+            raise ValueError("The event name must be 160 characters or less.")
+        if start_date > end_date:
+            raise ValueError(f"The end date is before the start date for {event_name}.")
+        identity = (event_name.casefold(), start_date, end_date)
+        if identity in existing:
+            raise ValueError(
+                f"{event_name} ({start_date} to {end_date}) is already saved. "
+                "Remove the old record first if it needs replacing."
+            )
+        rows = []
+        seen = set()
+        for source_row in event.get("rows") or []:
+            tesco_sku = str(source_row.get("tesco_sku") or "").strip().upper()
+            if not tesco_sku:
+                raise ValueError("Choose a Tesco SKU for every imported nomination row.")
+            if tesco_sku in seen:
+                continue
+            seen.add(tesco_sku)
+            catalogue_row = by_sku.get(tesco_sku, {})
+            rows.append(
+                {
+                    "tesco_sku": tesco_sku,
+                    "wooper_sku": str(
+                        catalogue_row.get("wooper_sku")
+                        or source_row.get("wooper_sku")
+                        or ""
+                    ).strip().upper(),
+                    "barcode": normalise_barcode(source_row.get("barcode")),
+                    "title": str(source_row.get("title") or "").strip(),
+                }
+            )
+        if not rows:
+            raise ValueError(f"{event_name} has no Tesco SKUs to save.")
+        prepared.append(
+            {
+                "event_name": event_name,
+                "start_date": start_date,
+                "end_date": end_date,
+                "rows": rows,
+            }
+        )
+        existing.add(identity)
+    return [
+        save_tesco_event(
+            event,
+            source={
+                "external_nomination_file": str(source_filename or "").strip(),
+                "imported_outside_tool": True,
+            },
+        )
+        for event in prepared
+    ]
 
 
 def delete_tesco_event(event_id):
@@ -2512,7 +2846,38 @@ class Handler(SimpleHTTPRequestHandler):
                 if not rows:
                     self.send_json({"error": "No Tesco Catalogue rows were found."}, status=400)
                     return
+                rows = capture_tesco_catalogue(rows)
                 self.send_json({"catalogue": rows, "sourceRows": len(rows)})
+                return
+            if parsed.path == "/api/tesco/import-external":
+                length = int(self.headers.get("Content-Length", "0"))
+                data = self.rfile.read(length)
+                filename = self.headers.get("X-Filename", "").lower()
+                if not filename.endswith((".xlsx", ".xlsm")):
+                    self.send_json({"error": "Use a Tesco nomination XLSX or XLSM file."}, status=400)
+                    return
+                catalogue = latest_tesco_catalogue()
+                if not catalogue:
+                    self.send_json(
+                        {
+                            "error": (
+                                "Import the latest Tesco Catalogue once before "
+                                "recording an external nomination form."
+                            )
+                        },
+                        status=400,
+                    )
+                    return
+                result = tesco_external_nomination_from_workbook(data, catalogue)
+                self.send_json(result)
+                return
+            if parsed.path == "/api/tesco/events/import":
+                payload = self.read_json()
+                records = import_external_tesco_events(
+                    payload,
+                    source_filename=str(payload.get("source_filename") or ""),
+                )
+                self.send_json({"events": records})
                 return
             if parsed.path == "/api/tesco/check-overlap":
                 payload = self.read_json()
@@ -2659,6 +3024,23 @@ class Handler(SimpleHTTPRequestHandler):
                         "caUnresolved": unresolved_channeladvisor_rows(),
                     }
                 )
+                return
+            self.send_json({"error": "Not found"}, status=404)
+        except Exception as exc:
+            self.send_json({"error": str(exc)}, status=400)
+
+    def do_PATCH(self):
+        parsed = urlparse(self.path)
+        if not self.require_authorization(parsed.path):
+            return
+        try:
+            if parsed.path.startswith("/api/tesco/events/"):
+                event_id = parsed.path.rsplit("/", 1)[-1]
+                record = update_tesco_event(event_id, self.read_json())
+                if record is None:
+                    self.send_json({"error": "Saved Tesco event not found."}, status=404)
+                else:
+                    self.send_json({"event": record})
                 return
             self.send_json({"error": "Not found"}, status=404)
         except Exception as exc:

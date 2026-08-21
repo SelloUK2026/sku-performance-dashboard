@@ -185,6 +185,24 @@ create table if not exists public.promotion_worktables (
   check (length(btrim(event_name)) between 1 and 160)
 );
 
+create table if not exists public.promotion_tesco_catalogue (
+  tesco_sku text primary key,
+  wooper_sku text,
+  barcode text,
+  title text,
+  brand text,
+  category_path text,
+  image_url text,
+  captured_at timestamptz not null default now()
+);
+
+create index if not exists promotion_tesco_catalogue_barcode_idx
+  on public.promotion_tesco_catalogue (barcode)
+  where barcode is not null and barcode <> '';
+create index if not exists promotion_tesco_catalogue_wooper_sku_idx
+  on public.promotion_tesco_catalogue (wooper_sku)
+  where wooper_sku is not null and wooper_sku <> '';
+
 create index if not exists promotion_worktables_created_at_idx
   on public.promotion_worktables (created_at desc);
 create index if not exists promotion_worktables_platform_created_idx
@@ -222,17 +240,20 @@ alter table public.promotion_sku_data enable row level security;
 alter table public.promotion_protection_list enable row level security;
 alter table public.sku_mappings enable row level security;
 alter table public.promotion_worktables enable row level security;
+alter table public.promotion_tesco_catalogue enable row level security;
 
 grant select, insert, update, delete
   on public.channeladvisor_products, public.promotion_sku_data,
   public.promotion_protection_list, public.sku_mappings
   to service_role;
 grant select, insert, delete on public.promotion_worktables to service_role;
+grant select, insert, update, delete on public.promotion_tesco_catalogue to service_role;
 revoke all
   on public.channeladvisor_products, public.promotion_sku_data,
   public.promotion_protection_list, public.sku_mappings
   from anon, authenticated;
 revoke all on public.promotion_worktables from anon, authenticated;
+revoke all on public.promotion_tesco_catalogue from anon, authenticated;
 
 drop policy if exists "dashboard read sales" on public.sales;
 drop policy if exists "dashboard read sku master" on public.sku_master;

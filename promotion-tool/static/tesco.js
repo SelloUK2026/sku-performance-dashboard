@@ -2,6 +2,7 @@ const state = {
   candidates: [], catalogue: new Map(), catalogueByWooper: new Map(), categories: [], selected: new Set(),
   assignments: new Map(), conflicts: {}, offers: [], events: [], level1: [], dirty: false,
   candidateFile: "", catalogueFile: "",
+  externalDraft: [], externalOptions: new Map(), externalFile: "",
   language: localStorage.getItem("tescoLanguage") === "zh-CN" ? "zh-CN" : "en",
 };
 
@@ -25,12 +26,21 @@ const translations = {
     eventCategory: "Event category", level1: "Level 1", was: "WAS", caPrice: "CA price", now: "Now",
     promoPrice: "Promo price", nominationStock: "Nomination stock", status: "Status",
     noCandidates: "No approved candidates loaded.", overlapRecord: "Overlap record", savedEvents: "Saved Tesco events",
+    importSubmittedNomination: "Import submitted nomination", externalRecord: "External record",
+    reviewSubmittedNomination: "Review submitted nomination", cancel: "Cancel", saveEventRecord: "Save event record",
+    miraklDiscountEnd: "Discount end date in Mirakl", save: "Save", miraklSaved: "Mirakl discount end date saved",
+    externalSummary: "{events} event(s), {rows} nomination row(s), {unmatched} SKU(s) need confirmation.",
+    externalEventName: "Event name", externalStart: "Start date", externalEnd: "End date",
+    barcode: "Barcode / EAN", wooperSku: "Wooper SKU", chooseTescoSku: "Choose an exact Tesco SKU",
+    matched: "Matched", needsConfirmation: "Needs confirmation", externalSaving: "Saving...",
+    externalSaved: "{count} external event record(s) saved", externalInvalid: "Confirm every event field and choose a valid Tesco SKU for every row.",
     tescoGuide: "Tesco user guide", secondStageSelection: "Second-stage selection", close: "Close",
     guideStep1: "Export the Tesco promotion worktable, enter Yes in column T for candidates, then import it here.",
     guideStep2: "Upload the latest Tesco Catalogue for the event. The latest Offer SKU file is already captured when Tesco data is first imported in the calculation tool.",
     guideStep3: "Enter the event dates, Tesco-defined categories and limits. Assign an event category and fixed Level 1 group to each selected SKU.",
     guideStep4: "A Tesco SKU used in an overlapping saved event is blocked. Another Tesco SKU for the same Wooper product remains available.",
     guideStep5: "Generate the form only when the quota and required fields pass. The saved snapshot becomes the overlap record for future events.",
+    guideStep6: "If a nomination was submitted outside this tool, import the completed nomination form under Saved Tesco events and confirm any unmatched Tesco SKU.",
     categoryFromBrief: "Category from Tesco event brief", maximumSkus: "Maximum SKUs", noLimit: "No limit",
     removeCategory: "Remove category", categoryCount: "{count} selected / {limit} limit · {remaining} remaining",
     categoryCountNoLimit: "{count} selected · no limit", loading: "Loading...", fileLoaded: "{file} loaded",
@@ -68,12 +78,21 @@ const translations = {
     eventCategory: "活动类别", level1: "一级类别", was: "原价", caPrice: "CA價", now: "现价",
     promoPrice: "促销价", nominationStock: "提名库存", status: "状态", noCandidates: "尚未导入已批准候选产品。",
     overlapRecord: "重叠记录", savedEvents: "已保存的Tesco活动", tescoGuide: "Tesco用户指南",
+    importSubmittedNomination: "导入已提交提名表", externalRecord: "外部记录",
+    reviewSubmittedNomination: "检查已提交提名表", cancel: "取消", saveEventRecord: "保存活动记录",
+    miraklDiscountEnd: "Mirakl折扣结束日期", save: "保存", miraklSaved: "已保存Mirakl折扣结束日期",
+    externalSummary: "{events}个活动，{rows}行提名，{unmatched}个SKU需要确认。",
+    externalEventName: "活动名称", externalStart: "开始日期", externalEnd: "结束日期",
+    barcode: "条码 / EAN", wooperSku: "Wooper SKU", chooseTescoSku: "选择准确的Tesco SKU",
+    matched: "已匹配", needsConfirmation: "需要确认", externalSaving: "正在保存...",
+    externalSaved: "已保存{count}个外部活动记录", externalInvalid: "请确认所有活动资料，并为每一行选择有效的Tesco SKU。",
     secondStageSelection: "第二阶段选品", close: "关闭",
     guideStep1: "导出Tesco促销工作表，在候选产品的T列填入Yes，然后在此导入。",
     guideStep2: "导入本次活动最新的Tesco目录。首次在促销计算工具导入Tesco数据时，系统已保存最新Offer SKU文件。",
     guideStep3: "输入活动日期、Tesco指定的类别及上限，并为每个已选SKU指定活动类别和固定的一级类别。",
     guideStep4: "如相同Tesco SKU已用于日期重叠的已保存活动，系统会阻止选择；同一Wooper产品的其他Tesco SKU仍可使用。",
     guideStep5: "所有数量限制及必填资料通过检查后才可生成表格。保存的快照会用于检查未来活动的日期重叠。",
+    guideStep6: "如提名表在本工具以外提交，请在已保存Tesco活动下导入完成的提名表，并确认所有未匹配的Tesco SKU。",
     categoryFromBrief: "Tesco活动简报中的类别", maximumSkus: "SKU数量上限", noLimit: "不设上限",
     removeCategory: "删除类别", categoryCount: "已选{count} / 上限{limit} · 剩余{remaining}",
     categoryCountNoLimit: "已选{count} · 不设上限", loading: "正在导入...", fileLoaded: "已导入{file}",
@@ -129,6 +148,7 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-aria]").forEach((node) => { node.setAttribute("aria-label", t(node.dataset.i18nAria)); });
   byId("languageButton").textContent = state.language === "en" ? "中文" : "English";
   renderCategories(); updateFileStatuses(); renderRows(); renderHistory(); loadStatus().catch((error) => toast(error.message, "error"));
+  if (byId("externalImportModal").classList.contains("visible")) renderExternalImport();
 }
 
 async function loadStatus() {
@@ -326,8 +346,124 @@ function validate() {
 
 function renderHistory() {
   byId("historyList").innerHTML = state.events.length ? [...state.events].reverse().map((event) => `
-    <div class="history-row"><strong>${escapeHtml(event.event_name)}</strong><span>${escapeHtml(t("historyDates", { start: event.start_date, end: event.end_date }))}</span><span>${escapeHtml(t("historySkus", { count: (event.rows || []).length }))}</span><span>${escapeHtml(t("savedOn", { date: (event.created_at || "").slice(0, 10) }))}</span><button class="history-remove" data-event-id="${escapeHtml(event.id)}" type="button">${t("remove")}</button></div>`).join("") : `<div class="history-empty">${t("noSavedEvents")}</div>`;
+    <div class="history-row" data-event-id="${escapeHtml(event.id)}">
+      <div class="history-event"><strong>${escapeHtml(event.event_name)}</strong><span>${escapeHtml(t("historyDates", { start: event.start_date, end: event.end_date }))}</span></div>
+      <span>${escapeHtml(t("historySkus", { count: (event.rows || []).length }))}</span>
+      <span>${escapeHtml(t("savedOn", { date: (event.created_at || "").slice(0, 10) }))}</span>
+      <label class="mirakl-field"><span>${t("miraklDiscountEnd")}</span><input class="mirakl-value" type="text" maxlength="120" value="${escapeHtml(event.discount_end_date_mirakl || "")}"></label>
+      <button class="button plain history-save" type="button">${t("save")}</button>
+      <button class="history-remove" data-event-id="${escapeHtml(event.id)}" type="button">${t("remove")}</button>
+    </div>`).join("") : `<div class="history-empty">${t("noSavedEvents")}</div>`;
+  document.querySelectorAll(".history-save").forEach((button) => button.addEventListener("click", () => saveMiraklValue(button.closest(".history-row"))));
   document.querySelectorAll(".history-remove").forEach((button) => button.addEventListener("click", () => removeSavedEvent(button.dataset.eventId)));
+}
+
+async function saveMiraklValue(row) {
+  const eventId = row.dataset.eventId;
+  const button = row.querySelector(".history-save");
+  const value = row.querySelector(".mirakl-value").value.trim();
+  button.disabled = true;
+  try {
+    const payload = await fetchJson(`/api/tesco/events/${encodeURIComponent(eventId)}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ discount_end_date_mirakl: value }),
+    });
+    const index = state.events.findIndex((event) => String(event.id) === eventId);
+    if (index >= 0) state.events[index] = payload.event;
+    renderHistory(); toast(t("miraklSaved"));
+  } catch (error) { toast(error.message, "error"); }
+  finally { button.disabled = false; }
+}
+
+async function importExternalNomination(file) {
+  const button = byId("externalNominationButton");
+  button.disabled = true; button.textContent = t("loading");
+  try {
+    const payload = await fetchJson("/api/tesco/import-external", {
+      method: "POST", headers: { "X-Filename": file.name }, body: await file.arrayBuffer(),
+    });
+    state.externalDraft = payload.events || [];
+    state.externalFile = file.name;
+    state.externalOptions = new Map((payload.catalogue_options || []).map((item) => [item.tesco_sku, item]));
+    state.externalDraft.forEach((event) => event.rows.forEach((row) => {
+      if (row.tesco_sku && !state.externalOptions.has(row.tesco_sku)) {
+        state.externalOptions.set(row.tesco_sku, { tesco_sku: row.tesco_sku, wooper_sku: row.wooper_sku, title: row.title });
+      }
+    }));
+    renderExternalImport(); byId("externalImportModal").classList.add("visible");
+  } catch (error) { toast(error.message, "error"); }
+  finally {
+    button.disabled = false; button.textContent = t("importSubmittedNomination");
+    byId("externalNominationInput").value = "";
+  }
+}
+
+function renderExternalImport() {
+  const rows = state.externalDraft.flatMap((event) => event.rows || []);
+  const unresolved = rows.filter((row) => !state.externalOptions.has(row.tesco_sku)).length;
+  byId("externalImportSummary").textContent = t("externalSummary", {
+    events: state.externalDraft.length, rows: rows.length, unmatched: unresolved,
+  });
+  byId("tescoSkuOptions").innerHTML = [...state.externalOptions.values()].map((item) =>
+    `<option value="${escapeHtml(item.tesco_sku)}">${escapeHtml([item.wooper_sku, item.title].filter(Boolean).join(" | "))}</option>`
+  ).join("");
+  byId("externalEventReview").innerHTML = state.externalDraft.map((event, eventIndex) => `
+    <section class="external-event" data-event-index="${eventIndex}">
+      <div class="external-event-fields">
+        <label><span>${t("externalEventName")}</span><input class="external-event-name" value="${escapeHtml(event.event_name)}"></label>
+        <label><span>${t("externalStart")}</span><input class="external-start" type="date" value="${escapeHtml(event.start_date)}"></label>
+        <label><span>${t("externalEnd")}</span><input class="external-end" type="date" value="${escapeHtml(event.end_date)}"></label>
+      </div>
+      <div class="external-rows">${(event.rows || []).map((row, rowIndex) => `
+        <div class="external-row" data-row-index="${rowIndex}">
+          <div class="external-product"><strong>${escapeHtml(row.title || row.barcode || "-")}</strong><small>${t("barcode")}: ${escapeHtml(row.barcode || "-")}</small></div>
+          <label><span>Tesco SKU</span><input class="external-tesco-sku" list="tescoSkuOptions" value="${escapeHtml(row.tesco_sku || "")}" placeholder="${escapeHtml(t("chooseTescoSku"))}"></label>
+          <div class="external-wooper"><span>${t("wooperSku")}</span><strong>${escapeHtml(row.wooper_sku || "-")}</strong></div>
+          <span class="status-pill ${row.tesco_sku ? "" : "warning"}">${row.tesco_sku ? t("matched") : t("needsConfirmation")}</span>
+        </div>`).join("")}</div>
+    </section>`).join("");
+  document.querySelectorAll(".external-event").forEach((node) => {
+    const event = state.externalDraft[Number(node.dataset.eventIndex)];
+    node.querySelector(".external-event-name").addEventListener("input", (input) => { event.event_name = input.target.value; validateExternalImport(); });
+    node.querySelector(".external-start").addEventListener("change", (input) => { event.start_date = input.target.value; validateExternalImport(); });
+    node.querySelector(".external-end").addEventListener("change", (input) => { event.end_date = input.target.value; validateExternalImport(); });
+    node.querySelectorAll(".external-row").forEach((rowNode) => {
+      const row = event.rows[Number(rowNode.dataset.rowIndex)];
+      rowNode.querySelector(".external-tesco-sku").addEventListener("change", (input) => {
+        const sku = input.target.value.trim().toUpperCase();
+        input.target.value = sku;
+        const match = state.externalOptions.get(sku);
+        row.tesco_sku = match ? sku : "";
+        row.wooper_sku = match?.wooper_sku || "";
+        renderExternalImport();
+      });
+    });
+  });
+  validateExternalImport();
+}
+
+function validateExternalImport() {
+  const valid = state.externalDraft.length > 0 && state.externalDraft.every((event) =>
+    event.event_name.trim() && event.start_date && event.end_date && event.start_date <= event.end_date
+    && event.rows.length > 0 && event.rows.every((row) => state.externalOptions.has(row.tesco_sku))
+  );
+  byId("saveExternalImport").disabled = !valid;
+  return valid;
+}
+
+async function saveExternalImport() {
+  if (!validateExternalImport()) { toast(t("externalInvalid"), "error"); return; }
+  const button = byId("saveExternalImport"); button.disabled = true; button.textContent = t("externalSaving");
+  try {
+    const payload = await fetchJson("/api/tesco/events/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_filename: state.externalFile, events: state.externalDraft }),
+    });
+    byId("externalImportModal").classList.remove("visible");
+    state.externalDraft = []; await loadStatus(); await checkOverlap();
+    toast(t("externalSaved", { count: (payload.events || []).length }));
+  } catch (error) { toast(error.message, "error"); }
+  finally { button.textContent = t("saveEventRecord"); validateExternalImport(); }
 }
 
 async function removeSavedEvent(eventId) {
@@ -364,6 +500,10 @@ byId("candidateButton").addEventListener("click", () => byId("candidateInput").c
 byId("catalogueButton").addEventListener("click", () => byId("catalogueInput").click());
 byId("candidateInput").addEventListener("change", (event) => event.target.files[0] && importFile(event.target.files[0], "candidates"));
 byId("catalogueInput").addEventListener("change", (event) => event.target.files[0] && importFile(event.target.files[0], "catalogue"));
+byId("externalNominationButton").addEventListener("click", () => byId("externalNominationInput").click());
+byId("externalNominationInput").addEventListener("change", (event) => event.target.files[0] && importExternalNomination(event.target.files[0]));
+byId("cancelExternalImport").addEventListener("click", () => byId("externalImportModal").classList.remove("visible"));
+byId("saveExternalImport").addEventListener("click", saveExternalImport);
 byId("addCategoryButton").addEventListener("click", () => addCategory());
 byId("searchInput").addEventListener("input", renderRows);
 ["eventName", "sellerName", "totalLimit"].forEach((id) => byId(id).addEventListener("input", () => { markDirty(); validate(); }));

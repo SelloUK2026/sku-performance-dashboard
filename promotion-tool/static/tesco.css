@@ -64,12 +64,29 @@
 .empty-state { display: grid; min-height: 180px; place-items: center; color: var(--muted); }
 .history-list { display: grid; gap: 7px; margin-top: 12px; }
 .history-row { justify-content: flex-start; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; }
-.history-row strong { width: 260px; }.history-row span { color: var(--muted); }
+.history-event { width: 260px; min-width: 220px; }.history-event strong, .history-event span { display: block; }.history-event span { margin-top: 3px; }
+.history-row > span { color: var(--muted); white-space: nowrap; }
+.mirakl-field { display: grid; grid-template-columns: auto minmax(160px, 1fr); align-items: center; gap: 8px; margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 700; }
+.mirakl-field input { min-height: 34px; width: min(300px, 22vw); border: 1px solid var(--line); padding: 6px 8px; color: var(--ink); }
+.history-save { min-height: 34px; padding: 6px 10px; }
 .history-remove { margin-left: auto; border: 1px solid #d7aaa5; background: #fff; color: #842f2f; padding: 6px 10px; font-weight: 700; }
 .history-remove:hover { background: #fce8e6; }
 .history-empty { color: var(--muted); font-size: 13px; }.tesco-guide { padding-left: 22px; color: var(--muted); line-height: 1.55; }
+.external-import-modal { width: min(1040px, 100%); }
+.external-event-review { display: grid; gap: 18px; margin-top: 18px; }
+.external-event { border-top: 1px solid var(--line); padding-top: 14px; }
+.external-event-fields { display: grid; grid-template-columns: minmax(240px, 2fr) 1fr 1fr; gap: 10px; }
+.external-event-fields label, .external-row label { color: var(--muted); font-size: 12px; font-weight: 700; }
+.external-event-fields input, .external-row input { display: block; width: 100%; min-height: 38px; margin-top: 5px; border: 1px solid var(--line); background: #fff; padding: 7px 9px; color: var(--ink); }
+.external-rows { display: grid; gap: 6px; margin-top: 12px; }
+.external-row { display: grid; grid-template-columns: minmax(220px, 1.5fr) minmax(220px, 1fr) minmax(150px, .8fr) 120px; gap: 12px; align-items: center; padding: 9px 10px; background: #f7f9f8; border: 1px solid var(--line); }
+.external-product strong, .external-product small, .external-wooper span, .external-wooper strong { display: block; }
+.external-product small, .external-wooper span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.external-wooper strong { margin-top: 5px; font-size: 12px; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .tesco-workspace { min-width: 0; }.tesco-lower-workspace { display: block; }.tesco-sidebar { position: static; width: auto; height: auto; overflow: visible; border-right: 0; }.setup-grid { grid-template-columns: 1fr 1fr; }
   .setup-grid > label:first-child, .upload-actions { grid-column: 1 / -1; }.file-status-row { align-items: stretch; flex-direction: column; }.file-status-row span { min-width: 0; }.selection-toolbar { align-items: flex-start; flex-wrap: wrap; }
   .search-field { width: 100%; }.tesco-table-shell { max-height: 62vh; }
+  .history-row { align-items: stretch; flex-wrap: wrap; }.history-event { width: 100%; }.mirakl-field { width: 100%; margin-left: 0; grid-template-columns: 1fr; }.mirakl-field input { width: 100%; }
+  .external-event-fields, .external-row { grid-template-columns: 1fr; }
 }
