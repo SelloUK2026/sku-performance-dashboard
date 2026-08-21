@@ -2088,6 +2088,9 @@ def tesco_external_nomination_from_workbook(data, catalogue=None):
             workbook["Internal Record"],
             ({"platform sku"}, {"wooper sku"}),
         )
+    else:
+        # Tesco's standard nomination template always uses row 3 as an example.
+        official_rows = official_rows[1:]
 
     by_sku = {
         str(row.get("tesco_sku") or "").strip().upper(): row

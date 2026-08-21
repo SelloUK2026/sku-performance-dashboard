@@ -55,6 +55,7 @@ class TescoNominationTests(unittest.TestCase):
         sheet = workbook.active
         sheet.append(["Seller Input"])
         sheet.append(["Event line", "Start Date", "End Date", "Barcode/EAN", "Product Title"])
+        sheet.append(["Input if for a specific event", "01/01/2026", "02/01/2026", "1234567890", "Panasonic 50-inch TV"])
         sheet.append(["Autumn Event", "01/09/2026", "14/09/2026", 1234567890123, "Example item"])
         output = io.BytesIO()
         workbook.save(output)
@@ -68,6 +69,7 @@ class TescoNominationTests(unittest.TestCase):
         event = result["events"][0]
         self.assertEqual(event["event_name"], "Autumn Event")
         self.assertEqual(event["start_date"], "2026-09-01")
+        self.assertEqual(len(event["rows"]), 1)
         self.assertEqual(event["rows"][0]["tesco_sku"], "TESCO-123")
         self.assertEqual(event["rows"][0]["match_source"], "barcode")
 
@@ -75,6 +77,7 @@ class TescoNominationTests(unittest.TestCase):
         workbook = Workbook()
         sheet = workbook.active
         sheet.append(["Event", "Start Date", "End Date", "Barcode / EAN", "Product Title"])
+        sheet.append(["Input if for a specific event", "2026-01-01", "2026-01-02", "1234567890", "Panasonic 50-inch TV"])
         sheet.append(["Duplicate Listing Event", "2026-09-01", "2026-09-14", "123", "Example item"])
         output = io.BytesIO()
         workbook.save(output)
