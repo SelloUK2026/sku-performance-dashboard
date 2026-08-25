@@ -68,12 +68,19 @@ if (await page.locator("#mappingModal").isVisible()) {
 await page.locator("#firstSampleButton").click();
 await page.waitForSelector("#candidateRows tr");
 await page.waitForFunction(() => !document.querySelector("#saveWorktableButton")?.disabled);
+await page.locator("#eventStartDate").fill("2026-09-01");
+await page.locator("#eventEndDate").fill("2026-09-15");
+await page.locator("#manualPromoPriceAdjustment").evaluate((input) => {
+  input.checked = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});
 
 await page.locator("#saveWorktableButton").click();
 const saveModal = {
   visible: await page.locator("#saveWorktableModal").isVisible(),
   platform: await page.locator("#savePlatform").inputValue(),
   eventName: await page.locator("#saveEventName").inputValue(),
+  summary: await page.locator("#saveWorktableSummary").textContent(),
 };
 await page.screenshot({ path: "analysis/save-worktable-modal.png", fullPage: true });
 await page.locator("#saveEventName").fill("Audit Event 2026");
@@ -85,6 +92,9 @@ const afterSave = {
   capturedEvent: savedRecord?.event_name,
   snapshotRows: savedRecord?.snapshot.rows.length,
   snapshotCandidates: savedRecord?.snapshot.candidates.length,
+  eventStartDate: savedRecord?.snapshot.criteria.event_start_date,
+  eventEndDate: savedRecord?.snapshot.criteria.event_end_date,
+  manualAdjustment: savedRecord?.snapshot.criteria.manual_promo_price_adjustment,
 };
 
 await page.locator("#savedWorktablesButton").click();
@@ -103,6 +113,9 @@ const frozen = {
   bannerText: await page.locator("#savedRecordBanner").textContent(),
   overrideDisabled: await page.locator(".override-input").first().isDisabled(),
   criteriaDisabled: await page.locator("#campaignName").isDisabled(),
+  eventStartDate: await page.locator("#eventStartDate").inputValue(),
+  eventEndDate: await page.locator("#eventEndDate").inputValue(),
+  manualAdjustment: await page.locator("#manualPromoPriceAdjustment").isChecked(),
   rowCount: await page.locator("#candidateRows tr").count(),
   recalculated: calculateRequests !== calculationsBeforeOpen,
 };
@@ -140,9 +153,12 @@ const result = { saveModal, afterSave, archive, frozen, returned, unsavedWarning
 console.log(JSON.stringify(result, null, 2));
 
 if (!saveModal.visible || saveModal.platform !== "Debenhams") throw new Error("Save confirmation modal failed");
+if (!saveModal.summary.includes("2026-09-01") || !saveModal.summary.includes("2026-09-15")) throw new Error("Save preview details failed");
 if (afterSave.capturedEvent !== "Audit Event 2026" || !afterSave.saveDisabled) throw new Error("Save record failed");
+if (afterSave.eventStartDate !== "2026-09-01" || afterSave.eventEndDate !== "2026-09-15" || !afterSave.manualAdjustment) throw new Error("Saved worktable criteria failed");
 if (!archive.visible || archive.rowCount !== 1 || !archive.rowText.includes("Audit Event 2026")) throw new Error("Archive failed");
 if (!frozen.bannerVisible || !frozen.overrideDisabled || !frozen.criteriaDisabled || frozen.recalculated) throw new Error("Frozen view failed");
+if (frozen.eventStartDate !== "2026-09-01" || frozen.eventEndDate !== "2026-09-15" || !frozen.manualAdjustment) throw new Error("Frozen event settings failed");
 if (!returned.bannerHidden || !returned.overrideEnabled || returned.rowCount !== frozen.rowCount) throw new Error("Return to draft failed");
 if (!unsavedWarning) throw new Error("Unsaved worktable close warning failed");
 if (!mobile.fitsWidth || !mobile.fitsHeight || !mobile.pageFits) throw new Error("Mobile archive layout failed");

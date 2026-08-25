@@ -30,6 +30,8 @@ from app import (  # noqa: E402
     normalise_date,
     resolve_wooper_sku,
     select_suggested_freight,
+    save_platform_settings,
+    validate_platform_setting,
     valid_basic_authorization,
 )
 
@@ -90,6 +92,49 @@ class PromotionCalculationTests(unittest.TestCase):
             self.assertTrue(valid_basic_authorization(valid_header))
             self.assertFalse(valid_basic_authorization(invalid_header))
             self.assertFalse(valid_basic_authorization("Bearer token"))
+
+    def test_platform_setting_validates_shared_defaults(self):
+        setting = validate_platform_setting(
+            {
+                "platform": "New Platform",
+                "default_commission": 0.175,
+                "manual_promo_price_adjustment": True,
+            }
+        )
+        self.assertEqual(setting["platform"], "New Platform")
+        self.assertEqual(setting["default_commission"], 0.175)
+        self.assertTrue(setting["manual_promo_price_adjustment"])
+        with self.assertRaisesRegex(ValueError, "between 0% and 100%"):
+            validate_platform_setting(
+                {"platform": "Invalid", "default_commission": 1.01}
+            )
+
+    @patch("app.platform_settings")
+    @patch("app.supabase_request")
+    @patch("app.supabase_enabled", return_value=True)
+    def test_platform_settings_are_upserted_for_all_staff(
+        self,
+        _supabase_enabled,
+        supabase_request,
+        platform_settings,
+    ):
+        expected = [
+            {
+                "platform": "Tesco",
+                "default_commission": 0.18,
+                "manual_promo_price_adjustment": True,
+            }
+        ]
+        platform_settings.return_value = expected
+        actual = save_platform_settings({"settings": expected})
+        self.assertEqual(actual, expected)
+        supabase_request.assert_called_once_with(
+            "POST",
+            "promotion_platform_settings",
+            rows=expected,
+            params={"on_conflict": "platform"},
+            prefer="resolution=merge-duplicates,return=representation",
+        )
 
     def test_create_saved_worktable_inserts_a_complete_snapshot(self):
         snapshot = {

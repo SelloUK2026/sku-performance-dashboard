@@ -36,6 +36,7 @@ TESCO_OFFERS_PATH = DATA_DIR / "tesco_latest_offers.json"
 TESCO_CATALOGUE_PATH = DATA_DIR / "tesco_latest_catalogue.json"
 TESCO_EVENTS_PATH = DATA_DIR / "tesco_nomination_events.json"
 TESCO_NOMINATIONS_DIR = DATA_DIR / "tesco_nominations"
+PLATFORM_SETTINGS_PATH = DATA_DIR / "platform_settings.json"
 NON_EXISTING_SKU = "__NON_EXISTING__"
 WORKBOOK_PATH = Path(
     os.environ.get(
@@ -114,6 +115,17 @@ DEFAULT_COMMISSIONS = {
     "Rackham": 0.18,
 }
 VARIABLE_COMMISSION_PLATFORMS = {"Debenhams", "The Range"}
+
+
+def default_platform_settings():
+    return [
+        {
+            "platform": platform,
+            "default_commission": commission,
+            "manual_promo_price_adjustment": False,
+        }
+        for platform, commission in DEFAULT_COMMISSIONS.items()
+    ]
 
 
 ALIASES = {
@@ -294,6 +306,71 @@ def supabase_select_all(table, params=None, page_size=1000):
         if len(page) < page_size:
             return rows
         offset += page_size
+
+
+def validate_platform_setting(row):
+    if not isinstance(row, dict):
+        raise ValueError("Every platform setting must be an object.")
+    platform = str(row.get("platform") or "").strip()
+    if not platform:
+        raise ValueError("Platform name is required.")
+    if len(platform) > 120:
+        raise ValueError("Platform name is too long.")
+    commission = normalise_number(row.get("default_commission"), None)
+    if commission is None or commission < 0 or commission > 1:
+        raise ValueError("Default commission must be between 0% and 100%.")
+    return {
+        "platform": platform,
+        "default_commission": commission,
+        "manual_promo_price_adjustment": bool(
+            row.get("manual_promo_price_adjustment", False)
+        ),
+    }
+
+
+def platform_settings():
+    if supabase_enabled():
+        rows = supabase_request(
+            "GET",
+            "promotion_platform_settings",
+            params={
+                "select": (
+                    "platform,default_commission,"
+                    "manual_promo_price_adjustment"
+                ),
+                "order": "platform.asc",
+            },
+        )
+        return [validate_platform_setting(row) for row in rows]
+    if PLATFORM_SETTINGS_PATH.exists():
+        rows = json.loads(PLATFORM_SETTINGS_PATH.read_text(encoding="utf-8"))
+        return [validate_platform_setting(row) for row in rows]
+    return default_platform_settings()
+
+
+def save_platform_settings(payload):
+    rows = payload.get("settings") if isinstance(payload, dict) else None
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("Add at least one platform setting.")
+    settings = [validate_platform_setting(row) for row in rows]
+    names = [row["platform"].casefold() for row in settings]
+    if len(names) != len(set(names)):
+        raise ValueError("Platform names must be unique.")
+    if supabase_enabled():
+        supabase_request(
+            "POST",
+            "promotion_platform_settings",
+            rows=settings,
+            params={"on_conflict": "platform"},
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+    else:
+        PLATFORM_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PLATFORM_SETTINGS_PATH.write_text(
+            json.dumps(settings, indent=2, ensure_ascii=True),
+            encoding="utf-8",
+        )
+    return platform_settings()
 
 
 def validate_worktable_id(value):
@@ -2680,6 +2757,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/config":
             inventory = wooper_inventory()
+            settings = platform_settings()
             exact_ca_prices, _ = channeladvisor_prices()
             ca_mappings = persisted_mapping_dictionary("channeladvisor")
             ca_alignment, _ = align_channeladvisor_prices(
@@ -2697,7 +2775,11 @@ class Handler(SimpleHTTPRequestHandler):
             protection_rows = active_protection_rows()
             self.send_json(
                 {
-                    "defaultCommissions": DEFAULT_COMMISSIONS,
+                    "defaultCommissions": {
+                        row["platform"]: row["default_commission"]
+                        for row in settings
+                    },
+                    "platformSettings": settings,
                     "variableCommissionPlatforms": sorted(
                         VARIABLE_COMMISSION_PLATFORMS
                     ),
@@ -2712,6 +2794,12 @@ class Handler(SimpleHTTPRequestHandler):
                     "activeProtectionCount": len(protection_rows),
                 }
             )
+            return
+        if parsed.path == "/api/platform-settings":
+            try:
+                self.send_json({"settings": platform_settings()})
+            except RuntimeError as exc:
+                self.send_json({"error": str(exc)}, status=503)
             return
         if parsed.path == "/api/tesco/status":
             offers = latest_tesco_offers()
@@ -2759,6 +2847,10 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.require_authorization(parsed.path):
             return
         try:
+            if parsed.path == "/api/platform-settings":
+                settings = save_platform_settings(self.read_json())
+                self.send_json({"settings": settings})
+                return
             if parsed.path == "/api/worktables":
                 record = create_saved_worktable(self.read_json())
                 self.send_json({"worktable": record}, status=201)

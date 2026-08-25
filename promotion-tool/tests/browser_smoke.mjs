@@ -20,6 +20,9 @@ const initial = {
   guideCounter: await page.locator("#guideCounter").textContent(),
   platformCount: await page.locator("#platform option").count(),
   defaultCommission: await page.locator("#defaultCommission").inputValue(),
+  eventStartType: await page.locator("#eventStartDate").getAttribute("type"),
+  eventEndType: await page.locator("#eventEndDate").getAttribute("type"),
+  manualAdjustmentDefault: await page.locator("#manualPromoPriceAdjustment").isChecked(),
   marginInputs: await page.locator(".grade-margin").count(),
   vatOptions: await page.locator(".vat-option").count(),
   vatRate: await page.locator(".vat-controls > strong").textContent(),
@@ -52,6 +55,10 @@ const chinese = {
   ),
   defaultCommissionValue: await page.locator("#defaultCommission").inputValue(),
   campaignName: await page.locator("#campaignName").inputValue(),
+  eventStartLabel: await page.locator("#eventStartDate").evaluate(
+    (input) => input.closest("label").childNodes[0].textContent.trim(),
+  ),
+  manualAdjustmentLabel: await page.locator("#manualPromoPriceAdjustmentLabel").textContent(),
   noPageOverflow: await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   ),
@@ -514,6 +521,19 @@ await page.screenshot({
 });
 await page.locator("#languageButton").click();
 await page.waitForFunction(() => document.documentElement.lang === "en");
+await page.locator("#platformSettingsButton").click();
+loaded.platformSettingsVisible = await page.locator("#platformSettingsModal").isVisible();
+loaded.platformSettingsRows = await page.locator("#platformSettingsRows tr").count();
+await page.locator("#addPlatformSetting").click();
+loaded.platformSettingsRowsAfterAdd = await page.locator("#platformSettingsRows tr").count();
+await page.screenshot({ path: "analysis/platform-settings-modal.png", fullPage: true });
+await page.locator("#closePlatformSettings").click();
+await page.locator("#eventStartDate").fill("2026-10-01");
+await page.locator("#eventEndDate").fill("2026-10-15");
+await page.locator("#manualPromoPriceAdjustment").evaluate((input) => {
+  input.checked = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});
 const downloadPromise = page.waitForEvent("download");
 await page.locator("#exportButton").click();
 const download = await downloadPromise;
@@ -522,6 +542,8 @@ loaded.exportHasCaPriceHeader = exportCsv.includes("CA Price - Normal Price (VAT
 loaded.exportHasInputVatHeader = exportCsv.includes("Offer Price (VAT Excluded)");
 loaded.exportHasPromoVatHeader = exportCsv.includes("Promotion Price (VAT Excluded)");
 loaded.exportHasPriceSourceHeader = exportCsv.includes("Calculation Price Source");
+loaded.exportHasEventFields = exportCsv.includes('"Event Start Date","Event End Date","Manual Promo Price Adjustment"');
+loaded.exportHasEventValues = exportCsv.includes('"2026-10-01","2026-10-15","Yes"');
 loaded.exportHasCostHeaders = exportCsv.includes('"SKU","SOH","Months","COGS","Avg Freight","Commission Rate","CA Price - Normal Price (VAT Included)"');
 loaded.exportHasCostValues = /,"\d+","\d+\.\d","\d+\.\d{2}","\d+\.\d{2}","\d+\.\d{2}%",/.test(exportCsv.split("\r\n")[1] || "");
 
@@ -718,6 +740,9 @@ if (
   );
 }
 if (initial.platformCount < 10) throw new Error("Platform defaults did not load.");
+if (initial.eventStartType !== "date" || initial.eventEndType !== "date" || initial.manualAdjustmentDefault) {
+  throw new Error("Event fields or manual adjustment default are incorrect.");
+}
 if (initial.marginInputs !== 8) throw new Error("Grade margin matrix is incomplete.");
 if (initial.vatOptions !== 4 || initial.vatRate !== "VAT 20%") {
   throw new Error("VAT controls are incomplete.");
@@ -763,12 +788,17 @@ if (
   || chinese.defaultCommissionLabel !== "默认佣金率"
   || chinese.defaultCommissionValue !== initial.defaultCommission
   || chinese.campaignName !== "EXTRA 25%"
+  || chinese.eventStartLabel !== "活动开始日期"
+  || chinese.manualAdjustmentLabel !== "手动调整促销价"
   || !chinese.noPageOverflow
 ) {
   throw new Error(`Simplified Chinese interface is incomplete: ${JSON.stringify(chinese)}`);
 }
 if (!initial.guideText?.includes("UK Product Commission Rate List from DingTalk")) {
   throw new Error("The user guide does not explain where to obtain the commission workbook.");
+}
+if (!loaded.platformSettingsVisible || loaded.platformSettingsRows < 10 || loaded.platformSettingsRowsAfterAdd !== loaded.platformSettingsRows + 1) {
+  throw new Error(`Platform settings editor failed: ${JSON.stringify(loaded)}`);
 }
 if (
   initial.discountIntervalEnabled
@@ -967,6 +997,8 @@ if (
   || !loaded.exportHasInputVatHeader
   || !loaded.exportHasPromoVatHeader
   || !loaded.exportHasPriceSourceHeader
+  || !loaded.exportHasEventFields
+  || !loaded.exportHasEventValues
   || !loaded.exportHasCostHeaders
   || !loaded.exportHasCostValues
 ) {

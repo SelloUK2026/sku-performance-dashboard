@@ -185,6 +185,48 @@ create table if not exists public.promotion_worktables (
   check (length(btrim(event_name)) between 1 and 160)
 );
 
+create table if not exists public.promotion_platform_settings (
+  platform text primary key,
+  default_commission numeric not null
+    check (default_commission between 0 and 1),
+  manual_promo_price_adjustment boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (length(btrim(platform)) between 1 and 120)
+);
+
+insert into public.promotion_platform_settings
+  (platform, default_commission, manual_promo_price_adjustment)
+values
+  ('eBay', 0.11, false), ('Amazon(UK)', 0.18, false),
+  ('Temu(UK)', 0.00, false), ('Wayfair', 0.05, false),
+  ('Debenhams', 0.24, false), ('Tesco', 0.18, false),
+  ('BrandAlley', 0.24, false), ('Decathlon UK Limited', 0.19, false),
+  ('The Range', 0.14, false), ('TikTok(Skylos)', 0.09, false),
+  ('Tiktok(Levede)', 0.09, false), ('Skylous shopify', 0.00, false),
+  ('Go Groopie', 0.00, false), ('Groupon(UK)', 0.00, false),
+  ('Wowcher', 0.20, false), ('Onbuy', 0.15, false),
+  ('ManoMano', 0.16, false), ('Fruugo', 0.20, false),
+  ('Rackham', 0.18, false)
+on conflict (platform) do nothing;
+
+create or replace function public.set_promotion_platform_settings_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists promotion_platform_settings_updated_at
+  on public.promotion_platform_settings;
+create trigger promotion_platform_settings_updated_at
+before update on public.promotion_platform_settings
+for each row execute function public.set_promotion_platform_settings_updated_at();
+
 create table if not exists public.promotion_tesco_catalogue (
   tesco_sku text primary key,
   wooper_sku text,
@@ -240,6 +282,7 @@ alter table public.promotion_sku_data enable row level security;
 alter table public.promotion_protection_list enable row level security;
 alter table public.sku_mappings enable row level security;
 alter table public.promotion_worktables enable row level security;
+alter table public.promotion_platform_settings enable row level security;
 alter table public.promotion_tesco_catalogue enable row level security;
 
 grant select, insert, update, delete
@@ -247,12 +290,14 @@ grant select, insert, update, delete
   public.promotion_protection_list, public.sku_mappings
   to service_role;
 grant select, insert, delete on public.promotion_worktables to service_role;
+grant select, insert, update on public.promotion_platform_settings to service_role;
 grant select, insert, update, delete on public.promotion_tesco_catalogue to service_role;
 revoke all
   on public.channeladvisor_products, public.promotion_sku_data,
   public.promotion_protection_list, public.sku_mappings
   from anon, authenticated;
 revoke all on public.promotion_worktables from anon, authenticated;
+revoke all on public.promotion_platform_settings from anon, authenticated;
 revoke all on public.promotion_tesco_catalogue from anon, authenticated;
 
 drop policy if exists "dashboard read sales" on public.sales;

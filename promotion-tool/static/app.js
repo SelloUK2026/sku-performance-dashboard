@@ -9,7 +9,7 @@ const DEFAULT_MARGINS = {
   7: 3,
 };
 
-const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v10";
+const GUIDE_STORAGE_KEY = "promotion-nomination-guide-v11";
 const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
 const CRITERIA_STORAGE_KEY = "promotion-nomination-criteria-collapsed";
 const SKU_COLLATOR = new Intl.Collator("en-GB", { numeric: true, sensitivity: "base" });
@@ -28,6 +28,7 @@ const UI_TEXT = {
     importData: "Import data",
     resolveMappings: "Resolve mappings",
     commissionTable: "Commission table",
+    platformSettings: "Platform settings",
     exportSelected: "Export selected",
     campaignSetup: "Campaign setup",
     criteria: "Criteria",
@@ -39,6 +40,9 @@ const UI_TEXT = {
     themeEvent: "Theme event",
     singleDeal: "Single deal",
     campaignName: "Campaign name",
+    eventStartDate: "Event start date",
+    eventEndDate: "Event end date",
+    manualPromoPriceAdjustment: "Manual promo price adjustment",
     commissionListRequired: "UK Product Commission Rate List required",
     commissionRatesReview: "{count} commission rates need review",
     uploadTable: "Upload table",
@@ -206,6 +210,17 @@ const UI_TEXT = {
     returnToCurrent: "Return to current worktable",
     savedRecord: "Saved worktable",
     allPromotionPlatforms: "All platforms",
+    sharedDefaults: "Shared defaults",
+    platformSettingsHelp: "These defaults are shared by all staff. They can still be changed for an individual worktable.",
+    addPlatform: "Add platform",
+    saveSettings: "Save settings",
+    platformSettingsSaved: "Platform settings saved",
+    platformSettingsSaveFailed: "Platform settings could not be saved",
+    platformNameRequired: "Enter a name for every platform",
+    duplicatePlatform: "Platform names must be unique",
+    invalidEventDates: "Event end date cannot be earlier than the start date",
+    yes: "Yes",
+    no: "No",
   },
   zh: {
     caSkuMappingRequired: "\u9700\u8981\u6620\u5c04CA SKU",
@@ -229,6 +244,7 @@ const UI_TEXT = {
     importData: "导入数据",
     resolveMappings: "处理SKU映射",
     commissionTable: "佣金率表",
+    platformSettings: "平台设置",
     exportSelected: "导出已选",
     campaignSetup: "促销设置",
     criteria: "筛选条件",
@@ -240,6 +256,9 @@ const UI_TEXT = {
     themeEvent: "主题活动",
     singleDeal: "单品促销",
     campaignName: "促销名称",
+    eventStartDate: "活动开始日期",
+    eventEndDate: "活动结束日期",
+    manualPromoPriceAdjustment: "手动调整促销价",
     commissionListRequired: "需要UK Product Commission Rate List",
     commissionRatesReview: "{count}个佣金率需要审核",
     uploadTable: "上传表格",
@@ -398,6 +417,17 @@ const UI_TEXT = {
     returnToCurrent: "\u8fd4\u56de\u5f53\u524d\u5de5\u4f5c\u8868",
     savedRecord: "\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
     allPromotionPlatforms: "\u6240\u6709\u5e73\u53f0",
+    sharedDefaults: "共享默认值",
+    platformSettingsHelp: "这些默认值由所有员工共享，但仍可在单个工作表中更改。",
+    addPlatform: "添加平台",
+    saveSettings: "保存设置",
+    platformSettingsSaved: "平台设置已保存",
+    platformSettingsSaveFailed: "无法保存平台设置",
+    platformNameRequired: "请为每个平台输入名称",
+    duplicatePlatform: "平台名称不可重复",
+    invalidEventDates: "活动结束日期不可早于开始日期",
+    yes: "是",
+    no: "否",
   },
 };
 
@@ -410,7 +440,9 @@ const GUIDE_STEPS = {
       "The default commission rate is filled automatically and can be amended for the current run.",
       "For variable-rate platforms, download UK Product Commission Rate List from DingTalk and upload the complete workbook.",
       "The workbook keeps each variable-commission platform on its own tab.",
-      "Enter a campaign name so the exported file is easy to identify.",
+      "Use Platform settings in the header to maintain shared commission and manual-price-adjustment defaults, or add a new platform.",
+      "Enter the campaign name and event dates so saved worktables and exports identify the promotion period.",
+      "Manual promo price adjustment follows the platform default but can be changed for the current worktable.",
     ],
   },
   {
@@ -482,7 +514,9 @@ const GUIDE_STEPS = {
         "系统会自动填写默认佣金率，本次计算中可手动修改。",
         "对于浮动佣金率平台，请从DingTalk下载UK Product Commission Rate List并上传完整工作簿。",
         "工作簿中每个浮动佣金率平台分别保存在不同工作表。",
-        "输入促销名称，便于识别导出的文件。",
+        "使用页首的平台设置维护共享的佣金率和手动调整促销价默认值，也可添加新平台。",
+        "输入促销名称及活动日期，使已保存工作表和导出文件清楚记录促销期间。",
+        "手动调整促销价会采用平台默认值，但可在当前工作表中更改。",
       ],
     },
     {
@@ -573,7 +607,7 @@ const state = {
   rows: [],
   candidates: [],
   selected: new Set(),
-  config: { defaultCommissions: {}, variableCommissionPlatforms: [], wooperSkus: [] },
+  config: { defaultCommissions: {}, platformSettings: [], variableCommissionPlatforms: [], wooperSkus: [] },
   wooperSkuSet: new Set(),
   unresolved: [],
   caUnresolved: [],
@@ -847,6 +881,7 @@ function applyLanguage(language, { persist = true } = {}) {
   element("importButton").textContent = t("importData");
   element("mappingButton").textContent = t("resolveMappings");
   element("commissionButton").textContent = t("commissionTable");
+  element("platformSettingsButton").textContent = t("platformSettings");
   element("savedWorktablesButton").textContent = t("savedWorktables");
   element("saveWorktableButton").textContent = t("saveWorktable");
   element("exportButton").textContent = t("exportSelected");
@@ -860,6 +895,8 @@ function applyLanguage(language, { persist = true } = {}) {
     ["platform", "platform"],
     ["campaignType", "campaignType"],
     ["campaignName", "campaignName"],
+    ["eventStartDate", "eventStartDate"],
+    ["eventEndDate", "eventEndDate"],
     ["minGrade", "minimumGrade"],
     ["minStock", "minimumStock"],
     ["minMonths", "minimumMonths"],
@@ -885,6 +922,7 @@ function applyLanguage(language, { persist = true } = {}) {
   document.querySelectorAll(".section-label")[1].textContent = t("pricingRules");
   element("roundingLabel").textContent = t("roundPromoPrices");
   element("discountIntervalLabel").textContent = t("useDiscountInterval");
+  element("manualPromoPriceAdjustmentLabel").textContent = t("manualPromoPriceAdjustment");
   document.querySelector(".margin-header span:first-child").textContent = t("minimumMarginByGrade");
   document.querySelector(".margin-header span:last-child").textContent = t("target");
   document.querySelectorAll(".margin-cell > span").forEach((node, index) => {
@@ -984,6 +1022,18 @@ function applyLanguage(language, { persist = true } = {}) {
   setControlLabel("saveEventName", "eventName");
   element("cancelSaveWorktable").textContent = t("cancel");
   element("confirmSaveWorktable").textContent = t("savePermanentRecord");
+  setStaticText("#platformSettingsModal .eyebrow", "sharedDefaults");
+  setStaticText("#platformSettingsTitle", "platformSettings");
+  setStaticText("#platformSettingsHelp", "platformSettingsHelp");
+  const platformSettingHeaders = ["platform", "defaultCommission", "manualPromoPriceAdjustment"];
+  document.querySelectorAll(".platform-settings-table thead th").forEach((header, index) => {
+    header.textContent = t(platformSettingHeaders[index]);
+  });
+  element("addPlatformSetting").textContent = t("addPlatform");
+  element("closePlatformSettings").textContent = t("cancel");
+  element("savePlatformSettings").textContent = t("saveSettings");
+  element("closePlatformSettingsIcon").title = t("close");
+  element("closePlatformSettingsIcon").setAttribute("aria-label", t("close"));
   setStaticText("#savedWorktablesModal .eyebrow", "recordTracking");
   setStaticText("#savedWorktablesTitle", "savedWorktables");
   setControlLabel("archivePlatform", "promotionPlatform");
@@ -1154,6 +1204,9 @@ function criteriaFromForm() {
   return {
     platform: element("platform").value,
     campaign_name: element("campaignName").value.trim(),
+    event_start_date: element("eventStartDate").value,
+    event_end_date: element("eventEndDate").value,
+    manual_promo_price_adjustment: element("manualPromoPriceAdjustment").checked,
     campaign_type: element("campaignType").value,
     min_grade: Number(element("minGrade").value || 0),
     min_stock: Number(element("minStock").value || 0),
@@ -1224,6 +1277,13 @@ function applyCriteriaSnapshot(criteria = {}) {
     element("platform").value = criteria.platform;
   }
   element("campaignName").value = criteria.campaign_name || "";
+  element("eventStartDate").value = criteria.event_start_date || "";
+  element("eventEndDate").value = criteria.event_end_date || "";
+  element("eventEndDate").min = element("eventStartDate").value;
+  element("eventStartDate").max = element("eventEndDate").value;
+  element("manualPromoPriceAdjustment").checked = Boolean(
+    criteria.manual_promo_price_adjustment,
+  );
   element("campaignType").value = criteria.campaign_type || "theme";
   element("minGrade").value = Number(criteria.min_grade ?? 0);
   element("minStock").value = Number(criteria.min_stock ?? 1);
@@ -1362,6 +1422,9 @@ function openSaveWorktableModal() {
   element("saveEventName").value = element("campaignName").value.trim();
   element("saveWorktableError").hidden = true;
   element("saveWorktableSummary").innerHTML = `
+    <div><span>${escapeHtml(t("eventStartDate"))}</span><strong>${escapeHtml(element("eventStartDate").value || "-")}</strong></div>
+    <div><span>${escapeHtml(t("eventEndDate"))}</span><strong>${escapeHtml(element("eventEndDate").value || "-")}</strong></div>
+    <div><span>${escapeHtml(t("manualPromoPriceAdjustment"))}</span><strong>${escapeHtml(element("manualPromoPriceAdjustment").checked ? t("yes") : t("no"))}</strong></div>
     <div><span>${escapeHtml(t("candidates"))}</span><strong>${number(state.candidates.length)}</strong></div>
     <div><span>${escapeHtml(t("eligible"))}</span><strong>${number(state.candidates.filter((row) => row.eligible).length)}</strong></div>
     <div><span>${escapeHtml(t("selected"))}</span><strong>${number(state.selected.size)}</strong></div>
@@ -1385,6 +1448,11 @@ async function saveWorktable() {
   }
   if (!eventName) {
     errorNode.textContent = t("eventNameRequired");
+    errorNode.hidden = false;
+    return;
+  }
+  if (!eventDatesValid()) {
+    errorNode.textContent = t("invalidEventDates");
     errorNode.hidden = false;
     return;
   }
@@ -1501,6 +1569,101 @@ function isVariableCommissionPlatform() {
   return state.config.variableCommissionPlatforms.includes(element("platform").value);
 }
 
+function platformSetting(platform = element("platform").value) {
+  return (state.config.platformSettings || []).find((row) => row.platform === platform) || null;
+}
+
+function renderPlatformSettingsRows(settings = state.config.platformSettings || []) {
+  element("platformSettingsRows").innerHTML = settings.map((row) => `
+    <tr>
+      <td><input class="platform-setting-name" type="text" maxlength="120" value="${escapeHtml(row.platform || "")}"></td>
+      <td><div class="input-suffix"><input class="platform-setting-commission" type="number" min="0" max="100" step="0.1" value="${(Number(row.default_commission || 0) * 100).toFixed(1)}"><span>%</span></div></td>
+      <td><label class="switch"><input class="platform-setting-manual" type="checkbox"${row.manual_promo_price_adjustment ? " checked" : ""}><span aria-hidden="true"></span></label></td>
+    </tr>
+  `).join("");
+}
+
+function openPlatformSettingsModal() {
+  renderPlatformSettingsRows();
+  element("platformSettingsError").hidden = true;
+  element("platformSettingsModal").classList.add("visible");
+}
+
+function closePlatformSettingsModal() {
+  element("platformSettingsModal").classList.remove("visible");
+}
+
+function addPlatformSettingRow() {
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input class="platform-setting-name" type="text" maxlength="120"></td>
+    <td><div class="input-suffix"><input class="platform-setting-commission" type="number" min="0" max="100" step="0.1" value="0.0"><span>%</span></div></td>
+    <td><label class="switch"><input class="platform-setting-manual" type="checkbox"><span aria-hidden="true"></span></label></td>
+  `;
+  element("platformSettingsRows").append(row);
+  row.querySelector(".platform-setting-name").focus();
+}
+
+function updatePlatformOptions(selectedPlatform = element("platform").value) {
+  const names = (state.config.platformSettings || []).map((row) => row.platform);
+  element("platform").innerHTML = names
+    .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+    .join("");
+  element("platform").value = names.includes(selectedPlatform)
+    ? selectedPlatform
+    : (names.includes("Debenhams") ? "Debenhams" : names[0] || "");
+  populateWorktablePlatforms();
+}
+
+async function savePlatformSettings() {
+  const rows = [...element("platformSettingsRows").querySelectorAll("tr")].map((row) => ({
+    platform: row.querySelector(".platform-setting-name").value.trim(),
+    default_commission: Number(row.querySelector(".platform-setting-commission").value) / 100,
+    manual_promo_price_adjustment: row.querySelector(".platform-setting-manual").checked,
+  }));
+  const errorNode = element("platformSettingsError");
+  if (rows.some((row) => !row.platform)) {
+    errorNode.textContent = t("platformNameRequired");
+    errorNode.hidden = false;
+    return;
+  }
+  const names = rows.map((row) => row.platform.toLocaleLowerCase());
+  if (new Set(names).size !== names.length) {
+    errorNode.textContent = t("duplicatePlatform");
+    errorNode.hidden = false;
+    return;
+  }
+  if (rows.some((row) => !Number.isFinite(row.default_commission) || row.default_commission < 0 || row.default_commission > 1)) {
+    errorNode.textContent = t("invalidCommission");
+    errorNode.hidden = false;
+    return;
+  }
+  element("savePlatformSettings").disabled = true;
+  try {
+    const response = await fetch("/api/platform-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: rows }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || t("platformSettingsSaveFailed"));
+    const selectedPlatform = element("platform").value;
+    state.config.platformSettings = payload.settings || rows;
+    state.config.defaultCommissions = Object.fromEntries(
+      state.config.platformSettings.map((row) => [row.platform, row.default_commission]),
+    );
+    updatePlatformOptions(selectedPlatform);
+    closePlatformSettingsModal();
+    await setPlatformDefault();
+    showToast(t("platformSettingsSaved"));
+  } catch (error) {
+    errorNode.textContent = translateMessage(error.message || t("platformSettingsSaveFailed"));
+    errorNode.hidden = false;
+  } finally {
+    element("savePlatformSettings").disabled = false;
+  }
+}
+
 function updateCommissionRequirement() {
   const required = isVariableCommissionPlatform();
   element("commissionRequirement").hidden = !required || state.commissionTableLoaded;
@@ -1511,10 +1674,14 @@ function updateCommissionRequirement() {
 }
 
 async function setPlatformDefault() {
-  const rate = state.config.defaultCommissions[element("platform").value];
+  const setting = platformSetting();
+  const rate = setting?.default_commission ?? state.config.defaultCommissions[element("platform").value];
   if (Number.isFinite(Number(rate))) {
     element("defaultCommission").value = (Number(rate) * 100).toFixed(1);
   }
+  element("manualPromoPriceAdjustment").checked = Boolean(
+    setting?.manual_promo_price_adjustment,
+  );
   state.rows.forEach((row) => {
     row.commission = null;
     delete row.commission_source;
@@ -1586,17 +1753,20 @@ async function loadConfig() {
   const response = await fetch("/api/config");
   const config = await response.json();
   state.config = config;
+  state.config.platformSettings = config.platformSettings || Object.entries(config.defaultCommissions || {}).map(
+    ([platform, default_commission]) => ({
+      platform,
+      default_commission,
+      manual_promo_price_adjustment: false,
+    }),
+  );
   state.wooperSkuSet = new Set(
     (config.wooperSkus || []).map((sku) => String(sku).trim().toUpperCase()),
   );
-  element("platform").innerHTML = Object.keys(config.defaultCommissions)
-    .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
-    .join("");
-  element("platform").value = "Debenhams";
+  updatePlatformOptions("Debenhams");
   element("wooperSkuList").innerHTML = config.wooperSkus
     .map((sku) => `<option value="${escapeHtml(sku)}"></option>`)
     .join("");
-  populateWorktablePlatforms();
   state.caUnresolved = config.caUnresolved || [];
   updateMappingButton();
   setPlatformDefault();
@@ -2200,6 +2370,12 @@ function csvValue(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+function eventDatesValid() {
+  const start = element("eventStartDate").value;
+  const end = element("eventEndDate").value;
+  return !start || !end || end >= start;
+}
+
 function exportSelected() {
   const criteria = criteriaFromForm();
   const inputVatLabel = criteria.input_price_includes_vat
@@ -2209,6 +2385,10 @@ function exportSelected() {
     ? "VAT Included"
     : "VAT Excluded";
   const rows = state.candidates.filter((row) => state.selected.has(row.sku));
+  if (!eventDatesValid()) {
+    showToast(t("invalidEventDates"), "error");
+    return;
+  }
   if (isVariableCommissionPlatform() && !state.commissionTableLoaded) {
     showToast(
       state.commissionMissing.length
@@ -2225,6 +2405,9 @@ function exportSelected() {
   const headers = [
     "Platform",
     "Campaign",
+    "Event Start Date",
+    "Event End Date",
+    "Manual Promo Price Adjustment",
     "Platform SKU",
     "Product ID",
     "SKU",
@@ -2249,6 +2432,9 @@ function exportSelected() {
   const body = rows.map((row) => [
     criteria.platform,
     criteria.campaign_name,
+    criteria.event_start_date,
+    criteria.event_end_date,
+    criteria.manual_promo_price_adjustment ? "Yes" : "No",
     row.platform_sku,
     row.product_id,
     row.sku,
@@ -2296,6 +2482,13 @@ function resetCriteria() {
   });
   ["mainCategory", "subcategory", "brand"].forEach(updateMultiSelectSummary);
   element("firstArrivalCutoff").value = "";
+  element("eventStartDate").value = "";
+  element("eventEndDate").value = "";
+  element("eventStartDate").removeAttribute("max");
+  element("eventEndDate").removeAttribute("min");
+  element("manualPromoPriceAdjustment").checked = Boolean(
+    platformSetting()?.manual_promo_price_adjustment,
+  );
   element("maxDiscount").value = 25;
   element("defaultCommission").value = 26.4;
   element("rounding").checked = true;
@@ -2324,6 +2517,11 @@ function bindEvents() {
   element("languageButton").addEventListener("click", toggleLanguage);
   element("guideLanguageButton").addEventListener("click", toggleLanguage);
   element("helpButton").addEventListener("click", openGuide);
+  element("platformSettingsButton").addEventListener("click", openPlatformSettingsModal);
+  element("closePlatformSettings").addEventListener("click", closePlatformSettingsModal);
+  element("closePlatformSettingsIcon").addEventListener("click", closePlatformSettingsModal);
+  element("addPlatformSetting").addEventListener("click", addPlatformSettingRow);
+  element("savePlatformSettings").addEventListener("click", savePlatformSettings);
   element("saveWorktableButton").addEventListener("click", openSaveWorktableModal);
   element("savedWorktablesButton").addEventListener("click", openSavedWorktablesModal);
   element("cancelSaveWorktable").addEventListener("click", closeSaveWorktableModal);
@@ -2389,6 +2587,12 @@ function bindEvents() {
   element("resetCriteria").addEventListener("click", resetCriteria);
   element("discountIntervalEnabled").addEventListener("change", () => {
     element("discountInterval").disabled = !element("discountIntervalEnabled").checked;
+  });
+  element("eventStartDate").addEventListener("change", () => {
+    element("eventEndDate").min = element("eventStartDate").value;
+  });
+  element("eventEndDate").addEventListener("change", () => {
+    element("eventStartDate").max = element("eventEndDate").value;
   });
   element("criteriaForm").addEventListener("input", scheduleCalculation);
   element("criteriaForm").addEventListener("change", (event) => {
@@ -2473,6 +2677,9 @@ function bindEvents() {
     }
     if (event.key === "Escape" && element("savedWorktablesModal").classList.contains("visible")) {
       closeSavedWorktablesModal();
+    }
+    if (event.key === "Escape" && element("platformSettingsModal").classList.contains("visible")) {
+      closePlatformSettingsModal();
     }
     if (event.key === "Escape") {
       document.querySelectorAll(".multi-select.open").forEach((control) => {

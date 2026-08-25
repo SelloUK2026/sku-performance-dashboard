@@ -23,6 +23,7 @@
       <button class="button secondary" id="importButton">Import data</button>
       <button class="button secondary" id="mappingButton" hidden>Resolve mappings</button>
       <button class="button secondary" id="commissionButton" hidden>Commission table</button>
+      <button class="button secondary" id="platformSettingsButton">Platform settings</button>
       <button class="button secondary" id="savedWorktablesButton">Saved worktables</button>
       <a class="button secondary" href="/tesco.html">Tesco second stage</a>
       <button class="button secondary save-worktable-button" id="saveWorktableButton">Save worktable</button>
@@ -65,6 +66,21 @@
         <label>Campaign name
           <input id="campaignName" value="EXTRA 25%">
         </label>
+        <div class="field-grid two event-date-fields">
+          <label>Event start date
+            <input id="eventStartDate" type="date">
+          </label>
+          <label>Event end date
+            <input id="eventEndDate" type="date">
+          </label>
+        </div>
+        <div class="toggle-row manual-price-toggle">
+          <span id="manualPromoPriceAdjustmentLabel">Manual promo price adjustment</span>
+          <label class="switch">
+            <input id="manualPromoPriceAdjustment" type="checkbox">
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
         <div class="requirement-banner" id="commissionRequirement" hidden>
           <span id="commissionRequirementText">UK Product Commission Rate List required</span>
           <button type="button" id="commissionRequirementButton">Upload table</button>
@@ -369,6 +385,38 @@
       <div class="modal-actions">
         <button class="button plain" id="cancelSaveWorktable">Cancel</button>
         <button class="button primary" id="confirmSaveWorktable">Save permanent record</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="platformSettingsModal">
+    <section class="modal platform-settings-modal" role="dialog" aria-modal="true" aria-labelledby="platformSettingsTitle">
+      <div class="archive-heading">
+        <div>
+          <span class="eyebrow">Shared defaults</span>
+          <h2 id="platformSettingsTitle">Platform settings</h2>
+        </div>
+        <button class="icon-button" id="closePlatformSettingsIcon" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <p id="platformSettingsHelp">These defaults are shared by all staff. They can still be changed for an individual worktable.</p>
+      <div class="platform-settings-table-wrap">
+        <table class="platform-settings-table">
+          <thead>
+            <tr>
+              <th>Platform</th>
+              <th>Default commission</th>
+              <th>Manual promo price adjustment</th>
+            </tr>
+          </thead>
+          <tbody id="platformSettingsRows"></tbody>
+        </table>
+      </div>
+      <p class="form-error" id="platformSettingsError" hidden></p>
+      <div class="modal-actions platform-settings-actions">
+        <button class="button secondary" id="addPlatformSetting">Add platform</button>
+        <span class="modal-action-spacer"></span>
+        <button class="button plain" id="closePlatformSettings">Cancel</button>
+        <button class="button primary" id="savePlatformSettings">Save settings</button>
       </div>
     </section>
   </div>
