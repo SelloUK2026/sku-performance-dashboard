@@ -66,6 +66,9 @@ const UI_TEXT = {
     pricingRules: "Pricing rules",
     maximumDiscount: "Maximum discount",
     defaultCommission: "Default commission",
+    commissionType: "Commission type",
+    fixedCommission: "Fixed commission",
+    variableCommission: "Variable commission",
     roundPromoPrices: "Round promotional prices",
     useDiscountInterval: "Use discount interval",
     discountInterval: "Discount interval",
@@ -280,6 +283,9 @@ const UI_TEXT = {
     pricingRules: "定价规则",
     maximumDiscount: "最大折扣",
     defaultCommission: "默认佣金率",
+    commissionType: "佣金类型",
+    fixedCommission: "固定佣金率",
+    variableCommission: "浮动佣金率",
     roundPromoPrices: "对促销价进行舍入",
     useDiscountInterval: "使用折扣间隔",
     discountInterval: "折扣间隔",
@@ -1025,7 +1031,12 @@ function applyLanguage(language, { persist = true } = {}) {
   setStaticText("#platformSettingsModal .eyebrow", "sharedDefaults");
   setStaticText("#platformSettingsTitle", "platformSettings");
   setStaticText("#platformSettingsHelp", "platformSettingsHelp");
-  const platformSettingHeaders = ["platform", "defaultCommission", "manualPromoPriceAdjustment"];
+  const platformSettingHeaders = [
+    "platform",
+    "commissionType",
+    "defaultCommission",
+    "manualPromoPriceAdjustment",
+  ];
   document.querySelectorAll(".platform-settings-table thead th").forEach((header, index) => {
     header.textContent = t(platformSettingHeaders[index]);
   });
@@ -1566,7 +1577,10 @@ function returnToDraft() {
 }
 
 function isVariableCommissionPlatform() {
-  return state.config.variableCommissionPlatforms.includes(element("platform").value);
+  const setting = platformSetting();
+  return setting
+    ? Boolean(setting.variable_commission)
+    : state.config.variableCommissionPlatforms.includes(element("platform").value);
 }
 
 function platformSetting(platform = element("platform").value) {
@@ -1577,8 +1591,15 @@ function renderPlatformSettingsRows(settings = state.config.platformSettings || 
   element("platformSettingsRows").innerHTML = settings.map((row) => `
     <tr>
       <td><input class="platform-setting-name" type="text" maxlength="120" value="${escapeHtml(row.platform || "")}"></td>
+      <td><select class="platform-setting-variable" aria-label="${escapeHtml(t("commissionType"))}">
+        <option value="fixed"${row.variable_commission ? "" : " selected"}>${escapeHtml(t("fixedCommission"))}</option>
+        <option value="variable"${row.variable_commission ? " selected" : ""}>${escapeHtml(t("variableCommission"))}</option>
+      </select></td>
       <td><div class="input-suffix"><input class="platform-setting-commission" type="number" min="0" max="100" step="0.1" value="${(Number(row.default_commission || 0) * 100).toFixed(1)}"><span>%</span></div></td>
-      <td><label class="switch"><input class="platform-setting-manual" type="checkbox"${row.manual_promo_price_adjustment ? " checked" : ""}><span aria-hidden="true"></span></label></td>
+      <td><select class="platform-setting-manual" aria-label="${escapeHtml(t("manualPromoPriceAdjustment"))}">
+        <option value="no"${row.manual_promo_price_adjustment ? "" : " selected"}>${escapeHtml(t("no"))}</option>
+        <option value="yes"${row.manual_promo_price_adjustment ? " selected" : ""}>${escapeHtml(t("yes"))}</option>
+      </select></td>
     </tr>
   `).join("");
 }
@@ -1597,8 +1618,15 @@ function addPlatformSettingRow() {
   const row = document.createElement("tr");
   row.innerHTML = `
     <td><input class="platform-setting-name" type="text" maxlength="120"></td>
+    <td><select class="platform-setting-variable" aria-label="${escapeHtml(t("commissionType"))}">
+      <option value="fixed">${escapeHtml(t("fixedCommission"))}</option>
+      <option value="variable">${escapeHtml(t("variableCommission"))}</option>
+    </select></td>
     <td><div class="input-suffix"><input class="platform-setting-commission" type="number" min="0" max="100" step="0.1" value="0.0"><span>%</span></div></td>
-    <td><label class="switch"><input class="platform-setting-manual" type="checkbox"><span aria-hidden="true"></span></label></td>
+    <td><select class="platform-setting-manual" aria-label="${escapeHtml(t("manualPromoPriceAdjustment"))}">
+      <option value="no">${escapeHtml(t("no"))}</option>
+      <option value="yes">${escapeHtml(t("yes"))}</option>
+    </select></td>
   `;
   element("platformSettingsRows").append(row);
   row.querySelector(".platform-setting-name").focus();
@@ -1619,7 +1647,8 @@ async function savePlatformSettings() {
   const rows = [...element("platformSettingsRows").querySelectorAll("tr")].map((row) => ({
     platform: row.querySelector(".platform-setting-name").value.trim(),
     default_commission: Number(row.querySelector(".platform-setting-commission").value) / 100,
-    manual_promo_price_adjustment: row.querySelector(".platform-setting-manual").checked,
+    variable_commission: row.querySelector(".platform-setting-variable").value === "variable",
+    manual_promo_price_adjustment: row.querySelector(".platform-setting-manual").value === "yes",
   }));
   const errorNode = element("platformSettingsError");
   if (rows.some((row) => !row.platform)) {
@@ -1652,6 +1681,9 @@ async function savePlatformSettings() {
     state.config.defaultCommissions = Object.fromEntries(
       state.config.platformSettings.map((row) => [row.platform, row.default_commission]),
     );
+    state.config.variableCommissionPlatforms = state.config.platformSettings
+      .filter((row) => row.variable_commission)
+      .map((row) => row.platform);
     updatePlatformOptions(selectedPlatform);
     closePlatformSettingsModal();
     await setPlatformDefault();
@@ -1757,6 +1789,7 @@ async function loadConfig() {
     ([platform, default_commission]) => ({
       platform,
       default_commission,
+      variable_commission: (config.variableCommissionPlatforms || []).includes(platform),
       manual_promo_price_adjustment: false,
     }),
   );

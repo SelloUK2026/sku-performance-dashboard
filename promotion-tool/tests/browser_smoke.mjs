@@ -524,8 +524,18 @@ await page.waitForFunction(() => document.documentElement.lang === "en");
 await page.locator("#platformSettingsButton").click();
 loaded.platformSettingsVisible = await page.locator("#platformSettingsModal").isVisible();
 loaded.platformSettingsRows = await page.locator("#platformSettingsRows tr").count();
+const debenhamsSetting = page.locator("#platformSettingsRows tr").filter({
+  has: page.locator('.platform-setting-name[value="Debenhams"]'),
+});
+loaded.debenhamsCommissionType = await debenhamsSetting.locator(".platform-setting-variable").inputValue();
+loaded.debenhamsManualDefault = await debenhamsSetting.locator(".platform-setting-manual").inputValue();
 await page.locator("#addPlatformSetting").click();
 loaded.platformSettingsRowsAfterAdd = await page.locator("#platformSettingsRows tr").count();
+const addedPlatformSetting = page.locator("#platformSettingsRows tr").last();
+await addedPlatformSetting.locator(".platform-setting-variable").selectOption("variable");
+await addedPlatformSetting.locator(".platform-setting-manual").selectOption("yes");
+loaded.addedCommissionType = await addedPlatformSetting.locator(".platform-setting-variable").inputValue();
+loaded.addedManualDefault = await addedPlatformSetting.locator(".platform-setting-manual").inputValue();
 await page.screenshot({ path: "analysis/platform-settings-modal.png", fullPage: true });
 await page.locator("#closePlatformSettings").click();
 await page.locator("#eventStartDate").fill("2026-10-01");
@@ -797,7 +807,15 @@ if (
 if (!initial.guideText?.includes("UK Product Commission Rate List from DingTalk")) {
   throw new Error("The user guide does not explain where to obtain the commission workbook.");
 }
-if (!loaded.platformSettingsVisible || loaded.platformSettingsRows < 10 || loaded.platformSettingsRowsAfterAdd !== loaded.platformSettingsRows + 1) {
+if (
+  !loaded.platformSettingsVisible
+  || loaded.platformSettingsRows < 10
+  || loaded.platformSettingsRowsAfterAdd !== loaded.platformSettingsRows + 1
+  || loaded.debenhamsCommissionType !== "variable"
+  || loaded.debenhamsManualDefault !== "no"
+  || loaded.addedCommissionType !== "variable"
+  || loaded.addedManualDefault !== "yes"
+) {
   throw new Error(`Platform settings editor failed: ${JSON.stringify(loaded)}`);
 }
 if (

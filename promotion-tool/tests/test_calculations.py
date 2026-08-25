@@ -98,11 +98,13 @@ class PromotionCalculationTests(unittest.TestCase):
             {
                 "platform": "New Platform",
                 "default_commission": 0.175,
+                "variable_commission": True,
                 "manual_promo_price_adjustment": True,
             }
         )
         self.assertEqual(setting["platform"], "New Platform")
         self.assertEqual(setting["default_commission"], 0.175)
+        self.assertTrue(setting["variable_commission"])
         self.assertTrue(setting["manual_promo_price_adjustment"])
         with self.assertRaisesRegex(ValueError, "between 0% and 100%"):
             validate_platform_setting(
@@ -122,6 +124,7 @@ class PromotionCalculationTests(unittest.TestCase):
             {
                 "platform": "Tesco",
                 "default_commission": 0.18,
+                "variable_commission": False,
                 "manual_promo_price_adjustment": True,
             }
         ]

@@ -122,6 +122,7 @@ def default_platform_settings():
         {
             "platform": platform,
             "default_commission": commission,
+            "variable_commission": platform in VARIABLE_COMMISSION_PLATFORMS,
             "manual_promo_price_adjustment": False,
         }
         for platform, commission in DEFAULT_COMMISSIONS.items()
@@ -322,6 +323,7 @@ def validate_platform_setting(row):
     return {
         "platform": platform,
         "default_commission": commission,
+        "variable_commission": bool(row.get("variable_commission", False)),
         "manual_promo_price_adjustment": bool(
             row.get("manual_promo_price_adjustment", False)
         ),
@@ -336,7 +338,7 @@ def platform_settings():
             params={
                 "select": (
                     "platform,default_commission,"
-                    "manual_promo_price_adjustment"
+                    "variable_commission,manual_promo_price_adjustment"
                 ),
                 "order": "platform.asc",
             },
@@ -2781,7 +2783,9 @@ class Handler(SimpleHTTPRequestHandler):
                     },
                     "platformSettings": settings,
                     "variableCommissionPlatforms": sorted(
-                        VARIABLE_COMMISSION_PLATFORMS
+                        row["platform"]
+                        for row in settings
+                        if row["variable_commission"]
                     ),
                     "wooperSkus": supabase_inventory_skus() or sorted(inventory),
                     "caPriceCount": len(exact_ca_prices),

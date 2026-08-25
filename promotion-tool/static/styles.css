@@ -703,11 +703,12 @@ tbody tr.selected .reason-text { background: #f0f8f4; }
   overflow: auto;
   border: 1px solid var(--border);
 }
-.platform-settings-table { width: 100%; min-width: 620px; }
+.platform-settings-table { width: 100%; min-width: 760px; }
 .platform-settings-table th { position: sticky; top: 0; z-index: 1; background: #f4f7f5; }
 .platform-settings-table th,
 .platform-settings-table td { padding: 9px 10px; text-align: left; vertical-align: middle; }
 .platform-settings-table input[type="text"] { width: 100%; min-width: 180px; }
+.platform-settings-table select { min-width: 145px; }
 .platform-settings-table .input-suffix { width: 150px; }
 .platform-settings-table .switch { margin-inline: auto; }
 .platform-settings-actions { align-items: center; }

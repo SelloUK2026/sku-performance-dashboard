@@ -189,26 +189,34 @@ create table if not exists public.promotion_platform_settings (
   platform text primary key,
   default_commission numeric not null
     check (default_commission between 0 and 1),
+  variable_commission boolean not null default false,
   manual_promo_price_adjustment boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (length(btrim(platform)) between 1 and 120)
 );
 
+alter table public.promotion_platform_settings
+  add column if not exists variable_commission boolean not null default false;
+
 insert into public.promotion_platform_settings
-  (platform, default_commission, manual_promo_price_adjustment)
+  (platform, default_commission, variable_commission, manual_promo_price_adjustment)
 values
-  ('eBay', 0.11, false), ('Amazon(UK)', 0.18, false),
-  ('Temu(UK)', 0.00, false), ('Wayfair', 0.05, false),
-  ('Debenhams', 0.24, false), ('Tesco', 0.18, false),
-  ('BrandAlley', 0.24, false), ('Decathlon UK Limited', 0.19, false),
-  ('The Range', 0.14, false), ('TikTok(Skylos)', 0.09, false),
-  ('Tiktok(Levede)', 0.09, false), ('Skylous shopify', 0.00, false),
-  ('Go Groopie', 0.00, false), ('Groupon(UK)', 0.00, false),
-  ('Wowcher', 0.20, false), ('Onbuy', 0.15, false),
-  ('ManoMano', 0.16, false), ('Fruugo', 0.20, false),
-  ('Rackham', 0.18, false)
+  ('eBay', 0.11, false, false), ('Amazon(UK)', 0.18, false, false),
+  ('Temu(UK)', 0.00, false, false), ('Wayfair', 0.05, false, false),
+  ('Debenhams', 0.24, true, false), ('Tesco', 0.18, false, false),
+  ('BrandAlley', 0.24, false, false), ('Decathlon UK Limited', 0.19, false, false),
+  ('The Range', 0.14, true, false), ('TikTok(Skylos)', 0.09, false, false),
+  ('Tiktok(Levede)', 0.09, false, false), ('Skylous shopify', 0.00, false, false),
+  ('Go Groopie', 0.00, false, false), ('Groupon(UK)', 0.00, false, false),
+  ('Wowcher', 0.20, false, false), ('Onbuy', 0.15, false, false),
+  ('ManoMano', 0.16, false, false), ('Fruugo', 0.20, false, false),
+  ('Rackham', 0.18, false, false)
 on conflict (platform) do nothing;
+
+update public.promotion_platform_settings
+set variable_commission = true
+where platform in ('Debenhams', 'The Range');
 
 create or replace function public.set_promotion_platform_settings_updated_at()
 returns trigger
