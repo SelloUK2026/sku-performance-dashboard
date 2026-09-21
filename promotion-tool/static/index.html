@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promotion Nomination</title>
-  <link rel="stylesheet" href="/styles.css?v=20260825-platform-settings-v2">
+  <link rel="stylesheet" href="/styles.css?v=20260921-include-excluded">
 </head>
 <body>
   <header class="app-header">
@@ -78,6 +78,13 @@
           <span id="manualPromoPriceAdjustmentLabel">Manual promo price adjustment</span>
           <label class="switch">
             <input id="manualPromoPriceAdjustment" type="checkbox">
+            <span aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="toggle-row include-excluded-toggle">
+          <span id="includeExcludedExportLabel">Include excluded SKUs in export</span>
+          <label class="switch">
+            <input id="includeExcludedExport" type="checkbox">
             <span aria-hidden="true"></span>
           </label>
         </div>
@@ -493,6 +500,6 @@
   </div>
 
   <datalist id="wooperSkuList"></datalist>
-  <script src="/app.js?v=20260825-platform-settings-v2"></script>
+  <script src="/app.js?v=20260921-include-excluded"></script>
 </body>
 </html>

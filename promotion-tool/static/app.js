@@ -43,6 +43,7 @@ const UI_TEXT = {
     eventStartDate: "Event start date",
     eventEndDate: "Event end date",
     manualPromoPriceAdjustment: "Manual promo price adjustment",
+    includeExcludedExport: "Include excluded SKUs in export",
     commissionListRequired: "UK Product Commission Rate List required",
     commissionRatesReview: "{count} commission rates need review",
     uploadTable: "Upload table",
@@ -181,7 +182,8 @@ const UI_TEXT = {
     resolveCommissionBeforeExport: "Resolve every missing commission rate before export",
     uploadCommissionFirst: "Upload UK Product Commission Rate List from DingTalk first",
     selectEligibleSku: "Select at least one eligible SKU",
-    selectedExported: "{count} selected SKUs exported",
+    selectExportSku: "Select at least one SKU or enable Include excluded SKUs in export",
+    selectedExported: "{count} SKU rows exported",
     saveWorktable: "Save worktable",
     savedWorktables: "Saved worktables",
     recordTracking: "Record tracking",
@@ -262,6 +264,7 @@ const UI_TEXT = {
     eventStartDate: "活动开始日期",
     eventEndDate: "活动结束日期",
     manualPromoPriceAdjustment: "手动调整促销价",
+    includeExcludedExport: "导出时包括已排除SKU",
     commissionListRequired: "需要UK Product Commission Rate List",
     commissionRatesReview: "{count}个佣金率需要审核",
     uploadTable: "上传表格",
@@ -391,7 +394,8 @@ const UI_TEXT = {
     resolveCommissionBeforeExport: "导出前请处理所有缺少的佣金率",
     uploadCommissionFirst: "请先上传DingTalk中的UK Product Commission Rate List",
     selectEligibleSku: "请至少选择一个符合条件的SKU",
-    selectedExported: "已导出{count}个选定SKU",
+    selectExportSku: "请至少选择一个SKU，或启用导出时包括已排除SKU",
+    selectedExported: "已导出{count}行SKU",
     saveWorktable: "\u4fdd\u5b58\u5de5\u4f5c\u8868",
     savedWorktables: "\u5df2\u4fdd\u5b58\u5de5\u4f5c\u8868",
     recordTracking: "\u8bb0\u5f55\u8ffd\u8e2a",
@@ -508,6 +512,7 @@ const GUIDE_STEPS = {
       "Hover or focus the information icons in the table headers to review the red-highlight rules.",
       "The header row stays visible while scrolling through long SKU lists.",
       "Select only the SKUs you want to nominate.",
+      "Enable Include excluded SKUs in export when the output should also show excluded products; they are exported with Approval set to No and the exclusion reasons in Remark.",
       "Choose whether exported prices include VAT; the CSV header records the selection.",
     ],
   },
@@ -575,6 +580,7 @@ const GUIDE_STEPS = {
         "退货率达到或超过6%时会以红色标记并需要审核。",
         "生命周期利润率比促销利润率高出超过5个百分点时会以红色标记并需要审核。",
         "只选择需要提名的SKU。",
+        "如需在输出中同时查看已排除商品，请启用导出时包括已排除SKU；这些商品的Approval会设为No，并在Remark中列出排除原因。",
         "选择导出价格是否含VAT；CSV表头会记录该选择。",
       ],
     },
@@ -929,6 +935,7 @@ function applyLanguage(language, { persist = true } = {}) {
   element("roundingLabel").textContent = t("roundPromoPrices");
   element("discountIntervalLabel").textContent = t("useDiscountInterval");
   element("manualPromoPriceAdjustmentLabel").textContent = t("manualPromoPriceAdjustment");
+  element("includeExcludedExportLabel").textContent = t("includeExcludedExport");
   document.querySelector(".margin-header span:first-child").textContent = t("minimumMarginByGrade");
   document.querySelector(".margin-header span:last-child").textContent = t("target");
   document.querySelectorAll(".margin-cell > span").forEach((node, index) => {
@@ -1218,6 +1225,7 @@ function criteriaFromForm() {
     event_start_date: element("eventStartDate").value,
     event_end_date: element("eventEndDate").value,
     manual_promo_price_adjustment: element("manualPromoPriceAdjustment").checked,
+    include_excluded_in_export: element("includeExcludedExport").checked,
     campaign_type: element("campaignType").value,
     min_grade: Number(element("minGrade").value || 0),
     min_stock: Number(element("minStock").value || 0),
@@ -1294,6 +1302,9 @@ function applyCriteriaSnapshot(criteria = {}) {
   element("eventStartDate").max = element("eventEndDate").value;
   element("manualPromoPriceAdjustment").checked = Boolean(
     criteria.manual_promo_price_adjustment,
+  );
+  element("includeExcludedExport").checked = Boolean(
+    criteria.include_excluded_in_export,
   );
   element("campaignType").value = criteria.campaign_type || "theme";
   element("minGrade").value = Number(criteria.min_grade ?? 0);
@@ -1436,6 +1447,7 @@ function openSaveWorktableModal() {
     <div><span>${escapeHtml(t("eventStartDate"))}</span><strong>${escapeHtml(element("eventStartDate").value || "-")}</strong></div>
     <div><span>${escapeHtml(t("eventEndDate"))}</span><strong>${escapeHtml(element("eventEndDate").value || "-")}</strong></div>
     <div><span>${escapeHtml(t("manualPromoPriceAdjustment"))}</span><strong>${escapeHtml(element("manualPromoPriceAdjustment").checked ? t("yes") : t("no"))}</strong></div>
+    <div><span>${escapeHtml(t("includeExcludedExport"))}</span><strong>${escapeHtml(element("includeExcludedExport").checked ? t("yes") : t("no"))}</strong></div>
     <div><span>${escapeHtml(t("candidates"))}</span><strong>${number(state.candidates.length)}</strong></div>
     <div><span>${escapeHtml(t("eligible"))}</span><strong>${number(state.candidates.filter((row) => row.eligible).length)}</strong></div>
     <div><span>${escapeHtml(t("selected"))}</span><strong>${number(state.selected.size)}</strong></div>
@@ -2417,7 +2429,10 @@ function exportSelected() {
   const exportVatLabel = criteria.export_price_includes_vat
     ? "VAT Included"
     : "VAT Excluded";
-  const rows = state.candidates.filter((row) => state.selected.has(row.sku));
+  const rows = state.candidates.filter((row) => (
+    state.selected.has(row.sku)
+    || (criteria.include_excluded_in_export && !row.eligible)
+  ));
   if (!eventDatesValid()) {
     showToast(t("invalidEventDates"), "error");
     return;
@@ -2432,7 +2447,7 @@ function exportSelected() {
     return;
   }
   if (!rows.length) {
-    showToast(t("selectEligibleSku"), "error");
+    showToast(t("selectExportSku"), "error");
     return;
   }
   const headers = [
@@ -2489,8 +2504,8 @@ function exportSelected() {
     row.return_rate == null
       ? ""
       : `${(Number(row.return_rate) * 100).toFixed(2)}%`,
-    "",
-    (row.warnings || []).join("; "),
+    row.eligible ? "" : "No",
+    [...(row.reasons || []), ...(row.warnings || [])].join("; "),
     row.grade == null ? "" : Number(row.grade).toFixed(0),
   ]);
   const csv = "\ufeff" + [headers, ...body].map((row) => row.map(csvValue).join(",")).join("\r\n");
@@ -2522,6 +2537,7 @@ function resetCriteria() {
   element("manualPromoPriceAdjustment").checked = Boolean(
     platformSetting()?.manual_promo_price_adjustment,
   );
+  element("includeExcludedExport").checked = false;
   element("maxDiscount").value = 25;
   element("defaultCommission").value = 26.4;
   element("rounding").checked = true;

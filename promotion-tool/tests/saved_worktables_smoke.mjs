@@ -74,6 +74,10 @@ await page.locator("#manualPromoPriceAdjustment").evaluate((input) => {
   input.checked = true;
   input.dispatchEvent(new Event("change", { bubbles: true }));
 });
+await page.locator("#includeExcludedExport").evaluate((input) => {
+  input.checked = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});
 
 await page.locator("#saveWorktableButton").click();
 const saveModal = {
@@ -95,6 +99,7 @@ const afterSave = {
   eventStartDate: savedRecord?.snapshot.criteria.event_start_date,
   eventEndDate: savedRecord?.snapshot.criteria.event_end_date,
   manualAdjustment: savedRecord?.snapshot.criteria.manual_promo_price_adjustment,
+  includeExcluded: savedRecord?.snapshot.criteria.include_excluded_in_export,
 };
 
 await page.locator("#savedWorktablesButton").click();
@@ -116,6 +121,7 @@ const frozen = {
   eventStartDate: await page.locator("#eventStartDate").inputValue(),
   eventEndDate: await page.locator("#eventEndDate").inputValue(),
   manualAdjustment: await page.locator("#manualPromoPriceAdjustment").isChecked(),
+  includeExcluded: await page.locator("#includeExcludedExport").isChecked(),
   rowCount: await page.locator("#candidateRows tr").count(),
   recalculated: calculateRequests !== calculationsBeforeOpen,
 };
@@ -153,12 +159,12 @@ const result = { saveModal, afterSave, archive, frozen, returned, unsavedWarning
 console.log(JSON.stringify(result, null, 2));
 
 if (!saveModal.visible || saveModal.platform !== "Debenhams") throw new Error("Save confirmation modal failed");
-if (!saveModal.summary.includes("2026-09-01") || !saveModal.summary.includes("2026-09-15")) throw new Error("Save preview details failed");
+if (!saveModal.summary.includes("2026-09-01") || !saveModal.summary.includes("2026-09-15") || !saveModal.summary.includes("Include excluded SKUs in export")) throw new Error("Save preview details failed");
 if (afterSave.capturedEvent !== "Audit Event 2026" || !afterSave.saveDisabled) throw new Error("Save record failed");
-if (afterSave.eventStartDate !== "2026-09-01" || afterSave.eventEndDate !== "2026-09-15" || !afterSave.manualAdjustment) throw new Error("Saved worktable criteria failed");
+if (afterSave.eventStartDate !== "2026-09-01" || afterSave.eventEndDate !== "2026-09-15" || !afterSave.manualAdjustment || !afterSave.includeExcluded) throw new Error("Saved worktable criteria failed");
 if (!archive.visible || archive.rowCount !== 1 || !archive.rowText.includes("Audit Event 2026")) throw new Error("Archive failed");
 if (!frozen.bannerVisible || !frozen.overrideDisabled || !frozen.criteriaDisabled || frozen.recalculated) throw new Error("Frozen view failed");
-if (frozen.eventStartDate !== "2026-09-01" || frozen.eventEndDate !== "2026-09-15" || !frozen.manualAdjustment) throw new Error("Frozen event settings failed");
+if (frozen.eventStartDate !== "2026-09-01" || frozen.eventEndDate !== "2026-09-15" || !frozen.manualAdjustment || !frozen.includeExcluded) throw new Error("Frozen event settings failed");
 if (!returned.bannerHidden || !returned.overrideEnabled || returned.rowCount !== frozen.rowCount) throw new Error("Return to draft failed");
 if (!unsavedWarning) throw new Error("Unsaved worktable close warning failed");
 if (!mobile.fitsWidth || !mobile.fitsHeight || !mobile.pageFits) throw new Error("Mobile archive layout failed");

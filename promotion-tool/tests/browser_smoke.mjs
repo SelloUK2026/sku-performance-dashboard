@@ -23,6 +23,7 @@ const initial = {
   eventStartType: await page.locator("#eventStartDate").getAttribute("type"),
   eventEndType: await page.locator("#eventEndDate").getAttribute("type"),
   manualAdjustmentDefault: await page.locator("#manualPromoPriceAdjustment").isChecked(),
+  includeExcludedDefault: await page.locator("#includeExcludedExport").isChecked(),
   marginInputs: await page.locator(".grade-margin").count(),
   vatOptions: await page.locator(".vat-option").count(),
   vatRate: await page.locator(".vat-controls > strong").textContent(),
@@ -59,6 +60,7 @@ const chinese = {
     (input) => input.closest("label").childNodes[0].textContent.trim(),
   ),
   manualAdjustmentLabel: await page.locator("#manualPromoPriceAdjustmentLabel").textContent(),
+  includeExcludedLabel: await page.locator("#includeExcludedExportLabel").textContent(),
   noPageOverflow: await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   ),
@@ -544,6 +546,10 @@ await page.locator("#manualPromoPriceAdjustment").evaluate((input) => {
   input.checked = true;
   input.dispatchEvent(new Event("change", { bubbles: true }));
 });
+await page.locator("#includeExcludedExport").evaluate((input) => {
+  input.checked = true;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+});
 const downloadPromise = page.waitForEvent("download");
 await page.locator("#exportButton").click();
 const download = await downloadPromise;
@@ -554,6 +560,8 @@ loaded.exportHasPromoVatHeader = exportCsv.includes("Promotion Price (VAT Exclud
 loaded.exportHasPriceSourceHeader = exportCsv.includes("Calculation Price Source");
 loaded.exportHasEventFields = exportCsv.includes('"Event Start Date","Event End Date","Manual Promo Price Adjustment"');
 loaded.exportHasEventValues = exportCsv.includes('"2026-10-01","2026-10-15","Yes"');
+loaded.exportRowCount = exportCsv.trim().split(/\r?\n/).length - 1;
+loaded.exportHasExcludedDecision = exportCsv.includes('"No","Stock below threshold');
 loaded.exportHasCostHeaders = exportCsv.includes('"SKU","SOH","Months","COGS","Avg Freight","Commission Rate","CA Price - Normal Price (VAT Included)"');
 loaded.exportHasCostValues = /,"\d+","\d+\.\d","\d+\.\d{2}","\d+\.\d{2}","\d+\.\d{2}%",/.test(exportCsv.split("\r\n")[1] || "");
 
@@ -750,7 +758,12 @@ if (
   );
 }
 if (initial.platformCount < 10) throw new Error("Platform defaults did not load.");
-if (initial.eventStartType !== "date" || initial.eventEndType !== "date" || initial.manualAdjustmentDefault) {
+if (
+  initial.eventStartType !== "date"
+  || initial.eventEndType !== "date"
+  || initial.manualAdjustmentDefault
+  || initial.includeExcludedDefault
+) {
   throw new Error("Event fields or manual adjustment default are incorrect.");
 }
 if (initial.marginInputs !== 8) throw new Error("Grade margin matrix is incomplete.");
@@ -800,6 +813,7 @@ if (
   || chinese.campaignName !== "EXTRA 25%"
   || chinese.eventStartLabel !== "活动开始日期"
   || chinese.manualAdjustmentLabel !== "手动调整促销价"
+  || chinese.includeExcludedLabel !== "导出时包括已排除SKU"
   || !chinese.noPageOverflow
 ) {
   throw new Error(`Simplified Chinese interface is incomplete: ${JSON.stringify(chinese)}`);
@@ -1017,6 +1031,8 @@ if (
   || !loaded.exportHasPriceSourceHeader
   || !loaded.exportHasEventFields
   || !loaded.exportHasEventValues
+  || loaded.exportRowCount !== loaded.rowCount
+  || !loaded.exportHasExcludedDecision
   || !loaded.exportHasCostHeaders
   || !loaded.exportHasCostValues
 ) {
