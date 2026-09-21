@@ -646,6 +646,8 @@ def build_promotion_sku_data(
                 "net_sales": 0.0,
                 "return_amount": 0.0,
                 "profit_incl_rn": 0.0,
+                "fallback_freight_total": 0.0,
+                "fallback_freight_rows": 0,
             },
         )
         item["sold_qty"] += clean_number(row.get("sku_qty"), 0)
@@ -660,6 +662,10 @@ def build_promotion_sku_data(
             + clean_number(row.get("resend_amt"), 0)
         )
         item["profit_incl_rn"] += clean_number(row.get("profit_incl_rn"), 0)
+        postage = clean_number(row.get("postage"), 0)
+        if postage != 0 and clean_text(row.get("platform")) != "Amazon(UK) FBM":
+            item["fallback_freight_total"] += postage
+            item["fallback_freight_rows"] += 1
 
     rows = []
     for inventory_row in inventory_rows:
@@ -668,6 +674,15 @@ def build_promotion_sku_data(
             continue
         metrics = totals.get(sku, {})
         net_sales = clean_number(metrics.get("net_sales"), 0)
+        suggested_freight = clean_number(
+            inventory_row.get("suggested_freight"), None
+        )
+        fallback_freight_rows = int(metrics.get("fallback_freight_rows") or 0)
+        if suggested_freight is None and fallback_freight_rows:
+            suggested_freight = (
+                clean_number(metrics.get("fallback_freight_total"), 0)
+                / fallback_freight_rows
+            )
         rows.append(
             {
                 "sku": sku,
@@ -684,9 +699,7 @@ def build_promotion_sku_data(
                 "first_arrival_date": (
                     master_arrivals.get(sku) or inbound_arrivals.get(sku)
                 ),
-                "suggested_freight": clean_number(
-                    inventory_row.get("suggested_freight")
-                ),
+                "suggested_freight": suggested_freight,
                 "sold_qty": clean_number(metrics.get("sold_qty"), 0),
                 "sales_amt": clean_number(metrics.get("sales_amt"), 0),
                 "net_sales": net_sales,
@@ -792,3 +805,4 @@ if __name__ == "__main__":
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         raise
+

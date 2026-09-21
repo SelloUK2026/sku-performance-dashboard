@@ -15,6 +15,37 @@ import import_to_supabase as importer  # noqa: E402
 
 
 class ChannelAdvisorMappingTests(unittest.TestCase):
+    def test_promotion_freight_matches_dashboard_fallback(self):
+        rows = importer.build_promotion_sku_data(
+            inventory_rows=[
+                {"sku": "FALLBACK-UK", "suggested_freight": None},
+                {"sku": "SUGGESTED-UK", "suggested_freight": 3.5},
+            ],
+            sku_master_rows=[],
+            container_rows=[],
+            sales_rows=[
+                {
+                    "sku": "FALLBACK-UK",
+                    "platform": "eBay",
+                    "postage": 5.28,
+                },
+                {
+                    "sku": "FALLBACK-UK",
+                    "platform": "Amazon(UK) FBM",
+                    "postage": 99,
+                },
+                {
+                    "sku": "SUGGESTED-UK",
+                    "platform": "eBay",
+                    "postage": 7,
+                },
+            ],
+        )
+
+        by_sku = {row["sku"]: row for row in rows}
+        self.assertEqual(by_sku["FALLBACK-UK"]["suggested_freight"], 5.28)
+        self.assertEqual(by_sku["SUGGESTED-UK"]["suggested_freight"], 3.5)
+
     def test_saved_many_to_one_mappings_are_reused_by_refresh(self):
         source = pd.DataFrame(
             [
@@ -97,3 +128,4 @@ class ChannelAdvisorMappingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
