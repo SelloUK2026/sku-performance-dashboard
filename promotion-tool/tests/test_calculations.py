@@ -644,6 +644,31 @@ class PromotionCalculationTests(unittest.TestCase):
             },
         )
 
+    def test_commission_workbook_ignores_cells_beyond_header_width(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "B&Q"
+        sheet.append(["Platform", "Category", "SKU", "Commission Rate"])
+        sheet.append(["B&Q", "Home/Bedding", "PILO1019-UK", 0.144])
+        sheet["E2"] = "Unused source column"
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+
+        rows, conflicts = commission_rows_from_workbook(buffer.getvalue())
+
+        self.assertFalse(conflicts)
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "platform": "B&Q",
+                    "category": "Home/Bedding",
+                    "sku": "PILO1019-UK",
+                    "commission": 0.144,
+                }
+            ],
+        )
+
     def test_commission_workbook_rejects_conflicting_duplicate_rates(self):
         workbook = Workbook()
         sheet = workbook.active
@@ -891,3 +916,4 @@ class PromotionCalculationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

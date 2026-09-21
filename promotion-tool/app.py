@@ -1722,8 +1722,8 @@ def commission_rows_from_workbook(data: bytes):
             continue
         source_rows = [
             {
-                str(headers[index] or ""): value
-                for index, value in enumerate(values)
+                str(header or ""): value
+                for header, value in zip(headers, values)
             }
             for values in iterator
             if any(value not in (None, "") for value in values)
@@ -3182,3 +3182,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
