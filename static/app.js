@@ -17,6 +17,7 @@ const elements = {
   productTitle: document.querySelector("#productTitle"),
   productMeta: document.querySelector("#productMeta"),
   kpiGrid: document.querySelector("#kpiGrid"),
+  upcomingGrid: document.querySelector("#upcomingGrid"),
   platformGrid: document.querySelector("#platformGrid"),
   priceInput: document.querySelector("#priceInput"),
   cogsInput: document.querySelector("#cogsInput"),
@@ -52,6 +53,14 @@ function percentInput(value) {
 function parsePercentInput(value) {
   const numeric = Number(value || 0);
   return numeric > 1 ? numeric / 100 : numeric;
+}
+
+function displayDate(value) {
+  if (!value) return "-";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value);
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
 async function getJson(url) {
@@ -116,6 +125,7 @@ function renderDashboard(payload) {
     ["Daily Avg Sales", number(snapshot.dailyAverageSales, 2)],
     ["SOH", number(snapshot.stockOnHand, 0)],
     ["COGS", currency(snapshot.cogs)],
+    ["Estimated Cost Price", currency(snapshot.estimatedCostPrice)],
   ];
   elements.kpiGrid.innerHTML = kpis.map(([label, value]) => (
     `<article class="kpi-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value ?? "-"))}</strong></article>`
@@ -126,6 +136,18 @@ function renderDashboard(payload) {
       <div><em>Latest</em><strong>${escapeHtml(String(snapshot.lastArrival || "-"))}</strong></div>
     </div>
   </article>`;
+
+  const upcoming = [
+    ["Container No. 1 Stock Qty", number(snapshot.container1StockQty, 0)],
+    ["Container 1 ETA (WH)", displayDate(snapshot.container1Eta)],
+    ["Container No. 2 Stock Qty", number(snapshot.container2StockQty, 0)],
+    ["Container 2 ETA (WH)", displayDate(snapshot.container2Eta)],
+    ["Reorder Placed Date", displayDate(snapshot.reorderPlacedDate)],
+    ["Production Scheduled Qty", number(snapshot.productionScheduledQty, 0)],
+  ];
+  elements.upcomingGrid.innerHTML = upcoming.map(([label, value]) => (
+    `<article class="upcoming-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value ?? "-"))}</strong></article>`
+  )).join("");
 
   fillPriceForm(payload.priceTest);
   state.platformRanges = state.platformPeriods.map((periodKey) => dateRangeFromPeriod(payload.periods[periodKey]));
@@ -171,6 +193,7 @@ function renderPlatformPanels() {
               <th>Platform</th>
               <th>Qty</th>
               <th>Sales</th>
+              <th>COGS %</th>
               <th>Selling Fee</th>
               <th>Ads Fee</th>
               <th>Ads %</th>
@@ -222,6 +245,7 @@ function aggregateClientSales(rows) {
         "platform name": platform,
         sku_qty: 0,
         sales_amt: 0,
+        cogs: 0,
         extra_freight: 0,
         promo_rebate: 0,
         selling_fee: 0,
@@ -234,6 +258,7 @@ function aggregateClientSales(rows) {
     const item = grouped.get(platform);
     item.sku_qty += Number(row.sku_qty || 0);
     item.sales_amt += Number(row.sales_amt || 0);
+    item.cogs += Number(row.cogs || 0);
     item.extra_freight += Number(row.extra_freight || 0);
     item.promo_rebate += Number(row.promo_rebate || 0);
     item.selling_fee += Number(row.selling_fee || 0);
@@ -247,6 +272,7 @@ function aggregateClientSales(rows) {
     "platform name": "Grand Total",
     sku_qty: records.reduce((sum, item) => sum + item.sku_qty, 0),
     sales_amt: records.reduce((sum, item) => sum + item.sales_amt, 0),
+    cogs: records.reduce((sum, item) => sum + item.cogs, 0),
     extra_freight: records.reduce((sum, item) => sum + item.extra_freight, 0),
     promo_rebate: records.reduce((sum, item) => sum + item.promo_rebate, 0),
     selling_fee: records.reduce((sum, item) => sum + item.selling_fee, 0),
@@ -257,6 +283,10 @@ function aggregateClientSales(rows) {
   };
   [...records, total].forEach((item) => {
     const netSales = netSalesAmount(item);
+    const cogsSalesBase = Number(item.sales_amt || 0)
+      + Number(item.extra_freight || 0)
+      + Number(item.promo_rebate || 0);
+    item.cogs_pct = cogsSalesBase ? item.cogs / cogsSalesBase : null;
     item.selling_fee_pct = netSales ? item.selling_fee / netSales : null;
     item.ads_fee_pct = netSales ? item.ads_fee / netSales : null;
     item.return_pct = netSales ? (item.refund_amt + item.resend_amt) / netSales : null;
@@ -277,6 +307,7 @@ function platformRows(rows) {
       <td>${escapeHtml(row["platform name"] || "-")}</td>
       <td>${number(row.sku_qty)}</td>
       <td>${currency(row.sales_amt)}</td>
+      <td>${percent(row.cogs_pct)}</td>
       <td>${percent(row.selling_fee_pct)}</td>
       <td>${currency(row.ads_fee)}</td>
       <td>${percent(row.ads_fee_pct)}</td>
