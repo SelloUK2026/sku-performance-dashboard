@@ -506,7 +506,10 @@ class DataStore:
 
     def load_supabase(self):
         inventory_rows = supabase_select_all("inventory")
-        upcoming_rows = supabase_select_all("upcoming_stock")
+        upcoming_rows = supabase_select_all(
+            "upcoming_stock",
+            "sku,container_1_stock_qty,container_1_eta,container_2_stock_qty,container_2_eta,reorder_placed_date,production_scheduled_qty",
+        )
         sku_rows = supabase_select_all("sku_master")
         image_rows = supabase_select_all("product_images")
         try:
