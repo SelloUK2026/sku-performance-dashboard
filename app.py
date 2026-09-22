@@ -19,6 +19,12 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 DEFAULT_WORKBOOK = ROOT.parent / "Lastest Data Analyse - Codex.xlsx"
 WORKBOOK_PATH = Path(os.environ.get("SKU_APP_WORKBOOK", DEFAULT_WORKBOOK))
+UPCOMING_STOCK_FILE = Path(
+    os.environ.get(
+        "SKU_UPCOMING_STOCK_FILE",
+        WORKBOOK_PATH.parent / "upcomingStockExport_Normal_UK_current.xlsx",
+    )
+)
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "17fj9gaoE4U5_Ks_EkI68CPBBPIjjbDYMkifG1SqbBAg")
 SOURCE_MODE = os.environ.get("SKU_APP_SOURCE", "excel").strip().lower()
 CACHE_SECONDS = int(os.environ.get("SKU_APP_CACHE_SECONDS", "900"))
@@ -83,6 +89,14 @@ def net_sales_amount(row):
         clean_number(row.get("sales_amt", row.get("sales")))
         + clean_number(row.get("extra_freight"))
         - clean_number(row.get("promo_rebate"))
+    )
+
+
+def cogs_sales_base(row):
+    return (
+        clean_number(row.get("sales_amt", row.get("sales")))
+        + clean_number(row.get("extra_freight"))
+        + clean_number(row.get("promo_rebate"))
     )
 
 
@@ -286,6 +300,57 @@ def apply_freight_map_to_inventory(inventory, freight_by_sku):
     return inventory
 
 
+def load_upcoming_stock_file(path=UPCOMING_STOCK_FILE):
+    if not path.exists():
+        return {}
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    worksheet = workbook[workbook.sheetnames[0]]
+    if hasattr(worksheet, "reset_dimensions"):
+        worksheet.reset_dimensions()
+    rows = worksheet.iter_rows(values_only=True)
+    header = next(rows, None)
+    if not header:
+        workbook.close()
+        return {}
+    names = [simplify_key(value) for value in header]
+    required = {
+        "Product SKU",
+        "Container No.1 Stock Qty",
+        "Container 1 ETA (WH)",
+        "Container No.2 Stock Qty",
+        "Container 2 ETA (WH)",
+        "Reorder Placed Date",
+        "Production Scheduled Quantity",
+    }
+    missing = sorted(required - set(names))
+    if missing:
+        workbook.close()
+        raise DataSourceError(
+            "Upcoming stock export header changed; missing: " + ", ".join(missing)
+        )
+    result = {}
+    for values in rows:
+        row = dict(zip(names, values))
+        sku = normalize_sku(row.get("Product SKU"))
+        if not sku:
+            continue
+        result[sku] = {
+            "sku": sku,
+            "container_1_stock_qty": clean_number(row.get("Container No.1 Stock Qty"), None),
+            "container_1_eta": clean_value(row.get("Container 1 ETA (WH)")),
+            "container_2_stock_qty": clean_number(row.get("Container No.2 Stock Qty"), None),
+            "container_2_eta": clean_value(row.get("Container 2 ETA (WH)")),
+            "reorder_placed_date": clean_value(row.get("Reorder Placed Date")),
+            "production_scheduled_qty": clean_number(
+                row.get("Production Scheduled Quantity"), None
+            ),
+        }
+    workbook.close()
+    return result
+
+
 def supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
@@ -441,6 +506,7 @@ class DataStore:
 
     def load_supabase(self):
         inventory_rows = supabase_select_all("inventory")
+        upcoming_rows = supabase_select_all("upcoming_stock")
         sku_rows = supabase_select_all("sku_master")
         image_rows = supabase_select_all("product_images")
         try:
@@ -449,6 +515,7 @@ class DataStore:
             freight_rows = []
 
         inventory = {normalize_sku(row.get("sku")): row for row in inventory_rows if normalize_sku(row.get("sku"))}
+        upcoming_stock = {normalize_sku(row.get("sku")): row for row in upcoming_rows if normalize_sku(row.get("sku"))}
         sku = {normalize_sku(row.get("sku")): row for row in sku_rows if normalize_sku(row.get("sku"))}
         image = {normalize_sku(row.get("sku")): row for row in image_rows if normalize_sku(row.get("sku"))}
         freight = {normalize_sku(row.get("sku")): row for row in freight_rows if normalize_sku(row.get("sku"))}
@@ -464,6 +531,7 @@ class DataStore:
             "maxDate": max_date,
             "sku": sku,
             "inventory": inventory,
+            "upcoming_stock": upcoming_stock,
             "freight": freight,
             "container": {},
             "image": image,
@@ -515,6 +583,7 @@ class DataStore:
             if sku_norm and sku_norm not in freight_by_sku:
                 freight_by_sku[sku_norm] = suggested_freight_from_row(freight_row)
         inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
+        upcoming_stock = load_upcoming_stock_file()
 
         container = self.read_sheet("Container report")
         container["sku_norm"] = container["SKU"].map(normalize_sku)
@@ -537,6 +606,7 @@ class DataStore:
             "powerbi": powerbi,
             "sku": sku,
             "inventory": inventory,
+            "upcoming_stock": upcoming_stock,
             "container": container,
             "image": image,
             "price_history": price_history,
@@ -595,6 +665,7 @@ class DataStore:
             if sku_norm:
                 freight_by_sku[sku_norm] = suggested_freight_from_row(simplified)
         inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
+        upcoming_stock = load_upcoming_stock_file()
 
         container = {}
         for row in self.read_google_dicts("Container report"):
@@ -623,6 +694,7 @@ class DataStore:
             "maxDate": max_date,
             "sku": sku,
             "inventory": inventory,
+            "upcoming_stock": upcoming_stock,
             "container": container,
             "image": image,
             "price_history": price_history,
@@ -771,6 +843,7 @@ def aggregate_sales(df):
     grouped = df.groupby("platform name", dropna=False).agg(
         sku_qty=("sku_qty", "sum"),
         sales_amt=("sales_amt", "sum"),
+        cogs=("cogs", "sum"),
         extra_freight=("extra_freight", "sum"),
         promo_rebate=("promo_rebate", "sum"),
         selling_fee=("selling_fee", "sum"),
@@ -780,6 +853,7 @@ def aggregate_sales(df):
         profit_incl_rn=("profit_incl_rn", "sum"),
     ).reset_index()
     grouped["selling_fee_pct"] = grouped.apply(lambda r: clean_number(r["selling_fee"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
+    grouped["cogs_pct"] = grouped.apply(lambda r: clean_number(r["cogs"]) / cogs_sales_base(r) if cogs_sales_base(r) else None, axis=1)
     grouped["ads_fee_pct"] = grouped.apply(lambda r: clean_number(r["ads_fee"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
     grouped["return_pct"] = grouped.apply(lambda r: return_amount(r) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
     grouped["profit_margin"] = grouped.apply(lambda r: clean_number(r["profit_incl_rn"]) / net_sales_amount(r) if net_sales_amount(r) else None, axis=1)
@@ -789,6 +863,7 @@ def aggregate_sales(df):
         "platform name": "Grand Total",
         "sku_qty": grouped["sku_qty"].sum(),
         "sales_amt": grouped["sales_amt"].sum(),
+        "cogs": grouped["cogs"].sum(),
         "extra_freight": grouped["extra_freight"].sum(),
         "promo_rebate": grouped["promo_rebate"].sum(),
         "selling_fee": grouped["selling_fee"].sum(),
@@ -801,6 +876,8 @@ def aggregate_sales(df):
     net_sales = net_sales_amount(total)
     qty = clean_number(total["sku_qty"])
     total["selling_fee_pct"] = clean_number(total["selling_fee"]) / net_sales if net_sales else None
+    cogs_base = cogs_sales_base(total)
+    total["cogs_pct"] = clean_number(total["cogs"]) / cogs_base if cogs_base else None
     total["ads_fee_pct"] = clean_number(total["ads_fee"]) / net_sales if net_sales else None
     total["return_pct"] = return_amount(total) / net_sales if net_sales else None
     total["profit_margin"] = clean_number(total["profit_incl_rn"]) / net_sales if net_sales else None
@@ -818,6 +895,7 @@ def aggregate_sales_rows(rows):
             "platform name": platform,
             "sku_qty": 0.0,
             "sales_amt": 0.0,
+            "cogs": 0.0,
             "extra_freight": 0.0,
             "promo_rebate": 0.0,
             "selling_fee": 0.0,
@@ -828,6 +906,7 @@ def aggregate_sales_rows(rows):
         })
         item["sku_qty"] += clean_number(row.get("sku_qty"))
         item["sales_amt"] += clean_number(row.get("sales_amt"))
+        item["cogs"] += clean_number(row.get("cogs"))
         item["extra_freight"] += clean_number(row.get("extra_freight"))
         item["promo_rebate"] += clean_number(row.get("promo_rebate"))
         item["selling_fee"] += clean_number(row.get("selling_fee"))
@@ -841,6 +920,7 @@ def aggregate_sales_rows(rows):
         "platform name": "Grand Total",
         "sku_qty": sum(item["sku_qty"] for item in records),
         "sales_amt": sum(item["sales_amt"] for item in records),
+        "cogs": sum(item["cogs"] for item in records),
         "extra_freight": sum(item["extra_freight"] for item in records),
         "promo_rebate": sum(item["promo_rebate"] for item in records),
         "selling_fee": sum(item["selling_fee"] for item in records),
@@ -854,6 +934,8 @@ def aggregate_sales_rows(rows):
         net_sales = net_sales_amount(item)
         qty = clean_number(item["sku_qty"])
         item["selling_fee_pct"] = clean_number(item["selling_fee"]) / net_sales if net_sales else None
+        cogs_base = cogs_sales_base(item)
+        item["cogs_pct"] = clean_number(item["cogs"]) / cogs_base if cogs_base else None
         item["ads_fee_pct"] = clean_number(item["ads_fee"]) / net_sales if net_sales else None
         item["return_pct"] = return_amount(item) / net_sales if net_sales else None
         item["profit_margin"] = clean_number(item["profit_incl_rn"]) / net_sales if net_sales else None
@@ -904,7 +986,7 @@ def detail_payload_supabase(sku_code):
     try:
         sales_rows = supabase_select_all(
             "sales",
-            "sale_date,platform,sku_qty,sales_amt,extra_freight,promo_rebate,selling_fee,ads_fee,resend_amt,refund_amt,profit_incl_rn,postage",
+            "sale_date,platform,sku_qty,sales_amt,cogs,extra_freight,promo_rebate,selling_fee,ads_fee,resend_amt,refund_amt,profit_incl_rn,postage",
             f"&sku=eq.{sku_filter}&order=sale_date.asc",
         )
     except DataSourceError:
@@ -924,6 +1006,7 @@ def detail_payload_supabase(sku_code):
             "sku": sku_norm,
             "sku_qty": clean_number(row.get("sku_qty")),
             "sales_amt": clean_number(row.get("sales_amt")),
+            "cogs": clean_number(row.get("cogs")),
             "extra_freight": clean_number(row.get("extra_freight")),
             "promo_rebate": clean_number(row.get("promo_rebate")),
             "selling_fee": clean_number(row.get("selling_fee")),
@@ -940,6 +1023,7 @@ def detail_payload_supabase(sku_code):
     current_year = [row for row in sales if row["date"].year == max_date.year]
 
     inv = data["inventory"].get(sku_norm, {})
+    upcoming = data.get("upcoming_stock", {}).get(sku_norm, {})
     freight = data.get("freight", {}).get(sku_norm, {})
     sku_row = data["sku"].get(sku_norm, {})
     img = data["image"].get(sku_norm, {})
@@ -972,6 +1056,13 @@ def detail_payload_supabase(sku_code):
         "dailyAverageSales": clean_number(inv.get("daily_average_sales"), None),
         "stockOnHand": clean_number(inv.get("stock_on_hand"), None),
         "cogs": cogs,
+        "estimatedCostPrice": clean_number(inv.get("estimated_cost_price"), None),
+        "container1StockQty": clean_number(upcoming.get("container_1_stock_qty"), None),
+        "container1Eta": clean_value(supabase_date(upcoming.get("container_1_eta"))),
+        "container2StockQty": clean_number(upcoming.get("container_2_stock_qty"), None),
+        "container2Eta": clean_value(supabase_date(upcoming.get("container_2_eta"))),
+        "reorderPlacedDate": clean_value(supabase_date(upcoming.get("reorder_placed_date"))),
+        "productionScheduledQty": clean_number(upcoming.get("production_scheduled_qty"), None),
         "firstArrival": clean_value(first_arrival),
         "lastArrival": clean_value(latest_arrival),
         "category": clean_value(inv.get("main_category")),
@@ -1016,6 +1107,7 @@ def detail_payload_supabase(sku_code):
                 "platform": row["platform"],
                 "sku_qty": row["sku_qty"],
                 "sales_amt": row["sales_amt"],
+                "cogs": row["cogs"],
                 "extra_freight": row["extra_freight"],
                 "promo_rebate": row["promo_rebate"],
                 "selling_fee": row["selling_fee"],
@@ -1066,6 +1158,7 @@ def detail_payload_google(sku_code):
                 "sku": row_sku,
                 "sku_qty": clean_number(row.get("sku_qty")),
                 "sales_amt": clean_number(row.get("sales_amt")),
+                "cogs": clean_number(row.get("cogs")),
                 "extra_freight": clean_number(row.get("extra_freight")),
                 "promo_rebate": clean_number(row.get("promo_rebate")),
                 "selling_fee": clean_number(row.get("selling_fee")),
@@ -1080,6 +1173,7 @@ def detail_payload_google(sku_code):
     current_year = [row for row in sales if row["date"].year == max_date.year]
 
     inv = data["inventory"].get(sku_norm, {})
+    upcoming = data.get("upcoming_stock", {}).get(sku_norm, {})
     sku_row = data["sku"].get(sku_norm, {})
     img = data["image"].get(sku_norm, {})
     inbound = data["container"].get(sku_norm, {})
@@ -1098,6 +1192,13 @@ def detail_payload_google(sku_code):
         "dailyAverageSales": clean_number(inv.get("Daily Average Sales"), None),
         "stockOnHand": clean_number(inv.get("Total Inventory Qty"), None),
         "cogs": cogs,
+        "estimatedCostPrice": clean_number(inv.get("Estimated Cost Price"), None),
+        "container1StockQty": clean_number(upcoming.get("container_1_stock_qty"), None),
+        "container1Eta": clean_value(upcoming.get("container_1_eta")),
+        "container2StockQty": clean_number(upcoming.get("container_2_stock_qty"), None),
+        "container2Eta": clean_value(upcoming.get("container_2_eta")),
+        "reorderPlacedDate": clean_value(upcoming.get("reorder_placed_date")),
+        "productionScheduledQty": clean_number(upcoming.get("production_scheduled_qty"), None),
         "firstArrival": clean_value(sku_row.get("First Arrival Date")),
         "lastArrival": clean_value(inbound.get("inbound_time") or inbound.get("Latest Batch Arrival Date")) if inbound else None,
         "category": clean_value(inv.get("Main Category")),
@@ -1141,6 +1242,7 @@ def detail_payload_google(sku_code):
                 "platform": row["platform"],
                 "sku_qty": row["sku_qty"],
                 "sales_amt": row["sales_amt"],
+                "cogs": row["cogs"],
                 "extra_freight": row["extra_freight"],
                 "promo_rebate": row["promo_rebate"],
                 "selling_fee": row["selling_fee"],
@@ -1190,6 +1292,7 @@ def detail_payload(sku_code):
     current_year = sales[sales["Date"].dt.year == max_date.year]
 
     inv = data["inventory"][data["inventory"]["sku_norm"] == sku_norm].head(1)
+    upcoming = data.get("upcoming_stock", {}).get(sku_norm, {})
     sku_row = data["sku"][data["sku"]["sku_norm"] == sku_norm].head(1)
     img = data["image"][data["image"]["sku_norm"] == sku_norm].head(1)
     inbound = data["container"][data["container"]["sku_norm"] == sku_norm].copy()
@@ -1215,6 +1318,13 @@ def detail_payload(sku_code):
         "dailyAverageSales": daily_average,
         "stockOnHand": stock_on_hand,
         "cogs": cogs,
+        "estimatedCostPrice": clean_number(inv.iloc[0].get("Estimated Cost Price"), None) if not inv.empty else None,
+        "container1StockQty": clean_number(upcoming.get("container_1_stock_qty"), None),
+        "container1Eta": clean_value(upcoming.get("container_1_eta")),
+        "container2StockQty": clean_number(upcoming.get("container_2_stock_qty"), None),
+        "container2Eta": clean_value(upcoming.get("container_2_eta")),
+        "reorderPlacedDate": clean_value(upcoming.get("reorder_placed_date")),
+        "productionScheduledQty": clean_number(upcoming.get("production_scheduled_qty"), None),
         "firstArrival": clean_value(sku_row.iloc[0]["First Arrival Date"]) if not sku_row.empty else None,
         "lastArrival": clean_value(
             inbound.iloc[0].get("Inbound Time") or inbound.iloc[0].get("Latest Batch Arrival Date")
@@ -1262,6 +1372,7 @@ def detail_payload(sku_code):
                 "platform": row["platform name"],
                 "sku_qty": clean_number(row["sku_qty"]),
                 "sales_amt": clean_number(row["sales_amt"]),
+                "cogs": clean_number(row["cogs"]),
                 "extra_freight": clean_number(row["extra_freight"]),
                 "promo_rebate": clean_number(row["promo_rebate"]),
                 "selling_fee": clean_number(row["selling_fee"]),
