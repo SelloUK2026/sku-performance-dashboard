@@ -1031,11 +1031,11 @@ def detail_payload_supabase(sku_code):
     sku_row = data["sku"].get(sku_norm, {})
     img = data["image"].get(sku_norm, {})
     container_rows = supabase_request(
-        f"container_report?select=inbound_time,latest_batch_arrival_date&sku=eq.{sku_filter}&order=inbound_time.desc&limit=1"
+        f"container_report?select=inbound_time,latest_batch_arrival_date&sku=eq.{sku_filter}&order=inbound_time.desc.nullslast&limit=1"
     )
     inbound = container_rows[0] if container_rows else {}
     first_container_rows = supabase_request(
-        f"container_report?select=inbound_time&sku=eq.{sku_filter}&order=inbound_time.asc&limit=1"
+        f"container_report?select=inbound_time&sku=eq.{sku_filter}&order=inbound_time.asc.nullslast&limit=1"
     )
     first_inbound = first_container_rows[0] if first_container_rows else {}
     price_history = supabase_request(
