@@ -114,16 +114,25 @@ def simplify_columns(df):
     return df
 
 
-def suggested_freight_from_row(row):
-    suggested = clean_number(row.get("Suggested Freight"), None)
-    if suggested is not None:
-        return suggested
-    valid_qty = clean_number(row.get("Valid Qty"), 0)
-    avg_actual = clean_number(row.get("Avg Actual Freight"), None)
-    sello_tools = clean_number(row.get("Sello Tools Calculation"), None)
-    if valid_qty > 5 and avg_actual is not None:
-        return avg_actual
-    return sello_tools
+FREIGHT_EXCLUDED_PLATFORMS = {
+    "Amazon(UK) FBA",
+    "Wayfair",
+    "Amazon(UK) SFP",
+    "Homebase IE",
+    "Debenhams IE",
+    "Wowcher IE",
+}
+MIN_FREIGHT_UNITS = 5
+MIN_COURIER_FREIGHT = 1.69
+
+
+def select_suggested_freight(valid_qty, avg_actual_freight, merchant_shipping_cost):
+    valid_qty = clean_number(valid_qty, 0)
+    average = clean_number(avg_actual_freight, None)
+    merchant = clean_number(merchant_shipping_cost, None)
+    if valid_qty > MIN_FREIGHT_UNITS and average is not None and average >= MIN_COURIER_FREIGHT:
+        return average
+    return merchant
 
 
 def build_powerbi_freight_metrics():
@@ -139,7 +148,7 @@ def build_powerbi_freight_metrics():
     df = df[
         (df["sku_norm"].notna())
         & (df["postage_num"] != 0)
-        & (~df["platform_norm"].isin({"Amazon(UK) FBA", "Amazon(UK) SFP"}))
+        & (~df["platform_norm"].isin(FREIGHT_EXCLUDED_PLATFORMS))
     ]
     metrics = {}
     for sku, group in df.groupby("sku_norm", dropna=True):
@@ -374,29 +383,14 @@ def build_sku_master():
 
 def build_inventory():
     df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
-    freight_df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
     powerbi_freight = build_powerbi_freight_metrics()
-    freight_by_sku = {}
-    for _, freight_row in freight_df.iterrows():
-        sku = normalize_sku(freight_row.get("SKU"))
-        if sku:
-            metrics = powerbi_freight.get(sku, {})
-            valid_qty = clean_number(freight_row.get("Valid Qty"), None)
-            if valid_qty is None:
-                valid_qty = metrics.get("valid_qty")
-            avg_actual = clean_number(freight_row.get("Avg Actual Freight"), None)
-            if avg_actual is None:
-                avg_actual = metrics.get("avg_actual_freight")
-            sello_tools = clean_number(freight_row.get("Sello Tools Calculation"), None)
-            suggested = clean_number(freight_row.get("Suggested Freight"), None)
-            if suggested is None:
-                suggested = avg_actual if clean_number(valid_qty, 0) > 5 and avg_actual is not None else sello_tools
-            freight_by_sku[sku] = suggested
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("Product SKU"))
         if not sku:
             continue
+        metrics = powerbi_freight.get(sku, {})
+        merchant_shipping_cost = clean_number(row.get("Merchant Shipping Cost"))
         rows[sku] = {
             "sku": sku,
             "main_category": clean_text(row.get("Main Category")),
@@ -408,39 +402,38 @@ def build_inventory():
             "daily_average_sales": clean_number(row.get("Daily Average Sales")),
             "stock_on_hand": clean_number(row.get("Total Inventory Qty")),
             "cogs": clean_number(row.get("COGS")),
-            "suggested_freight": freight_by_sku.get(sku),
-            "merchant_shipping_cost": clean_number(
-                row.get("Merchant Shipping Cost")
+            "suggested_freight": select_suggested_freight(
+                metrics.get("valid_qty"),
+                metrics.get("avg_actual_freight"),
+                merchant_shipping_cost,
             ),
+            "merchant_shipping_cost": merchant_shipping_cost,
         }
     return list(rows.values())
 
 
 def build_freight():
-    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Freight"))
+    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
     powerbi_freight = build_powerbi_freight_metrics()
     rows = {}
     for _, row in df.iterrows():
-        sku = normalize_sku(row.get("SKU"))
+        sku = normalize_sku(row.get("Product SKU"))
         if not sku:
             continue
         metrics = powerbi_freight.get(sku, {})
-        valid_qty = clean_number(row.get("Valid Qty"), None)
-        if valid_qty is None:
-            valid_qty = metrics.get("valid_qty")
-        avg_actual = clean_number(row.get("Avg Actual Freight"), None)
-        if avg_actual is None:
-            avg_actual = metrics.get("avg_actual_freight")
-        sello_tools = clean_number(row.get("Sello Tools Calculation"))
-        suggested = clean_number(row.get("Suggested Freight"), None)
-        if suggested is None:
-            suggested = avg_actual if clean_number(valid_qty, 0) > 5 and avg_actual is not None else sello_tools
+        valid_qty = clean_number(metrics.get("valid_qty"), 0)
+        avg_actual = clean_number(metrics.get("avg_actual_freight"), None)
+        merchant_shipping_cost = clean_number(row.get("Merchant Shipping Cost"))
         rows[sku] = {
             "sku": sku,
-            "sello_tools_calculation": sello_tools,
+            "sello_tools_calculation": merchant_shipping_cost,
             "valid_qty": valid_qty,
             "avg_actual_freight": avg_actual,
-            "suggested_freight": suggested,
+            "suggested_freight": select_suggested_freight(
+                valid_qty,
+                avg_actual,
+                merchant_shipping_cost,
+            ),
         }
     return list(rows.values())
 
@@ -650,7 +643,7 @@ def build_promotion_sku_data(
                 "return_amount": 0.0,
                 "profit_incl_rn": 0.0,
                 "fallback_freight_total": 0.0,
-                "fallback_freight_rows": 0,
+                "fallback_freight_units": 0.0,
             },
         )
         item["sold_qty"] += clean_number(row.get("sku_qty"), 0)
@@ -666,9 +659,10 @@ def build_promotion_sku_data(
         )
         item["profit_incl_rn"] += clean_number(row.get("profit_incl_rn"), 0)
         postage = clean_number(row.get("postage"), 0)
-        if postage != 0 and clean_text(row.get("platform")) != "Amazon(UK) FBM":
+        platform = clean_text(row.get("platform")) or ""
+        if postage != 0 and platform not in FREIGHT_EXCLUDED_PLATFORMS:
             item["fallback_freight_total"] += postage
-            item["fallback_freight_rows"] += 1
+            item["fallback_freight_units"] += clean_number(row.get("sku_qty"), 0)
 
     rows = []
     for inventory_row in inventory_rows:
@@ -677,20 +671,20 @@ def build_promotion_sku_data(
             continue
         metrics = totals.get(sku, {})
         net_sales = clean_number(metrics.get("net_sales"), 0)
-        suggested_freight = clean_number(
-            inventory_row.get("suggested_freight"), None
-        )
-        fallback_freight_rows = int(metrics.get("fallback_freight_rows") or 0)
-        if suggested_freight is None and fallback_freight_rows:
-            suggested_freight = (
-                clean_number(metrics.get("fallback_freight_total"), 0)
-                / fallback_freight_rows
-            )
         merchant_shipping_cost = clean_number(
             inventory_row.get("merchant_shipping_cost"), None
         )
-        if suggested_freight is None:
-            suggested_freight = merchant_shipping_cost
+        freight_units = clean_number(metrics.get("fallback_freight_units"), 0)
+        avg_actual_freight = (
+            clean_number(metrics.get("fallback_freight_total"), 0) / freight_units
+            if freight_units
+            else None
+        )
+        suggested_freight = select_suggested_freight(
+            freight_units,
+            avg_actual_freight,
+            merchant_shipping_cost,
+        )
         rows.append(
             {
                 "sku": sku,
