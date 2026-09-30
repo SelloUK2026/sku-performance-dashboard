@@ -15,42 +15,79 @@ import import_to_supabase as importer  # noqa: E402
 
 
 class ChannelAdvisorMappingTests(unittest.TestCase):
-    def test_promotion_freight_matches_dashboard_fallback(self):
+    def test_promotion_freight_uses_shared_units_and_fallback_rules(self):
         rows = importer.build_promotion_sku_data(
             inventory_rows=[
-                {"sku": "FALLBACK-UK", "suggested_freight": None},
-                {"sku": "SUGGESTED-UK", "suggested_freight": 3.5},
                 {
-                    "sku": "MERCHANT-UK",
-                    "suggested_freight": None,
+                    "sku": "CALCULATED-UK",
+                    "merchant_shipping_cost": 2.0,
+                },
+                {
+                    "sku": "LOW-QTY-UK",
                     "merchant_shipping_cost": 1.69,
+                },
+                {
+                    "sku": "BELOW-MINIMUM-UK",
+                    "merchant_shipping_cost": 2.25,
                 },
             ],
             sku_master_rows=[],
             container_rows=[],
             sales_rows=[
                 {
-                    "sku": "FALLBACK-UK",
+                    "sku": "CALCULATED-UK",
                     "platform": "eBay",
-                    "postage": 5.28,
+                    "sku_qty": 4,
+                    "postage": 8,
                 },
                 {
-                    "sku": "FALLBACK-UK",
-                    "platform": "Amazon(UK) FBM",
-                    "postage": 99,
+                    "sku": "CALCULATED-UK",
+                    "platform": "Tesco",
+                    "sku_qty": 3,
+                    "postage": 9,
+                },
+            ]
+            + [
+                {
+                    "sku": "CALCULATED-UK",
+                    "platform": platform,
+                    "sku_qty": 100,
+                    "postage": 500,
+                }
+                for platform in importer.FREIGHT_EXCLUDED_PLATFORMS
+            ]
+            + [
+                {
+                    "sku": "CALCULATED-UK",
+                    "platform": "eBay",
+                    "sku_qty": 100,
+                    "postage": 0,
                 },
                 {
-                    "sku": "SUGGESTED-UK",
+                    "sku": "LOW-QTY-UK",
                     "platform": "eBay",
-                    "postage": 7,
+                    "sku_qty": 5,
+                    "postage": 25,
+                },
+                {
+                    "sku": "BELOW-MINIMUM-UK",
+                    "platform": "eBay",
+                    "sku_qty": 6,
+                    "postage": 6,
                 },
             ],
         )
 
         by_sku = {row["sku"]: row for row in rows}
-        self.assertEqual(by_sku["FALLBACK-UK"]["suggested_freight"], 5.28)
-        self.assertEqual(by_sku["SUGGESTED-UK"]["suggested_freight"], 3.5)
-        self.assertEqual(by_sku["MERCHANT-UK"]["suggested_freight"], 1.69)
+        self.assertAlmostEqual(
+            by_sku["CALCULATED-UK"]["suggested_freight"],
+            17 / 7,
+        )
+        self.assertEqual(by_sku["LOW-QTY-UK"]["suggested_freight"], 1.69)
+        self.assertEqual(
+            by_sku["BELOW-MINIMUM-UK"]["suggested_freight"],
+            2.25,
+        )
 
     def test_saved_many_to_one_mappings_are_reused_by_refresh(self):
         source = pd.DataFrame(
