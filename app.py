@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import io
 import math
 import os
 import re
@@ -469,6 +470,180 @@ def table_records(df):
     ]
 
 
+def rows_by_sku(value):
+    if isinstance(value, dict):
+        return {
+            normalize_sku(sku): row
+            for sku, row in value.items()
+            if normalize_sku(sku)
+        }
+    if hasattr(value, "iterrows"):
+        result = {}
+        for _, row in value.iterrows():
+            sku = normalize_sku(
+                row.get("sku")
+                or row.get("sku_norm")
+                or row.get("Product SKU")
+                or row.get("SKU")
+            )
+            if sku:
+                result[sku] = row
+        return result
+    return {}
+
+
+def freight_export_rows(data):
+    inventory = rows_by_sku(data.get("inventory", {}))
+    freight = rows_by_sku(data.get("freight", {}))
+    rows = []
+    for sku in sorted(set(inventory) | set(freight)):
+        inventory_row = inventory.get(sku, {})
+        freight_row = freight.get(sku, {})
+        wooper_freight = merchant_shipping_cost_from_inventory(inventory_row)
+        if wooper_freight is None:
+            wooper_freight = clean_number(
+                freight_row.get("sello_tools_calculation"), None
+            )
+        suggested_freight = clean_number(
+            inventory_row.get("suggested_freight"), None
+        )
+        if suggested_freight is None:
+            suggested_freight = clean_number(
+                freight_row.get("suggested_freight"), None
+            )
+        rows.append(
+            {
+                "Wooper SKU": sku,
+                "Wooper Freight": wooper_freight,
+                "Eligible Average Freight": clean_number(
+                    freight_row.get("avg_actual_freight"), None
+                ),
+                "Suggested Freight": suggested_freight,
+            }
+        )
+    return rows
+
+
+def freight_export_workbook(data):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.table import Table, TableStyleInfo
+
+    workbook = Workbook()
+    freight_sheet = workbook.active
+    freight_sheet.title = "Freight"
+    fieldnames = [
+        "Wooper SKU",
+        "Wooper Freight",
+        "Eligible Average Freight",
+        "Suggested Freight",
+    ]
+    freight_sheet.append(fieldnames)
+    for row in freight_export_rows(data):
+        freight_sheet.append([row[field] for field in fieldnames])
+
+    header_fill = PatternFill("solid", fgColor="0F766E")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in freight_sheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    freight_sheet.freeze_panes = "A2"
+    freight_sheet.auto_filter.ref = freight_sheet.dimensions
+    freight_sheet.column_dimensions["A"].width = 28
+    freight_sheet.column_dimensions["B"].width = 20
+    freight_sheet.column_dimensions["C"].width = 28
+    freight_sheet.column_dimensions["D"].width = 20
+    for row in freight_sheet.iter_rows(min_row=2, min_col=2, max_col=4):
+        for cell in row:
+            cell.number_format = "0.0000"
+    if freight_sheet.max_row > 1:
+        table = Table(displayName="FreightExport", ref=freight_sheet.dimensions)
+        table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium2",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        freight_sheet.add_table(table)
+
+    guide_sheet = workbook.create_sheet("Guide 计算说明")
+    guide_sheet.merge_cells("A1:C1")
+    guide_sheet["A1"] = "Freight Calculation Guide / 运费计算说明"
+    guide_sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
+    guide_sheet["A1"].fill = header_fill
+    guide_sheet["A1"].alignment = Alignment(horizontal="left", vertical="center")
+    guide_sheet.row_dimensions[1].height = 28
+    guide_sheet.append(["Item", "English", "简体中文"])
+    guide_rows = [
+        (
+            "Wooper SKU",
+            "The core product SKU from the Wooper inventory report.",
+            "Wooper 库存报告中的核心产品 SKU。",
+        ),
+        (
+            "Wooper Freight",
+            "The Merchant Shipping Cost from the Wooper inventory report. This is the fallback freight.",
+            "Wooper 库存报告中的 Merchant Shipping Cost，是后备运费。",
+        ),
+        (
+            "Eligible Average Freight",
+            "Total eligible freight divided by total eligible units sold.",
+            "符合条件的总运费除以符合条件的总销售件数。",
+        ),
+        (
+            "Suggested Freight",
+            "The final freight used by the SKU performance dashboard and promotion tool.",
+            "SKU 表现看板和促销工具最终使用的运费。",
+        ),
+        (
+            "Excluded channels",
+            "Exclude Amazon(UK) FBA, Wayfair, Amazon(UK) SFP, Homebase IE, Debenhams IE, and Wowcher IE.",
+            "排除 Amazon(UK) FBA、Wayfair、Amazon(UK) SFP、Homebase IE、Debenhams IE 和 Wowcher IE。",
+        ),
+        (
+            "Zero freight",
+            "Transactions with a freight amount of zero are excluded.",
+            "排除运费金额为零的交易。",
+        ),
+        (
+            "Minimum sample",
+            "Use Eligible Average Freight only when eligible units sold are greater than 5.",
+            "只有符合条件的销售件数大于 5 时，才使用符合条件的平均运费。",
+        ),
+        (
+            "Minimum freight",
+            "Use Eligible Average Freight only when it is at least £1.69.",
+            "只有符合条件的平均运费不少于 £1.69 时才使用该数值。",
+        ),
+        (
+            "Fallback rule",
+            "If eligible units sold are 5 or fewer, or Eligible Average Freight is below £1.69, use Wooper Freight.",
+            "如果符合条件的销售件数为 5 件或以下，或平均运费低于 £1.69，则使用 Wooper Freight。",
+        ),
+    ]
+    for guide_row in guide_rows:
+        guide_sheet.append(guide_row)
+    for cell in guide_sheet[2]:
+        cell.fill = PatternFill("solid", fgColor="D9F0ED")
+        cell.font = Font(bold=True, color="17202A")
+    guide_sheet.freeze_panes = "A3"
+    guide_sheet.column_dimensions["A"].width = 26
+    guide_sheet.column_dimensions["B"].width = 78
+    guide_sheet.column_dimensions["C"].width = 78
+    for row in guide_sheet.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+    for row_index in range(3, guide_sheet.max_row + 1):
+        guide_sheet.row_dimensions[row_index].height = 34
+
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
 class DataStore:
     def __init__(self, workbook_path: Path, source_mode: str = SOURCE_MODE, google_sheet_id: str = GOOGLE_SHEET_ID):
         self.workbook_path = workbook_path
@@ -654,6 +829,7 @@ class DataStore:
             "sku": sku,
             "inventory": inventory,
             "upcoming_stock": upcoming_stock,
+            "freight": freight,
             "container": container,
             "image": image,
             "price_history": price_history,
@@ -705,11 +881,13 @@ class DataStore:
             if sku_norm:
                 inventory[sku_norm] = simplified
 
+        freight = {}
         freight_by_sku = {}
         for row in self.read_google_dicts("Freight"):
             simplified = {simplify_key(key): value for key, value in row.items()}
             sku_norm = normalize_sku(simplified.get("SKU"))
             if sku_norm:
+                freight[sku_norm] = simplified
                 freight_by_sku[sku_norm] = suggested_freight_from_row(simplified)
         inventory = apply_freight_map_to_inventory(inventory, freight_by_sku)
         upcoming_stock = load_upcoming_stock_file()
@@ -742,6 +920,7 @@ class DataStore:
             "sku": sku,
             "inventory": inventory,
             "upcoming_stock": upcoming_stock,
+            "freight": freight,
             "container": container,
             "image": image,
             "price_history": price_history,
@@ -1487,6 +1666,14 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_download(self, body, filename, content_type):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         try:
@@ -1509,6 +1696,15 @@ class Handler(SimpleHTTPRequestHandler):
                     self.send_json({"error": "Missing sku"}, status=400)
                     return
                 self.send_json(detail_payload(sku_code))
+                return
+            if parsed.path == "/api/freight-export":
+                data = store.get()
+                filename = f"sku-freight-{datetime.utcnow().strftime('%Y-%m-%d')}.xlsx"
+                self.send_download(
+                    freight_export_workbook(data),
+                    filename,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
                 return
             if parsed.path == "/api/price-test":
                 params = parse_qs(parsed.query)
