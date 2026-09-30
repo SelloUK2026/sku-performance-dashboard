@@ -496,7 +496,8 @@ def freight_export_rows(data):
     inventory = rows_by_sku(data.get("inventory", {}))
     freight = rows_by_sku(data.get("freight", {}))
     rows = []
-    for sku in sorted(set(inventory) | set(freight)):
+    sku_values = set(inventory) if inventory else set(freight)
+    for sku in sorted(sku_values):
         inventory_row = inventory.get(sku, {})
         freight_row = freight.get(sku, {})
         wooper_freight = merchant_shipping_cost_from_inventory(inventory_row)
