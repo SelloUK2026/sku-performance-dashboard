@@ -29,6 +29,7 @@ const elements = {
   priceHistoryRows: document.querySelector("#priceHistoryRows"),
   monthChartScroll: document.querySelector("#monthChartScroll"),
   monthChart: document.querySelector("#monthChart"),
+  exportFreight: document.querySelector("#exportFreight"),
 };
 
 function currency(value) {
@@ -553,6 +554,17 @@ elements.platformGrid.addEventListener("change", (event) => {
 
 elements.resetPrice.addEventListener("click", () => fillPriceForm(state.initialPriceTest));
 
+elements.exportFreight.addEventListener("click", () => {
+  const originalLabel = elements.exportFreight.textContent;
+  elements.exportFreight.disabled = true;
+  elements.exportFreight.textContent = "Preparing...";
+  window.location.assign("/api/freight-export");
+  window.setTimeout(() => {
+    elements.exportFreight.disabled = false;
+    elements.exportFreight.textContent = originalLabel;
+  }, 1200);
+});
+
 loadSkus().catch((error) => {
   elements.metaLine.textContent = error.message;
 });
@@ -560,3 +572,4 @@ loadSkus().catch((error) => {
 window.addEventListener("resize", () => {
   if (state.currentData) drawMonthChart(state.currentData.monthlyTrend);
 });
+
