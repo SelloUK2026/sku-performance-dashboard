@@ -409,6 +409,9 @@ def build_inventory():
             "stock_on_hand": clean_number(row.get("Total Inventory Qty")),
             "cogs": clean_number(row.get("COGS")),
             "suggested_freight": freight_by_sku.get(sku),
+            "merchant_shipping_cost": clean_number(
+                row.get("Merchant Shipping Cost")
+            ),
         }
     return list(rows.values())
 
@@ -683,6 +686,11 @@ def build_promotion_sku_data(
                 clean_number(metrics.get("fallback_freight_total"), 0)
                 / fallback_freight_rows
             )
+        merchant_shipping_cost = clean_number(
+            inventory_row.get("merchant_shipping_cost"), None
+        )
+        if suggested_freight is None:
+            suggested_freight = merchant_shipping_cost
         rows.append(
             {
                 "sku": sku,
@@ -700,6 +708,7 @@ def build_promotion_sku_data(
                     master_arrivals.get(sku) or inbound_arrivals.get(sku)
                 ),
                 "suggested_freight": suggested_freight,
+                "merchant_shipping_cost": merchant_shipping_cost,
                 "sold_qty": clean_number(metrics.get("sold_qty"), 0),
                 "sales_amt": clean_number(metrics.get("sales_amt"), 0),
                 "net_sales": net_sales,

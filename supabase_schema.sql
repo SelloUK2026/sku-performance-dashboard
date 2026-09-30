@@ -40,11 +40,13 @@ create table if not exists public.inventory (
   daily_average_sales numeric,
   stock_on_hand numeric,
   cogs numeric,
-  suggested_freight numeric
+  suggested_freight numeric,
+  merchant_shipping_cost numeric
 );
 
 alter table public.inventory add column if not exists suggested_freight numeric;
 alter table public.inventory add column if not exists inventory_status text;
+alter table public.inventory add column if not exists merchant_shipping_cost numeric;
 
 create table if not exists public.freight (
   sku text primary key,
@@ -119,6 +121,7 @@ create table if not exists public.promotion_sku_data (
   cogs numeric,
   first_arrival_date date,
   suggested_freight numeric,
+  merchant_shipping_cost numeric,
   sold_qty numeric default 0,
   sales_amt numeric default 0,
   net_sales numeric default 0,
@@ -324,3 +327,4 @@ create policy "dashboard read freight" on public.freight for select using (true)
 create policy "dashboard read container" on public.container_report for select using (true);
 create policy "dashboard read price history" on public.price_history for select using (true);
 create policy "dashboard read images" on public.product_images for select using (true);
+

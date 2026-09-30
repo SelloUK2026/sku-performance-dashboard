@@ -20,6 +20,11 @@ class ChannelAdvisorMappingTests(unittest.TestCase):
             inventory_rows=[
                 {"sku": "FALLBACK-UK", "suggested_freight": None},
                 {"sku": "SUGGESTED-UK", "suggested_freight": 3.5},
+                {
+                    "sku": "MERCHANT-UK",
+                    "suggested_freight": None,
+                    "merchant_shipping_cost": 1.69,
+                },
             ],
             sku_master_rows=[],
             container_rows=[],
@@ -45,6 +50,7 @@ class ChannelAdvisorMappingTests(unittest.TestCase):
         by_sku = {row["sku"]: row for row in rows}
         self.assertEqual(by_sku["FALLBACK-UK"]["suggested_freight"], 5.28)
         self.assertEqual(by_sku["SUGGESTED-UK"]["suggested_freight"], 3.5)
+        self.assertEqual(by_sku["MERCHANT-UK"]["suggested_freight"], 1.69)
 
     def test_saved_many_to_one_mappings_are_reused_by_refresh(self):
         source = pd.DataFrame(

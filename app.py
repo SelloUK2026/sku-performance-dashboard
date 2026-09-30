@@ -276,6 +276,13 @@ def suggested_freight_from_row(row):
     return sello_tools
 
 
+def merchant_shipping_cost_from_inventory(row):
+    merchant_cost = clean_number(row.get("merchant_shipping_cost"), None)
+    if merchant_cost is None:
+        merchant_cost = clean_number(row.get("Merchant Shipping Cost"), None)
+    return merchant_cost
+
+
 def apply_freight_map_to_inventory(inventory, freight_by_sku):
     if hasattr(inventory, "copy") and hasattr(inventory, "columns"):
         inventory = inventory.copy()
@@ -998,7 +1005,10 @@ def detail_payload_supabase(sku_code):
         suggested_freight = clean_number(inv.get("suggested_freight"), None)
     if suggested_freight is None:
         freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
-        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else None
+    if suggested_freight is None:
+        suggested_freight = merchant_shipping_cost_from_inventory(inv)
+    suggested_freight = clean_number(suggested_freight, 0)
     current_price = None
     for point in reversed(price_history):
         if point.get("price") is not None:
@@ -1122,7 +1132,10 @@ def detail_payload_google(sku_code):
     suggested_freight = clean_number(inv.get("suggested_freight"), None)
     if suggested_freight is None:
         freight_rows = [row for row in sales if row.get("postage") != 0 and row.get("platform") != "Amazon(UK) FBM"]
-        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else 0
+        suggested_freight = sum(clean_number(row.get("postage")) for row in freight_rows) / len(freight_rows) if freight_rows else None
+    if suggested_freight is None:
+        suggested_freight = merchant_shipping_cost_from_inventory(inv)
+    suggested_freight = clean_number(suggested_freight, 0)
     current_price = None
     for point in reversed(data["price_history"].get(sku_norm, [])):
         if point.get("price") is not None:
@@ -1242,7 +1255,10 @@ def detail_payload(sku_code):
     suggested_freight = clean_number(inv.iloc[0].get("suggested_freight"), None) if not inv.empty else None
     if suggested_freight is None:
         freight_sales = sales[(sales["postage"] != 0) & (sales["platform name"] != "Amazon(UK) FBM")]
-        suggested_freight = clean_number(freight_sales["postage"].mean(), 0)
+        suggested_freight = clean_number(freight_sales["postage"].mean(), None)
+    if suggested_freight is None and not inv.empty:
+        suggested_freight = merchant_shipping_cost_from_inventory(inv.iloc[0])
+    suggested_freight = clean_number(suggested_freight, 0)
     current_price = None
     for point in reversed(data["price_history"].get(sku_norm, [])):
         if point.get("price") is not None:
@@ -1385,3 +1401,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
