@@ -27,6 +27,7 @@ const elements = {
   testProfit: document.querySelector("#testProfit"),
   testMargin: document.querySelector("#testMargin"),
   priceHistoryRows: document.querySelector("#priceHistoryRows"),
+  monthChartScroll: document.querySelector("#monthChartScroll"),
   monthChart: document.querySelector("#monthChart"),
 };
 
@@ -153,7 +154,7 @@ function renderDashboard(payload) {
   state.platformRanges = state.platformPeriods.map((periodKey) => dateRangeFromPeriod(payload.periods[periodKey]));
   renderPlatformPanels();
   renderPriceHistory(payload.priceHistory);
-  drawMonthChart(payload.monthlyTrend);
+  drawMonthChart(payload.monthlyTrend, { scrollToLatest: true });
 }
 
 function showProductImage() {
@@ -376,23 +377,37 @@ function valueChangeClass(current, previous, redWhenDown) {
   return redWhenDown ? "bad" : "";
 }
 
-function drawMonthChart(points) {
+function drawMonthChart(points, { scrollToLatest = false } = {}) {
   if (!points || !points.length) {
+    elements.monthChart.style.width = "100%";
     drawEmptyChart(elements.monthChart, "No monthly sales");
     return;
   }
   const canvas = elements.monthChart;
+  const scroll = elements.monthChartScroll;
+  const viewportWidth = scroll.clientWidth || canvas.getBoundingClientRect().width;
+  const previousMaxScroll = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+  const previousScrollRatio = previousMaxScroll ? scroll.scrollLeft / previousMaxScroll : 1;
+  const visibleMonths = 12;
+  const chartLeft = 16;
+  const chartRight = 12;
+  const horizontalPadding = chartLeft + chartRight;
+  const monthWidth = Math.max(24, (viewportWidth - horizontalPadding) / visibleMonths);
+  const chartWidth = points.length > visibleMonths
+    ? horizontalPadding + monthWidth * points.length
+    : viewportWidth;
+  canvas.style.width = `${Math.ceil(chartWidth)}px`;
   const ctx = setupChart(canvas);
   const rect = canvas.getBoundingClientRect();
-  const area = { left: 48, top: 26, right: rect.width - 24, bottom: rect.height - 46 };
-  const ordered = [...points].slice(-12);
+  const area = { left: chartLeft, top: 24, right: rect.width - chartRight, bottom: rect.height - 34 };
+  const ordered = [...points];
   const maxQty = Math.max(...ordered.map((row) => Number(row.qty || 0)), 1);
   const pmValues = ordered.map((row) => Number(row.profitMargin || 0) * 100);
   const minPm = Math.min(...pmValues, 0);
   const maxPm = Math.max(...pmValues, 1);
   const pmSpan = maxPm - minPm || 1;
   const step = (area.right - area.left) / Math.max(ordered.length, 1);
-  const barWidth = Math.max(14, step * 0.48);
+  const barWidth = Math.max(16, step * 0.64);
 
   ctx.strokeStyle = "#dde3ea";
   ctx.lineWidth = 1;
@@ -439,14 +454,17 @@ function drawMonthChart(points) {
   ordered.forEach((row, index) => {
     const x = area.left + index * step + step / 2;
     ctx.save();
-    ctx.translate(x, area.bottom + 18);
+    ctx.translate(x, area.bottom + 16);
     ctx.rotate(-0.25);
     ctx.textAlign = "center";
     ctx.fillText(String(row.month || "").slice(2), 0, 0);
     ctx.restore();
   });
 
-  drawLegend(ctx, area.left, 12, [["Qty", "#0f766e"], ["PM", "#7c3aed"]]);
+  drawLegend(ctx, area.left, 10, [["Qty", "#0f766e"], ["PM", "#7c3aed"]]);
+
+  const maxScroll = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+  scroll.scrollLeft = scrollToLatest ? maxScroll : previousScrollRatio * maxScroll;
 }
 
 function setupChart(canvas) {
