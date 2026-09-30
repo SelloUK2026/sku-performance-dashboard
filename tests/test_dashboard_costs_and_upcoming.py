@@ -34,6 +34,7 @@ class DashboardCostsAndUpcomingTests(unittest.TestCase):
                 "freight": {
                     "B-UK": {"sku": "B-UK", "avg_actual_freight": 5.28},
                     "A-UK": {"sku": "A-UK", "avg_actual_freight": 2.125},
+                    "OLD-UK": {"sku": "OLD-UK", "avg_actual_freight": 9.99},
                 },
             }
         )
