@@ -569,6 +569,29 @@ td {
   margin: 0 4px 4px;
 }
 
+.freight-export-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.export-button {
+  min-width: 142px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.export-button:hover:not(:disabled) {
+  background: #0b625c;
+  border-color: #0b625c;
+}
+
+.export-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .price-form {
   gap: 8px;
 }
@@ -590,3 +613,4 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
