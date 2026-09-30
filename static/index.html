@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SKU Performance</title>
-    <link rel="stylesheet" href="/styles.css?v=20260922-upcoming-stock">
+    <link rel="stylesheet" href="/styles.css?v=20260930-month-scroll">
   </head>
   <body>
     <header class="topbar">
@@ -76,16 +76,24 @@
               </table>
             </div>
           </div>
-          <div class="panel">
+          <div class="panel monthly-chart-panel">
             <div class="panel-head">
               <h3>Monthly Sales And Margin</h3>
             </div>
-            <canvas id="monthChart" height="220"></canvas>
+            <div
+              id="monthChartScroll"
+              class="month-chart-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Monthly sales and margin chart. Scroll horizontally to view earlier months."
+            >
+              <canvas id="monthChart" height="220"></canvas>
+            </div>
           </div>
         </aside>
       </section>
     </main>
 
-    <script src="/app.js?v=20260922-upcoming-stock"></script>
+    <script src="/app.js?v=20260930-month-scroll"></script>
   </body>
 </html>
