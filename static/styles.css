@@ -537,10 +537,36 @@ td {
   font-size: 12px;
 }
 
+.month-chart-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #9ca8b7 #eef2f6;
+  scrollbar-width: thin;
+}
+
+.month-chart-scroll:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 #monthChart {
   display: block;
   width: 100%;
-  height: 220px;
+  min-width: 100%;
+  height: clamp(250px, 22vw, 300px);
+}
+
+.monthly-chart-panel {
+  padding: 12px 10px 8px;
+}
+
+.monthly-chart-panel .panel-head {
+  margin: 0 4px 4px;
 }
 
 .price-form {
