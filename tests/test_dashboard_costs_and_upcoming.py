@@ -73,6 +73,8 @@ class DashboardCostsAndUpcomingTests(unittest.TestCase):
                 "Suggested Freight",
             ],
         )
+        self.assertEqual(list(workbook["Freight"].tables), [])
+        self.assertEqual(workbook["Freight"].auto_filter.ref, "A1:D2")
         guide_text = " ".join(
             str(cell.value or "") for row in workbook["Guide 计算说明"] for cell in row
         )
