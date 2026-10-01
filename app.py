@@ -528,7 +528,6 @@ def freight_export_rows(data):
 def freight_export_workbook(data):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
-    from openpyxl.worksheet.table import Table, TableStyleInfo
 
     workbook = Workbook()
     freight_sheet = workbook.active
@@ -558,17 +557,6 @@ def freight_export_workbook(data):
     for row in freight_sheet.iter_rows(min_row=2, min_col=2, max_col=4):
         for cell in row:
             cell.number_format = "0.0000"
-    if freight_sheet.max_row > 1:
-        table = Table(displayName="FreightExport", ref=freight_sheet.dimensions)
-        table.tableStyleInfo = TableStyleInfo(
-            name="TableStyleMedium2",
-            showFirstColumn=False,
-            showLastColumn=False,
-            showRowStripes=True,
-            showColumnStripes=False,
-        )
-        freight_sheet.add_table(table)
-
     guide_sheet = workbook.create_sheet("Guide 计算说明")
     guide_sheet.merge_cells("A1:C1")
     guide_sheet["A1"] = "Freight Calculation Guide / 运费计算说明"
