@@ -6,12 +6,17 @@ const state = {
   initialPriceTest: null,
   imageUrls: [],
   imageIndex: 0,
+  skuRequestId: 0,
+  skuAbortController: null,
 };
 
 const elements = {
   metaLine: document.querySelector("#metaLine"),
   skuSearch: document.querySelector("#skuSearch"),
   skuSelect: document.querySelector("#skuSelect"),
+  viewSku: document.querySelector("#viewSku"),
+  dashboardMain: document.querySelector("#dashboardMain"),
+  skuLoadStatus: document.querySelector("#skuLoadStatus"),
   productImage: document.querySelector("#productImage"),
   skuCode: document.querySelector("#skuCode"),
   productTitle: document.querySelector("#productTitle"),
@@ -65,8 +70,8 @@ function displayDate(value) {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
-async function getJson(url) {
-  const response = await fetch(url);
+async function getJson(url, options = {}) {
+  const response = await fetch(url, options);
   const text = await response.text();
   let payload = null;
   try {
@@ -90,25 +95,78 @@ async function loadSkus(query = "") {
   if (previousSku && skus.includes(previousSku)) {
     elements.skuSelect.value = previousSku;
   }
-  if (query.trim() && payload.items.length === 1 && payload.items[0].sku !== previousSku) {
+  if (!state.selectedSku && payload.items.length) {
     elements.skuSelect.value = payload.items[0].sku;
     await loadSku(payload.items[0].sku);
-    return;
   }
-  if (!state.selectedSku && payload.items.length) {
-    state.selectedSku = payload.items[0].sku;
-    elements.skuSelect.value = state.selectedSku;
-    await loadSku(state.selectedSku);
-  }
+  updateViewSkuButton();
 }
 
 async function loadSku(sku) {
   if (!sku) return;
-  state.selectedSku = sku;
-  const payload = await getJson(`/api/sku?sku=${encodeURIComponent(sku)}`);
-  state.currentData = payload;
-  state.initialPriceTest = { ...payload.priceTest };
-  renderDashboard(payload);
+  if (state.skuAbortController) state.skuAbortController.abort();
+  const requestId = ++state.skuRequestId;
+  const controller = new AbortController();
+  state.skuAbortController = controller;
+  setSkuLoading(sku);
+  try {
+    const payload = await getJson(`/api/sku?sku=${encodeURIComponent(sku)}`, { signal: controller.signal });
+    if (requestId !== state.skuRequestId) return;
+    const returnedSku = payload && payload.snapshot && payload.snapshot.sku;
+    if (!returnedSku || returnedSku.trim().toUpperCase() !== sku.trim().toUpperCase()) {
+      throw new Error(`The dashboard returned data for ${returnedSku || "another SKU"}.`);
+    }
+    state.selectedSku = returnedSku;
+    state.currentData = payload;
+    state.initialPriceTest = { ...payload.priceTest };
+    renderDashboard(payload);
+    clearSkuLoading();
+  } catch (error) {
+    if (error.name === "AbortError" || requestId !== state.skuRequestId) return;
+    showSkuLoadError(sku, error);
+  } finally {
+    if (requestId === state.skuRequestId) {
+      state.skuAbortController = null;
+      updateViewSkuButton();
+    }
+  }
+}
+
+function updateViewSkuButton() {
+  const hasSelection = Boolean(elements.skuSelect.value);
+  const isLoading = elements.dashboardMain.classList.contains("is-loading");
+  elements.viewSku.disabled = !hasSelection || isLoading;
+  elements.viewSku.textContent = isLoading ? "Loading..." : "View SKU";
+}
+
+function setSkuLoading(sku) {
+  elements.dashboardMain.classList.remove("has-load-error");
+  elements.dashboardMain.classList.add("is-loading");
+  elements.dashboardMain.setAttribute("aria-busy", "true");
+  elements.skuLoadStatus.hidden = false;
+  elements.skuLoadStatus.textContent = `Loading ${sku}...`;
+  updateViewSkuButton();
+}
+
+function clearSkuLoading() {
+  elements.dashboardMain.classList.remove("is-loading", "has-load-error");
+  elements.dashboardMain.removeAttribute("aria-busy");
+  elements.skuLoadStatus.hidden = true;
+  elements.skuLoadStatus.textContent = "";
+}
+
+function showSkuLoadError(sku, error) {
+  elements.dashboardMain.classList.remove("is-loading");
+  elements.dashboardMain.classList.add("has-load-error");
+  elements.dashboardMain.removeAttribute("aria-busy");
+  elements.skuLoadStatus.hidden = false;
+  const stillShowing = state.selectedSku ? ` The previous figures belong to ${state.selectedSku}.` : "";
+  elements.skuLoadStatus.textContent = `Could not load ${sku}.${stillShowing} ${error.message}`;
+}
+
+function confirmSkuSelection() {
+  const sku = elements.skuSelect.value;
+  if (sku) loadSku(sku);
 }
 
 function renderDashboard(payload) {
@@ -519,11 +577,18 @@ elements.skuSearch.addEventListener("input", () => {
 elements.skuSearch.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && elements.skuSelect.value) {
     event.preventDefault();
-    loadSku(elements.skuSelect.value);
+    confirmSkuSelection();
   }
 });
 
-elements.skuSelect.addEventListener("change", () => loadSku(elements.skuSelect.value));
+elements.skuSelect.addEventListener("change", updateViewSkuButton);
+elements.skuSelect.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    confirmSkuSelection();
+  }
+});
+elements.viewSku.addEventListener("click", confirmSkuSelection);
 
 elements.productImage.addEventListener("error", () => {
   state.imageIndex += 1;
