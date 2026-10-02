@@ -279,6 +279,33 @@ def image_sku_from_row(row):
     return price_change_formula_sku(row.get("Inventory Number") if hasattr(row, "get") else None)
 
 
+def canonicalize_product_images(image_by_sku, inventory_by_sku, channeladvisor_rows):
+    """Add verified Wooper aliases without removing the original image records."""
+    canonical = dict(image_by_sku)
+    candidates = {}
+    for row in channeladvisor_rows or []:
+        if str(row.get("mapping_status") or "").strip().lower() != "mapped":
+            continue
+        wooper_sku = normalize_sku(row.get("wooper_sku"))
+        platform_sku = normalize_sku(row.get("platform_sku"))
+        if not wooper_sku or wooper_sku not in inventory_by_sku or wooper_sku in image_by_sku:
+            continue
+        for image_sku in (platform_sku, price_change_formula_sku(platform_sku)):
+            image_row = image_by_sku.get(image_sku)
+            if not image_row:
+                continue
+            score = (
+                bool(clean_value(image_row.get("image_url"))),
+                bool(clean_value(image_row.get("title"))),
+                platform_sku,
+            )
+            if wooper_sku not in candidates or score > candidates[wooper_sku][0]:
+                candidates[wooper_sku] = (score, image_row)
+    for wooper_sku, (_, image_row) in candidates.items():
+        canonical[wooper_sku] = image_row
+    return canonical
+
+
 FREIGHT_EXCLUDED_PLATFORMS = {
     "Amazon(UK) FBA",
     "Wayfair",
@@ -721,6 +748,13 @@ class DataStore:
         sku_rows = supabase_select_all("sku_master")
         image_rows = supabase_select_all("product_images")
         try:
+            channeladvisor_rows = supabase_select_all(
+                "channeladvisor_products",
+                "platform_sku,wooper_sku,mapping_status",
+            )
+        except DataSourceError:
+            channeladvisor_rows = []
+        try:
             freight_rows = supabase_select_all("freight")
         except DataSourceError:
             freight_rows = []
@@ -728,9 +762,10 @@ class DataStore:
         inventory = {normalize_sku(row.get("sku")): row for row in inventory_rows if normalize_sku(row.get("sku"))}
         upcoming_stock = {normalize_sku(row.get("sku")): row for row in upcoming_rows if normalize_sku(row.get("sku"))}
         sku = {normalize_sku(row.get("sku")): row for row in sku_rows if normalize_sku(row.get("sku"))}
-        image = {normalize_sku(row.get("sku")): row for row in image_rows if normalize_sku(row.get("sku"))}
+        raw_image = {normalize_sku(row.get("sku")): row for row in image_rows if normalize_sku(row.get("sku"))}
+        image = canonicalize_product_images(raw_image, inventory, channeladvisor_rows)
         freight = {normalize_sku(row.get("sku")): row for row in freight_rows if normalize_sku(row.get("sku"))}
-        sku_options = self.build_supabase_sku_options(sku, inventory, image)
+        sku_options = self.build_supabase_sku_options(inventory, image)
 
         oldest = supabase_request("sales?select=sale_date&order=sale_date.asc&limit=1")
         newest = supabase_request("sales?select=sale_date&order=sale_date.desc&limit=1")
@@ -760,8 +795,8 @@ class DataStore:
             "skuOptions": sku_options,
         }
 
-    def build_supabase_sku_options(self, sku, inventory, image):
-        sku_values = sorted(set(sku) | set(inventory) | set(image))
+    def build_supabase_sku_options(self, inventory, image):
+        sku_values = sorted(inventory)
         result = []
         for sku_code in sku_values:
             img = image.get(sku_code, {})
@@ -937,7 +972,7 @@ class DataStore:
         return datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
     def build_google_sku_options(self, sales_skus, sku, inventory, image):
-        sku_values = sorted(set(sales_skus) | set(sku) | set(inventory))
+        sku_values = sorted(inventory)
         result = []
         for sku_code in sku_values:
             img = image.get(sku_code, {})
@@ -997,7 +1032,7 @@ class DataStore:
             return clean_value(datetime.fromtimestamp(self.workbook_path.stat().st_mtime))
 
     def build_sku_options(self, powerbi, sku, inventory, image):
-        sku_values = sorted(set(powerbi["sku_norm"]) | set(sku["sku_norm"]) | set(inventory["sku_norm"]))
+        sku_values = sorted(set(inventory["sku_norm"]))
         titles = image.drop_duplicates("sku_norm").set_index("sku_norm")["Auction Title"].to_dict()
         categories = inventory.drop_duplicates("sku_norm").set_index("sku_norm")["Main Category"].to_dict()
         result = []
