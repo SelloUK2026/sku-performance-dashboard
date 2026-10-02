@@ -272,6 +272,16 @@ def price_history_sku_from_google_row(row):
     return price_change_formula_sku(row[1] if len(row) > 1 else "")
 
 
+def price_history_sku_candidates(value):
+    """Return the canonical SKU followed by its legacy ``-UK`` history key."""
+    sku = normalize_sku(value)
+    candidates = []
+    for candidate in (sku, price_change_formula_sku(sku)):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
 def image_sku_from_row(row):
     sku = normalize_sku(row.get("Unnamed: 25") if hasattr(row, "get") else None)
     if sku:
@@ -1299,9 +1309,14 @@ def detail_payload_supabase(sku_code):
         f"container_report?select=inbound_time&sku=eq.{sku_filter}&order=inbound_time.asc.nullslast&limit=1"
     )
     first_inbound = first_container_rows[0] if first_container_rows else {}
-    price_history = supabase_request(
-        f"price_history?select=label,stock,price&sku=eq.{sku_filter}&order=sequence.asc"
-    )
+    price_history = []
+    for history_sku in price_history_sku_candidates(sku_norm):
+        history_filter = quote(history_sku, safe="")
+        price_history = supabase_request(
+            f"price_history?select=label,stock,price&sku=eq.{history_filter}&order=sequence.asc"
+        )
+        if price_history:
+            break
 
     cogs = clean_number(inv.get("cogs"), None)
     if cogs is None:
@@ -1493,7 +1508,12 @@ def detail_payload_google(sku_code):
         )
     suggested_freight = clean_number(suggested_freight, 0)
     current_price = None
-    for point in reversed(data["price_history"].get(sku_norm, [])):
+    price_history = []
+    for history_sku in price_history_sku_candidates(sku_norm):
+        price_history = data["price_history"].get(history_sku, [])
+        if price_history:
+            break
+    for point in reversed(price_history):
         if point.get("price") is not None:
             current_price = point["price"]
             break
@@ -1539,7 +1559,7 @@ def detail_payload_google(sku_code):
             },
         },
         "monthlyTrend": monthly[-18:],
-        "priceHistory": data["price_history"].get(sku_norm, []),
+        "priceHistory": price_history,
         "priceTest": price_test,
     }
 
@@ -1625,7 +1645,12 @@ def detail_payload(sku_code):
         )
     suggested_freight = clean_number(suggested_freight, 0)
     current_price = None
-    for point in reversed(data["price_history"].get(sku_norm, [])):
+    price_history = []
+    for history_sku in price_history_sku_candidates(sku_norm):
+        price_history = data["price_history"].get(history_sku, [])
+        if price_history:
+            break
+    for point in reversed(price_history):
         if point.get("price") is not None:
             current_price = point["price"]
             break
@@ -1672,7 +1697,7 @@ def detail_payload(sku_code):
             },
         },
         "monthlyTrend": table_records(month_group.tail(18)),
-        "priceHistory": data["price_history"].get(sku_norm, []),
+        "priceHistory": price_history,
         "priceTest": price_test,
     }
 
