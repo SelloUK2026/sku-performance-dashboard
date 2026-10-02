@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SKU Performance</title>
-    <link rel="stylesheet" href="/styles.css?v=20260930-freight-export">
+    <link rel="stylesheet" href="/styles.css?v=20261002-sku-confirm">
   </head>
   <body>
     <header class="topbar">
@@ -15,10 +15,12 @@
       <div class="search">
         <input id="skuSearch" type="search" placeholder="Search SKU or title" autocomplete="off">
         <select id="skuSelect" aria-label="SKU"></select>
+        <button id="viewSku" class="view-sku-button" type="button">View SKU</button>
       </div>
     </header>
 
-    <main>
+    <main id="dashboardMain" class="dashboard-content">
+      <div id="skuLoadStatus" class="sku-load-status" role="status" aria-live="polite" hidden></div>
       <section class="product-strip">
         <div class="image-frame">
           <img id="productImage" alt="" referrerpolicy="no-referrer">
@@ -97,7 +99,7 @@
       </section>
     </main>
 
-    <script src="/app.js?v=20260930-freight-export"></script>
+    <script src="/app.js?v=20261002-sku-confirm"></script>
   </body>
 </html>
 
