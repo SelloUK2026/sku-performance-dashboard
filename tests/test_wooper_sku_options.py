@@ -46,6 +46,21 @@ class WooperSkuOptionTests(unittest.TestCase):
         self.assertIn("ASEVI-HOASE028-UK", canonical)
         self.assertEqual(canonical["ASEVI-HOASE028"]["title"], "Asevi Spray")
 
+    def test_legacy_image_alias_is_recovered_without_mapping_rows(self):
+        images = {
+            "ASEVI-HOASE028-UK": {
+                "sku": "ASEVI-HOASE028-UK",
+                "title": "Asevi Spray",
+                "image_url": "https://example.test/asevi.jpg",
+            }
+        }
+        inventory = {"ASEVI-HOASE028": {"sku": "ASEVI-HOASE028"}}
+
+        canonical = app.canonicalize_product_images(images, inventory, [])
+
+        self.assertIn("ASEVI-HOASE028-UK", canonical)
+        self.assertEqual(canonical["ASEVI-HOASE028"]["title"], "Asevi Spray")
+
     def test_importer_prefers_verified_mapping_over_formula_sku(self):
         frame = pd.DataFrame([{
             "Inventory Number": "ASEVI-HOASE028",
