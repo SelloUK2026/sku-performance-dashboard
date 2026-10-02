@@ -80,6 +80,16 @@ class WooperSkuOptionTests(unittest.TestCase):
 
         self.assertEqual(rows[0]["sku"], "ASEVI-HOASE028")
 
+    def test_price_history_uses_canonical_then_legacy_sku(self):
+        self.assertEqual(
+            app.price_history_sku_candidates("AIRPURE-HOAIR334"),
+            ["AIRPURE-HOAIR334", "AIRPURE-HOAIR334-UK"],
+        )
+        self.assertEqual(
+            app.price_history_sku_candidates("AIRPURE-HOAIR334-UK"),
+            ["AIRPURE-HOAIR334-UK"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
