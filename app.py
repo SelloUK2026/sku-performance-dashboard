@@ -301,6 +301,20 @@ def canonicalize_product_images(image_by_sku, inventory_by_sku, channeladvisor_r
             )
             if wooper_sku not in candidates or score > candidates[wooper_sku][0]:
                 candidates[wooper_sku] = (score, image_row)
+    # Some older product-image rows were stored under the legacy normalised
+    # ``<Wooper SKU>-UK`` value.  Recover those directly from the authoritative
+    # inventory SKU even when the ChannelAdvisor mapping table is unavailable.
+    for wooper_sku in inventory_by_sku:
+        if wooper_sku in image_by_sku or wooper_sku in candidates:
+            continue
+        legacy_sku = price_change_formula_sku(wooper_sku)
+        image_row = image_by_sku.get(legacy_sku)
+        if image_row:
+            candidates[wooper_sku] = ((
+                bool(clean_value(image_row.get("image_url"))),
+                bool(clean_value(image_row.get("title"))),
+                legacy_sku,
+            ), image_row)
     for wooper_sku, (_, image_row) in candidates.items():
         canonical[wooper_sku] = image_row
     return canonical
