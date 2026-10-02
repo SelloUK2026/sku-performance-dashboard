@@ -627,8 +627,8 @@ def build_sku_master():
     return list(rows.values())
 
 
-def build_inventory():
-    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
+def build_inventory(df=None):
+    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report") if df is None else df)
     powerbi_freight = build_powerbi_freight_metrics()
     rows = {}
     for _, row in df.iterrows():
@@ -696,8 +696,8 @@ def build_upcoming_stock():
     return list(rows.values())
 
 
-def build_freight():
-    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report"))
+def build_freight(df=None):
+    df = simplify_columns(pd.read_excel(WORKBOOK_PATH, sheet_name="Inventory Report") if df is None else df)
     powerbi_freight = build_powerbi_freight_metrics()
     rows = {}
     for _, row in df.iterrows():
@@ -722,8 +722,8 @@ def build_freight():
     return list(rows.values())
 
 
-def build_container_report():
-    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Container report")
+def build_container_report(df=None):
+    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Container report") if df is None else df
     rows = {}
     for _, row in df.iterrows():
         sku = normalize_sku(row.get("SKU"))
@@ -798,8 +798,8 @@ def build_promotion_protection_list():
     return list(rows.values())
 
 
-def build_price_history():
-    raw = pd.read_excel(WORKBOOK_PATH, sheet_name="Price Change", header=None)
+def build_price_history(raw=None):
+    raw = pd.read_excel(WORKBOOK_PATH, sheet_name="Price Change", header=None) if raw is None else raw
     rows = []
     if raw.shape[0] < 3:
         return rows
@@ -842,11 +842,19 @@ def build_price_history():
     return rows
 
 
-def build_product_images():
-    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image")
+def build_product_images(df=None, channeladvisor_rows=None):
+    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image") if df is None else df
+    mapped_skus = {
+        normalize_sku(row.get("platform_sku")): normalize_sku(row.get("wooper_sku"))
+        for row in (channeladvisor_rows or [])
+        if row.get("mapping_status") == "mapped"
+        and normalize_sku(row.get("platform_sku"))
+        and normalize_sku(row.get("wooper_sku"))
+    }
     rows = {}
     for _, row in df.iterrows():
-        sku = image_sku_from_row(row)
+        platform_sku = normalize_sku(row.get("Inventory Number"))
+        sku = mapped_skus.get(platform_sku) or image_sku_from_row(row)
         if not sku:
             continue
         preferred = preferred_image_url(row)
@@ -867,8 +875,8 @@ def build_product_images():
     return list(rows.values())
 
 
-def build_channeladvisor_products(inventory_rows=None, manual_mappings=None):
-    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image")
+def build_channeladvisor_products(inventory_rows=None, manual_mappings=None, df=None):
+    df = pd.read_excel(WORKBOOK_PATH, sheet_name="Image") if df is None else df
     if inventory_rows is None:
         inventory_rows = build_inventory()
     inventory_skus = {row["sku"] for row in inventory_rows}
@@ -1070,7 +1078,11 @@ def main():
         ("container_report", container_rows, "?id=not.is.null"),
         ("upcoming_stock", upcoming_stock_rows, "?sku=not.is.null"),
         ("price_history", build_price_history, "?id=not.is.null"),
-        ("product_images", build_product_images, "?sku=not.is.null"),
+        (
+            "product_images",
+            lambda: build_product_images(channeladvisor_rows=channeladvisor_rows),
+            "?sku=not.is.null",
+        ),
         (
             "channeladvisor_products",
             lambda: channeladvisor_rows,
