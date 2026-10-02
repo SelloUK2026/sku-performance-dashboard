@@ -69,8 +69,21 @@ h3 {
 
 .search {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(220px, 360px);
+  grid-template-columns: minmax(220px, 320px) minmax(220px, 360px) auto;
   gap: 10px;
+}
+
+.view-sku-button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.view-sku-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 input,
@@ -104,6 +117,28 @@ main {
   padding: 22px 28px 40px;
   display: grid;
   gap: 18px;
+}
+
+.sku-load-status {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--ink);
+  font-weight: 700;
+  padding: 12px 14px;
+}
+
+.dashboard-content.is-loading > :not(.sku-load-status),
+.dashboard-content.has-load-error > :not(.sku-load-status) {
+  opacity: 0.22;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dashboard-content.has-load-error .sku-load-status {
+  background: #fef2f2;
+  border-color: var(--bad);
+  color: var(--bad);
 }
 
 .product-strip,
