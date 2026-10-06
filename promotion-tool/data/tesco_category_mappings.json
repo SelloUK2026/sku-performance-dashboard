@@ -1,0 +1,1387 @@
+[
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat furniture/cat condos & houses",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Furniture/Cat Condos & Houses",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat furniture/cat perches & shelves",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Furniture/Cat Perches & Shelves",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat furniture/cat scratchers & scratching posts",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Furniture/Cat Scratchers & Scratching Posts",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat furniture/cat trees & towers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Furniture/Cat Trees & Towers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat litter/cat litter box liners",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Litter/Cat Litter Box Liners",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat litter/cat litter boxes",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Litter/Cat Litter Boxes",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/cat supplies/cat toys/tunnels",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Cat Supplies/Cat Toys/Tunnels",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/dog supplies/dog diaper pads & liners",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Dog Supplies/Dog Diaper Pads & Liners",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/dog supplies/dog houses",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Dog Supplies/Dog Houses",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/dog supplies/dog kennel & run accessories",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Dog Supplies/Dog Kennel & Run Accessories",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/dog supplies/dog kennels & runs/dog pens",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Dog Supplies/Dog Kennels & Runs/Dog Pens",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/dog supplies/dog kennels & runs/indoor dog kennels",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Dog Supplies/Dog Kennels & Runs/Indoor Dog Kennels",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet beds/bolster beds",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Beds/Bolster Beds",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet beds/donuts",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Beds/Donuts",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet beds/nests",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Beds/Nests",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet beds/orthopaedic beds",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Beds/Orthopaedic Beds",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet beds/pillow beds",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Beds/Pillow Beds",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet bowls, feeders & waterers/automatic feeders",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Bowls, Feeders & Waterers/Automatic Feeders",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet bowls, feeders & waterers/bowls",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Bowls, Feeders & Waterers/Bowls",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet carriers & crates/car crates",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Carriers & Crates/Car Crates",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet carriers & crates/soft-sided carriers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Carriers & Crates/Soft-Sided Carriers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet containment systems/fences & gates",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Containment Systems/Fences & Gates",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet grooming supplies/pet combs & brushes/groomers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Grooming Supplies/Pet Combs & Brushes/Groomers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet grooming supplies/pet hair clippers & trimmers/trimmers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Grooming Supplies/Pet Hair Clippers & Trimmers/Trimmers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet steps & ramps",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Steps & Ramps",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/pet strollers/standard strollers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Pet Strollers/Standard Strollers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/small animal supplies/small animal habitats & cages",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Small Animal Supplies/Small Animal Habitats & Cages",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "animals & pet supplies/pet supplies/vehicle pet barriers/backseat barriers",
+    "tesco_category": "Animals & Pet Supplies/Pet Supplies/Vehicle Pet Barriers/Backseat Barriers",
+    "level_1": "Pet"
+  },
+  {
+    "category_key": "arts & entertainment/party & celebration/party supplies/party supply kits",
+    "tesco_category": "Arts & Entertainment/Party & Celebration/Party Supplies/Party Supply Kits",
+    "level_1": "Celebration"
+  },
+  {
+    "category_key": "baby & toddler/baby health/pacifiers & teethers/pacifiers",
+    "tesco_category": "Baby & Toddler/Baby Health/Pacifiers & Teethers/Pacifiers",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/baby toys & activity equipment/baby activity toys/activity centres",
+    "tesco_category": "Baby & Toddler/Baby Toys & Activity Equipment/Baby Activity Toys/Activity Centres",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/baby toys & activity equipment/play mats & gyms/play mats",
+    "tesco_category": "Baby & Toddler/Baby Toys & Activity Equipment/Play Mats & Gyms/Play Mats",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/baby toys & activity equipment/play yards",
+    "tesco_category": "Baby & Toddler/Baby Toys & Activity Equipment/Play Yards",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/baby transport accessories/baby & toddler car seat accessories/car seat covers",
+    "tesco_category": "Baby & Toddler/Baby Transport Accessories/Baby & Toddler Car Seat Accessories/Car Seat Covers",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/diapering/diaper kits/diaper bag kits",
+    "tesco_category": "Baby & Toddler/Diapering/Diaper Kits/Diaper Bag Kits",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/nursing & feeding/bottle warmers & sterilisers/sterilisers/electric steam sterilisers",
+    "tesco_category": "Baby & Toddler/Nursing & Feeding/Bottle Warmers & Sterilisers/Sterilisers/Electric Steam Sterilisers",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/nursing & feeding/nursing pillows",
+    "tesco_category": "Baby & Toddler/Nursing & Feeding/Nursing Pillows",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/potty training/potties",
+    "tesco_category": "Baby & Toddler/Potty Training/Potties",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "baby & toddler/potty training/toilet seats & step stools",
+    "tesco_category": "Baby & Toddler/Potty Training/Toilet Seats & Step Stools",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "cameras & optics/cameras/surveillance cameras",
+    "tesco_category": "Cameras & Optics/Cameras/Surveillance Cameras",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "electronics/electronics accessories/computer accessories/computer risers & stands",
+    "tesco_category": "Electronics/Electronics Accessories/Computer Accessories/Computer Risers & Stands",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "electronics/electronics accessories/power/power stations",
+    "tesco_category": "Electronics/Electronics Accessories/Power/Power Stations",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "furniture/baby & toddler furniture/baby & toddler furniture sets",
+    "tesco_category": "Furniture/Baby & Toddler Furniture/Baby & Toddler Furniture Sets",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "furniture/baby & toddler furniture/high chairs & booster seats/high chairs",
+    "tesco_category": "Furniture/Baby & Toddler Furniture/High Chairs & Booster Seats/High Chairs",
+    "level_1": "Baby"
+  },
+  {
+    "category_key": "furniture/beds & accessories/bed & bed frame accessories",
+    "tesco_category": "Furniture/Beds & Accessories/Bed & Bed Frame Accessories",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/beds & accessories/beds & bed frames/panel beds & bed frames",
+    "tesco_category": "Furniture/Beds & Accessories/Beds & Bed Frames/Panel Beds & Bed Frames",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/beds & accessories/beds & bed frames/slat beds & bed frames",
+    "tesco_category": "Furniture/Beds & Accessories/Beds & Bed Frames/Slat Beds & Bed Frames",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/beds & accessories/beds & bed frames/trundle beds & bed frames",
+    "tesco_category": "Furniture/Beds & Accessories/Beds & Bed Frames/Trundle Beds & Bed Frames",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/beds & accessories/mattresses/innerspring mattresses",
+    "tesco_category": "Furniture/Beds & Accessories/Mattresses/Innerspring Mattresses",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/benches/storage & entryway benches/coat racks",
+    "tesco_category": "Furniture/Benches/Storage & Entryway Benches/Coat Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/benches/storage & entryway benches/shoe storage benches",
+    "tesco_category": "Furniture/Benches/Storage & Entryway Benches/Shoe Storage Benches",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/benches/vanity benches",
+    "tesco_category": "Furniture/Benches/Vanity Benches",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/armoires & wardrobes/tv armoires",
+    "tesco_category": "Furniture/Cabinets & Storage/Armoires & Wardrobes/TV Armoires",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/dressers",
+    "tesco_category": "Furniture/Cabinets & Storage/Dressers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/file cabinets",
+    "tesco_category": "Furniture/Cabinets & Storage/File Cabinets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/magazine racks",
+    "tesco_category": "Furniture/Cabinets & Storage/Magazine Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/storage cabinets & lockers",
+    "tesco_category": "Furniture/Cabinets & Storage/Storage Cabinets & Lockers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/vanities/bathroom vanities/bathroom cabinets",
+    "tesco_category": "Furniture/Cabinets & Storage/Vanities/Bathroom Vanities/Bathroom Cabinets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/vanities/bedroom vanities/dressing tables",
+    "tesco_category": "Furniture/Cabinets & Storage/Vanities/Bedroom Vanities/Dressing Tables",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/vanities/bedroom vanities/makeup vanities",
+    "tesco_category": "Furniture/Cabinets & Storage/Vanities/Bedroom Vanities/Makeup Vanities",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/cabinets & storage/wine racks",
+    "tesco_category": "Furniture/Cabinets & Storage/Wine Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/carts & islands/carts",
+    "tesco_category": "Furniture/Carts & Islands/Carts",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/chairs/kitchen & dining room chairs",
+    "tesco_category": "Furniture/Chairs/Kitchen & Dining Room Chairs",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/chairs/table & bar stools/adjustable bar stools",
+    "tesco_category": "Furniture/Chairs/Table & Bar Stools/Adjustable Bar Stools",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/entertainment centres & tv stands",
+    "tesco_category": "Furniture/Entertainment Centres & TV Stands",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/furniture sets/bathroom furniture sets",
+    "tesco_category": "Furniture/Furniture Sets/Bathroom Furniture Sets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/furniture sets/bedroom furniture sets",
+    "tesco_category": "Furniture/Furniture Sets/Bedroom Furniture Sets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/furniture sets/kitchen & dining furniture sets",
+    "tesco_category": "Furniture/Furniture Sets/Kitchen & Dining Furniture Sets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/office furniture accessories/desk parts & accessories",
+    "tesco_category": "Furniture/Office Furniture Accessories/Desk Parts & Accessories",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/office furniture/desks",
+    "tesco_category": "Furniture/Office Furniture/Desks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/office furniture/office chairs",
+    "tesco_category": "Furniture/Office Furniture/Office Chairs",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/outdoor furniture accessories/outdoor furniture covers",
+    "tesco_category": "Furniture/Outdoor Furniture Accessories/Outdoor Furniture Covers",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/outdoor furniture/outdoor seating/outdoor benches/picnic benches",
+    "tesco_category": "Furniture/Outdoor Furniture/Outdoor Seating/Outdoor Benches/Picnic Benches",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/outdoor furniture/outdoor seating/outdoor chairs/folding chairs",
+    "tesco_category": "Furniture/Outdoor Furniture/Outdoor Seating/Outdoor Chairs/Folding Chairs",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/outdoor furniture/outdoor seating/outdoor sofas/sectional sofas",
+    "tesco_category": "Furniture/Outdoor Furniture/Outdoor Seating/Outdoor Sofas/Sectional Sofas",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/outdoor furniture/outdoor tables/dining tables",
+    "tesco_category": "Furniture/Outdoor Furniture/Outdoor Tables/Dining Tables",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/outdoor furniture/outdoor tables/fire pits",
+    "tesco_category": "Furniture/Outdoor Furniture/Outdoor Tables/Fire Pits",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "furniture/shelving/bookcases & standing shelves/corner bookcases & shelves",
+    "tesco_category": "Furniture/Shelving/Bookcases & Standing Shelves/Corner Bookcases & Shelves",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/shelving/bookcases & standing shelves/floating bookcases & shelves",
+    "tesco_category": "Furniture/Shelving/Bookcases & Standing Shelves/Floating Bookcases & Shelves",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/shelving/bookcases & standing shelves/rack bookcases & shelves",
+    "tesco_category": "Furniture/Shelving/Bookcases & Standing Shelves/Rack Bookcases & Shelves",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/shelving/wall shelves & ledges/floating wall shelves & ledges",
+    "tesco_category": "Furniture/Shelving/Wall Shelves & Ledges/Floating Wall Shelves & Ledges",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/sofas/corner sofas",
+    "tesco_category": "Furniture/Sofas/Corner Sofas",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/sofas/loveseat sofas",
+    "tesco_category": "Furniture/Sofas/Loveseat Sofas",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/tables/accent tables/coffee tables",
+    "tesco_category": "Furniture/Tables/Accent Tables/Coffee Tables",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/tables/accent tables/end tables",
+    "tesco_category": "Furniture/Tables/Accent Tables/End Tables",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/tables/accent tables/sofa tables",
+    "tesco_category": "Furniture/Tables/Accent Tables/Sofa Tables",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "furniture/tables/nightstands",
+    "tesco_category": "Furniture/Tables/Nightstands",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/fencing & barriers/fence posts & rails/end posts",
+    "tesco_category": "Hardware/Fencing & Barriers/Fence Posts & Rails/End Posts",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "hardware/fencing & barriers/garden borders & edging/border fences",
+    "tesco_category": "Hardware/Fencing & Barriers/Garden Borders & Edging/Border Fences",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "hardware/fencing & barriers/garden borders & edging/edging",
+    "tesco_category": "Hardware/Fencing & Barriers/Garden Borders & Edging/Edging",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "hardware/hardware accessories/hardware fasteners/drywall anchors",
+    "tesco_category": "Hardware/Hardware Accessories/Hardware Fasteners/Drywall Anchors",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/hardware accessories/tool storage & organisation/tool cabinets & chests/rolling cabinets & chests",
+    "tesco_category": "Hardware/Hardware Accessories/Tool Storage & Organisation/Tool Cabinets & Chests/Rolling Cabinets & Chests",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/hardware accessories/wall jacks & braces",
+    "tesco_category": "Hardware/Hardware Accessories/Wall Jacks & Braces",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/plumbing/plumbing fixtures/toilets & bidets/toilets/one-piece toilets",
+    "tesco_category": "Hardware/Plumbing/Plumbing Fixtures/Toilets & Bidets/Toilets/One-Piece Toilets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/compressors",
+    "tesco_category": "Hardware/Tools/Compressors",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/drills/handheld power drills/hammer drills",
+    "tesco_category": "Hardware/Tools/Drills/Handheld Power Drills/Hammer Drills",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/drills/handheld power drills/impact drills",
+    "tesco_category": "Hardware/Tools/Drills/Handheld Power Drills/Impact Drills",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/drills/pneumatic drills/pistol grip drills",
+    "tesco_category": "Hardware/Tools/Drills/Pneumatic Drills/Pistol Grip Drills",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/grinders/angle grinders",
+    "tesco_category": "Hardware/Tools/Grinders/Angle Grinders",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/heat guns/hot air guns",
+    "tesco_category": "Hardware/Tools/Heat Guns/Hot Air Guns",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/impact wrenches & drivers/power screwdrivers",
+    "tesco_category": "Hardware/Tools/Impact Wrenches & Drivers/Power Screwdrivers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/ladders & scaffolding/ladders/step ladders",
+    "tesco_category": "Hardware/Tools/Ladders & Scaffolding/Ladders/Step Ladders",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/ladders & scaffolding/step stools",
+    "tesco_category": "Hardware/Tools/Ladders & Scaffolding/Step Stools",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/measuring tools & sensors/gauges/pressure gauges",
+    "tesco_category": "Hardware/Tools/Measuring Tools & Sensors/Gauges/Pressure Gauges",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/measuring tools & sensors/levels/laser levels/line & combi laser levels",
+    "tesco_category": "Hardware/Tools/Measuring Tools & Sensors/Levels/Laser Levels/Line & Combi Laser Levels",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/paint tools/paint sprayers/hvlp sprayers",
+    "tesco_category": "Hardware/Tools/Paint Tools/Paint Sprayers/HVLP Sprayers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/polishers & buffers/rotary polishers & buffers",
+    "tesco_category": "Hardware/Tools/Polishers & Buffers/Rotary Polishers & Buffers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/riveting tools/rivet pliers",
+    "tesco_category": "Hardware/Tools/Riveting Tools/Rivet Pliers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/saws/reciprocating saws",
+    "tesco_category": "Hardware/Tools/Saws/Reciprocating Saws",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "hardware/tools/wrenches/socket wrenches",
+    "tesco_category": "Hardware/Tools/Wrenches/Socket Wrenches",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "health & beauty/health care/biometric monitors/body weight scales",
+    "tesco_category": "Health & Beauty/Health Care/Biometric Monitors/Body Weight Scales",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/health care/mobility & accessibility/accessibility equipment accessories",
+    "tesco_category": "Health & Beauty/Health Care/Mobility & Accessibility/Accessibility Equipment Accessories",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/health care/mobility & accessibility/accessibility furniture & fixtures/shower benches & seats/shower seats",
+    "tesco_category": "Health & Beauty/Health Care/Mobility & Accessibility/Accessibility Furniture & Fixtures/Shower Benches & Seats/Shower Seats",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/health care/supports & braces/elbow supports",
+    "tesco_category": "Health & Beauty/Health Care/Supports & Braces/Elbow Supports",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/jewellery cleaning & care/jewellery holders/jewellery boxes",
+    "tesco_category": "Health & Beauty/Jewellery Cleaning & Care/Jewellery Holders/Jewellery Boxes",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/cosmetics/cosmetic tools/makeup tools/face mirrors",
+    "tesco_category": "Health & Beauty/Personal Care/Cosmetics/Cosmetic Tools/Makeup Tools/Face Mirrors",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/cosmetics/cosmetic tools/makeup tools/refillable makeup palettes & cases",
+    "tesco_category": "Health & Beauty/Personal Care/Cosmetics/Cosmetic Tools/Makeup Tools/Refillable Makeup Palettes & Cases",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/cosmetics/skin care/face moisturisers",
+    "tesco_category": "Health & Beauty/Personal Care/Cosmetics/Skin Care/Face Moisturisers",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/cosmetics/skin care/lotions & moisturisers",
+    "tesco_category": "Health & Beauty/Personal Care/Cosmetics/Skin Care/Lotions & Moisturisers",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/hair care/hair dye",
+    "tesco_category": "Health & Beauty/Personal Care/Hair Care/Hair Dye",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/hair care/shampoo & conditioner/shampoo",
+    "tesco_category": "Health & Beauty/Personal Care/Hair Care/Shampoo & Conditioner/Shampoo",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/massage & relaxation/massagers/electric massagers",
+    "tesco_category": "Health & Beauty/Personal Care/Massage & Relaxation/Massagers/Electric Massagers",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "health & beauty/personal care/oral care/dental floss",
+    "tesco_category": "Health & Beauty/Personal Care/Oral Care/Dental Floss",
+    "level_1": "Health & Beauty"
+  },
+  {
+    "category_key": "home & garden/bathroom accessories/bath mats & rugs",
+    "tesco_category": "Home & Garden/Bathroom Accessories/Bath Mats & Rugs",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/bathroom accessories/safety grab bars",
+    "tesco_category": "Home & Garden/Bathroom Accessories/Safety Grab Bars",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/bathroom accessories/towel racks & holders/towel racks",
+    "tesco_category": "Home & Garden/Bathroom Accessories/Towel Racks & Holders/Towel Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/business & home security/security safes/fireproof safes",
+    "tesco_category": "Home & Garden/Business & Home Security/Security Safes/Fireproof Safes",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/artificial flora/artificial flowering plants",
+    "tesco_category": "Home & Garden/Decor/Artificial Flora/Artificial Flowering Plants",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/artificial flora/artificial trees",
+    "tesco_category": "Home & Garden/Decor/Artificial Flora/Artificial Trees",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/baskets",
+    "tesco_category": "Home & Garden/Decor/Baskets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/bird & wildlife feeders/bird feeders",
+    "tesco_category": "Home & Garden/Decor/Bird & Wildlife Feeders/Bird Feeders",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/bird baths",
+    "tesco_category": "Home & Garden/Decor/Bird Baths",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/clocks/wall clocks",
+    "tesco_category": "Home & Garden/Decor/Clocks/Wall Clocks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/decorative trays",
+    "tesco_category": "Home & Garden/Decor/Decorative Trays",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/door mats",
+    "tesco_category": "Home & Garden/Decor/Door Mats",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/fountains & ponds/fountains & waterfalls/fountains",
+    "tesco_category": "Home & Garden/Decor/Fountains & Ponds/Fountains & Waterfalls/Fountains",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/home fragrance accessories/candle holders",
+    "tesco_category": "Home & Garden/Decor/Home Fragrance Accessories/Candle Holders",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/home fragrances/air fresheners",
+    "tesco_category": "Home & Garden/Decor/Home Fragrances/Air Fresheners",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/home fragrances/candles",
+    "tesco_category": "Home & Garden/Decor/Home Fragrances/Candles",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/lawn ornaments & garden sculptures/garden sculptures",
+    "tesco_category": "Home & Garden/Decor/Lawn Ornaments & Garden Sculptures/Garden Sculptures",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/mirrors",
+    "tesco_category": "Home & Garden/Decor/Mirrors",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/rugs",
+    "tesco_category": "Home & Garden/Decor/Rugs",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/window treatment accessories/curtain & drape rods",
+    "tesco_category": "Home & Garden/Decor/Window Treatment Accessories/Curtain & Drape Rods",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/window treatment accessories/window treatment replacement parts/window rods",
+    "tesco_category": "Home & Garden/Decor/Window Treatment Accessories/Window Treatment Replacement Parts/Window Rods",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/window treatments/curtains & drapes/curtains",
+    "tesco_category": "Home & Garden/Decor/Window Treatments/Curtains & Drapes/Curtains",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/decor/window treatments/window blinds & shades/blinds",
+    "tesco_category": "Home & Garden/Decor/Window Treatments/Window Blinds & Shades/Blinds",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household appliance accessories/air purifier accessories/air purifier filters",
+    "tesco_category": "Home & Garden/Household Appliance Accessories/Air Purifier Accessories/Air Purifier Filters",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/climate control appliances/air purifiers",
+    "tesco_category": "Home & Garden/Household Appliances/Climate Control Appliances/Air Purifiers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/climate control appliances/dehumidifiers",
+    "tesco_category": "Home & Garden/Household Appliances/Climate Control Appliances/Dehumidifiers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/climate control appliances/space heaters",
+    "tesco_category": "Home & Garden/Household Appliances/Climate Control Appliances/Space Heaters",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/floor & steam cleaners/carpet steamers/multi-purpose steam cleaners",
+    "tesco_category": "Home & Garden/Household Appliances/Floor & Steam Cleaners/Carpet Steamers/Multi-Purpose Steam Cleaners",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/floor & steam cleaners/floor cleaners",
+    "tesco_category": "Home & Garden/Household Appliances/Floor & Steam Cleaners/Floor Cleaners",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/floor & steam cleaners/handheld steam cleaners",
+    "tesco_category": "Home & Garden/Household Appliances/Floor & Steam Cleaners/Handheld Steam Cleaners",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/laundry appliances/garment steamers",
+    "tesco_category": "Home & Garden/Household Appliances/Laundry Appliances/Garment Steamers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/vacuums/canister vacs",
+    "tesco_category": "Home & Garden/Household Appliances/Vacuums/Canister Vacs",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household appliances/vacuums/upright vacuums",
+    "tesco_category": "Home & Garden/Household Appliances/Vacuums/Upright Vacuums",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/household supplies/furniture floor protectors",
+    "tesco_category": "Home & Garden/Household Supplies/Furniture Floor Protectors",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/household cleaning products/descalers & decalcifiers",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Household Cleaning Products/Descalers & Decalcifiers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/household cleaning products/dish detergent & soap",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Household Cleaning Products/Dish Detergent & Soap",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/household cleaning products/dishwasher cleaners/detergent removers",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Household Cleaning Products/Dishwasher Cleaners/Detergent Removers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/household cleaning products/oven & grill cleaners",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Household Cleaning Products/Oven & Grill Cleaners",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/household cleaning products/washing machine cleaners",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Household Cleaning Products/Washing Machine Cleaners",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/mop heads & refills",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Mop Heads & Refills",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/mops",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Mops",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/household cleaning supplies/scrub brushes",
+    "tesco_category": "Home & Garden/Household Supplies/Household Cleaning Supplies/Scrub Brushes",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/laundry supplies/fabric softeners & dryer sheets/dryer sheets",
+    "tesco_category": "Home & Garden/Household Supplies/Laundry Supplies/Fabric Softeners & Dryer Sheets/Dryer Sheets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/laundry supplies/laundry detergent",
+    "tesco_category": "Home & Garden/Household Supplies/Laundry Supplies/Laundry Detergent",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/pest control/pest control traps/live traps",
+    "tesco_category": "Home & Garden/Household Supplies/Pest Control/Pest Control Traps/Live Traps",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/storage & organisation/clothing & closet storage/closet organisers & garment racks/garment racks",
+    "tesco_category": "Home & Garden/Household Supplies/Storage & Organisation/Clothing & Closet Storage/Closet Organisers & Garment Racks/Garment Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/storage & organisation/clothing & closet storage/shoe racks & organisers/shoe organisers",
+    "tesco_category": "Home & Garden/Household Supplies/Storage & Organisation/Clothing & Closet Storage/Shoe Racks & Organisers/Shoe Organisers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/storage & organisation/clothing & closet storage/shoe racks & organisers/shoe racks",
+    "tesco_category": "Home & Garden/Household Supplies/Storage & Organisation/Clothing & Closet Storage/Shoe Racks & Organisers/Shoe Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/storage & organisation/household storage containers",
+    "tesco_category": "Home & Garden/Household Supplies/Storage & Organisation/Household Storage Containers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/storage & organisation/household storage drawers",
+    "tesco_category": "Home & Garden/Household Supplies/Storage & Organisation/Household Storage Drawers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/household supplies/waste containment/trash cans & wastebaskets/trash cans",
+    "tesco_category": "Home & Garden/Household Supplies/Waste Containment/Trash Cans & Wastebaskets/Trash Cans",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/cookware & bakeware/cookware/cookware sets",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Cookware & Bakeware/Cookware/Cookware Sets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/cookware & bakeware/cookware/dutch ovens",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Cookware & Bakeware/Cookware/Dutch Ovens",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/cookware & bakeware/cookware/griddles & grill pans",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Cookware & Bakeware/Cookware/Griddles & Grill Pans",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/cookware & bakeware/cookware/skillets & frying pans/frying pans",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Cookware & Bakeware/Cookware/Skillets & Frying Pans/Frying Pans",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/cookware & bakeware/cookware/skillets & frying pans/skillets",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Cookware & Bakeware/Cookware/Skillets & Frying Pans/Skillets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/food storage/bread boxes & bags",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Food Storage/Bread Boxes & Bags",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/food storage/food storage containers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Food Storage/Food Storage Containers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliance accessories/cooktop, oven & range accessories/racks",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliance Accessories/Cooktop, Oven & Range Accessories/Racks",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/air fryers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Air Fryers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/breadmakers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Breadmakers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/coffee makers & espresso machines/espresso machines",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Coffee Makers & Espresso Machines/Espresso Machines",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/deep fryers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Deep Fryers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/food dehydrators",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Food Dehydrators",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/food grinders & mills/food grinders",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Food Grinders & Mills/Food Grinders",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/food mixers & blenders/food blenders",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Food Mixers & Blenders/Food Blenders",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/food mixers & blenders/food mixers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Food Mixers & Blenders/Food Mixers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/frozen drink makers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Frozen Drink Makers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/ice makers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Ice Makers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/juicers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Juicers",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen appliances/refrigerators",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Appliances/Refrigerators",
+    "level_1": "Electricals"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/cutting boards",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Cutting Boards",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/dish racks & drain boards/dish racks",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Dish Racks & Drain Boards/Dish Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/kitchen organisers/kitchen cabinet organisers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Kitchen Organisers/Kitchen Cabinet Organisers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/kitchen organisers/kitchen utensil holders & racks/kitchen utensil racks",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Kitchen Organisers/Kitchen Utensil Holders & Racks/Kitchen Utensil Racks",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/salad dressing mixers & shakers/mixers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Salad Dressing Mixers & Shakers/Mixers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/kitchen tools & utensils/sink caddies",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Kitchen Tools & Utensils/Sink Caddies",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/tableware/drinkware/tumblers",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Tableware/Drinkware/Tumblers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/kitchen & dining/tableware/serveware/serving trays",
+    "tesco_category": "Home & Garden/Kitchen & Dining/Tableware/Serveware/Serving Trays",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/gardening tools/pruning shears",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Gardening Tools/Pruning Shears",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/gardening tools/wheelbarrows",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Gardening Tools/Wheelbarrows",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/plant cages & supports/plant cages",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Plant Cages & Supports/Plant Cages",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/plant stands",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Plant Stands",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/pots & planters/planters",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Pots & Planters/Planters",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/gardening/pots & planters/pots",
+    "tesco_category": "Home & Garden/Lawn & Garden/Gardening/Pots & Planters/Pots",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/outdoor living/hammocks",
+    "tesco_category": "Home & Garden/Lawn & Garden/Outdoor Living/Hammocks",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/outdoor living/outdoor structures/garden arches, trellises, arbours & pergolas/trellises",
+    "tesco_category": "Home & Garden/Lawn & Garden/Outdoor Living/Outdoor Structures/Garden Arches, Trellises, Arbours & Pergolas/Trellises",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/outdoor power equipment/chainsaws",
+    "tesco_category": "Home & Garden/Lawn & Garden/Outdoor Power Equipment/Chainsaws",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/outdoor power equipment/lawn aerators & dethatchers/lawn aerators",
+    "tesco_category": "Home & Garden/Lawn & Garden/Outdoor Power Equipment/Lawn Aerators & Dethatchers/Lawn Aerators",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/outdoor power equipment/pressure washers",
+    "tesco_category": "Home & Garden/Lawn & Garden/Outdoor Power Equipment/Pressure Washers",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/watering & irrigation/garden hoses",
+    "tesco_category": "Home & Garden/Lawn & Garden/Watering & Irrigation/Garden Hoses",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lawn & garden/watering & irrigation/watering cans",
+    "tesco_category": "Home & Garden/Lawn & Garden/Watering & Irrigation/Watering Cans",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "home & garden/lighting accessories/lamp shades",
+    "tesco_category": "Home & Garden/Lighting Accessories/Lamp Shades",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/lighting/lamps/floor lamps",
+    "tesco_category": "Home & Garden/Lighting/Lamps/Floor Lamps",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/lighting/lighting fixtures/ceiling light fixtures",
+    "tesco_category": "Home & Garden/Lighting/Lighting Fixtures/Ceiling Light Fixtures",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/linens & bedding/bedding/blankets",
+    "tesco_category": "Home & Garden/Linens & Bedding/Bedding/Blankets",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/linens & bedding/bedding/mattress protectors/mattress encasements",
+    "tesco_category": "Home & Garden/Linens & Bedding/Bedding/Mattress Protectors/Mattress Encasements",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/linens & bedding/bedding/mattress protectors/mattress pads",
+    "tesco_category": "Home & Garden/Linens & Bedding/Bedding/Mattress Protectors/Mattress Pads",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/linens & bedding/bedding/pillows",
+    "tesco_category": "Home & Garden/Linens & Bedding/Bedding/Pillows",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/linens & bedding/bedding/quilts & comforters",
+    "tesco_category": "Home & Garden/Linens & Bedding/Bedding/Quilts & Comforters",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "home & garden/parasols & rain umbrellas/parasols",
+    "tesco_category": "Home & Garden/Parasols & Rain Umbrellas/Parasols",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "luggage & bags/backpacks/school backpacks",
+    "tesco_category": "Luggage & Bags/Backpacks/School Backpacks",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "luggage & bags/suitcases/kids' suitcases",
+    "tesco_category": "Luggage & Bags/Suitcases/Kids' Suitcases",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "luggage & bags/suitcases/suitcase travel sets",
+    "tesco_category": "Luggage & Bags/Suitcases/Suitcase Travel Sets",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "office supplies/filing & organisation/desk organisers/desktop organisers",
+    "tesco_category": "Office Supplies/Filing & Organisation/Desk Organisers/Desktop Organisers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "office supplies/filing & organisation/desk organisers/drawer organisers",
+    "tesco_category": "Office Supplies/Filing & Organisation/Desk Organisers/Drawer Organisers",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "office supplies/office & chair mats/chair mats",
+    "tesco_category": "Office Supplies/Office & Chair Mats/Chair Mats",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "office supplies/presentation supplies/display boards/bulletin boards",
+    "tesco_category": "Office Supplies/Presentation Supplies/Display Boards/Bulletin Boards",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "office supplies/presentation supplies/dry-erase boards",
+    "tesco_category": "Office Supplies/Presentation Supplies/Dry-Erase Boards",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "sporting goods/athletics/basketball/basketball hoops",
+    "tesco_category": "Sporting Goods/Athletics/Basketball/Basketball Hoops",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/boxing & martial arts/boxing & martial arts training equipment/punching & training bags/punching & training punch pads",
+    "tesco_category": "Sporting Goods/Athletics/Boxing & Martial Arts/Boxing & Martial Arts Training Equipment/Punching & Training Bags/Punching & Training Punch Pads",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/general purpose athletic equipment/gym mats",
+    "tesco_category": "Sporting Goods/Athletics/General Purpose Athletic Equipment/Gym Mats",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/general purpose athletic equipment/speed & agility ladders & hurdles",
+    "tesco_category": "Sporting Goods/Athletics/General Purpose Athletic Equipment/Speed & Agility Ladders & Hurdles",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/tennis/tennis rackets",
+    "tesco_category": "Sporting Goods/Athletics/Tennis/Tennis Rackets",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/track & field/track & field training aids/track & field resistance bands",
+    "tesco_category": "Sporting Goods/Athletics/Track & Field/Track & Field Training Aids/Track & Field Resistance Bands",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/athletics/track & field/track hurdles",
+    "tesco_category": "Sporting Goods/Athletics/Track & Field/Track Hurdles",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/ab wheels & rollers/ab wheels",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Ab Wheels & Rollers/Ab Wheels",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/balance trainers/balance boards",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Balance Trainers/Balance Boards",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/cardio machine accessories & parts/exercise bike accessories & parts/exercise bike stands",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Cardio Machine Accessories & Parts/Exercise Bike Accessories & Parts/Exercise Bike Stands",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/cardio machines/elliptical trainers/electromagnetic elliptical trainers",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Cardio Machines/Elliptical Trainers/Electromagnetic Elliptical Trainers",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/cardio machines/exercise bikes/upright exercise bikes",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Cardio Machines/Exercise Bikes/Upright Exercise Bikes",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/cardio machines/stair climbers & steppers/stair steppers",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Cardio Machines/Stair Climbers & Steppers/Stair Steppers",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/cardio machines/treadmills",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Cardio Machines/Treadmills",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/cardio/jump ropes",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Cardio/Jump Ropes",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/exercise benches",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Exercise Benches",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/exercise machine & equipment sets",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Exercise Machine & Equipment Sets",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/hand exercisers",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Hand Exercisers",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/push up & pull up bars",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Push Up & Pull Up Bars",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weight lifting/free weight accessories/barbells & weightlifting bars",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weight Lifting/Free Weight Accessories/Barbells & Weightlifting Bars",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weight lifting/free weight accessories/free weight storage racks",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weight Lifting/Free Weight Accessories/Free Weight Storage Racks",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weight lifting/free weights, dumbbells & kettlebells/dumbbells",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weight Lifting/Free Weights, Dumbbells & Kettlebells/Dumbbells",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weight lifting/weight lifting belts",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weight Lifting/Weight Lifting Belts",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weight lifting/weight lifting machines & racks/weight lifting racks",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weight Lifting/Weight Lifting Machines & Racks/Weight Lifting Racks",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/fitness & general exercise equipment/weighted clothing/weighted vests",
+    "tesco_category": "Sporting Goods/Fitness & General Exercise Equipment/Weighted Clothing/Weighted Vests",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/camping & hiking/camp furniture/air mattresses",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Camping & Hiking/Camp Furniture/Air Mattresses",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/camping & hiking/camp furniture/cots",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Camping & Hiking/Camp Furniture/Cots",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/camping & hiking/hiking poles",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Camping & Hiking/Hiking Poles",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/camping & hiking/sleeping bags",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Camping & Hiking/Sleeping Bags",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/camping & hiking/sleeping pads",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Camping & Hiking/Sleeping Pads",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/cycling/bicycle accessories/bicycle locks/bicycle cable locks",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Cycling/Bicycle Accessories/Bicycle Locks/Bicycle Cable Locks",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/cycling/bicycle accessories/bicycle tire repair supplies & kits/bicycle tire repair stands",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Cycling/Bicycle Accessories/Bicycle Tire Repair Supplies & Kits/Bicycle Tire Repair Stands",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/golf/golf bags",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Golf/Golf Bags",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/golf/golf training aids/golf putting mats",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Golf/Golf Training Aids/Golf Putting Mats",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/outdoor games/badminton/badminton rackets & sets/badminton racket sets",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Outdoor Games/Badminton/Badminton Rackets & Sets/Badminton Racket Sets",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "sporting goods/outdoor recreation/riding scooters/kick scooters",
+    "tesco_category": "Sporting Goods/Outdoor Recreation/Riding Scooters/Kick Scooters",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "toys & games/outdoor play equipment/slides",
+    "tesco_category": "Toys & Games/Outdoor Play Equipment/Slides",
+    "level_1": "Toys"
+  },
+  {
+    "category_key": "toys & games/outdoor play equipment/trampolines",
+    "tesco_category": "Toys & Games/Outdoor Play Equipment/Trampolines",
+    "level_1": "Toys"
+  },
+  {
+    "category_key": "toys & games/toys/bath toys/floating bath toys",
+    "tesco_category": "Toys & Games/Toys/Bath Toys/Floating Bath Toys",
+    "level_1": "Toys"
+  },
+  {
+    "category_key": "toys & games/toys/executive toys/magnet toys",
+    "tesco_category": "Toys & Games/Toys/Executive Toys/Magnet Toys",
+    "level_1": "Toys"
+  },
+  {
+    "category_key": "toys & games/toys/sports toys/fitness toys/mini trampolines",
+    "tesco_category": "Toys & Games/Toys/Sports Toys/Fitness Toys/Mini Trampolines",
+    "level_1": "Toys"
+  },
+  {
+    "category_key": "arts & entertainment/hobbies & creative arts/arts & crafts/art & crafting tools/textile craft machines/sewing machines/mechanical sewing machines",
+    "tesco_category": "Arts & Entertainment/Hobbies & Creative Arts/Arts & Crafts/Art & Crafting Tools/Textile Craft Machines/Sewing Machines/Mechanical Sewing Machines",
+    "level_1": "Home"
+  },
+  {
+    "category_key": "business & industrial/law enforcement/metal detectors",
+    "tesco_category": "Business & Industrial/Law Enforcement/Metal Detectors",
+    "level_1": "Outdoor"
+  },
+  {
+    "category_key": "cameras & optics/optics/binoculars",
+    "tesco_category": "Cameras & Optics/Optics/Binoculars",
+    "level_1": "Sports & Leisure"
+  },
+  {
+    "category_key": "home & garden/pool & spa/pool & spa accessories/pool toys/pool games",
+    "tesco_category": "Home & Garden/Pool & Spa/Pool & Spa Accessories/Pool Toys/Pool Games",
+    "level_1": "Sports & Leisure"
+  }
+]

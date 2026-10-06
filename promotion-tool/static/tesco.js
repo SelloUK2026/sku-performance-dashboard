@@ -3,6 +3,7 @@ const state = {
   assignments: new Map(), conflicts: {}, offers: [], events: [], level1: [], dirty: false,
   candidateFile: "", catalogueFile: "",
   externalDraft: [], externalOptions: new Map(), externalFile: "",
+  categoryMappings: new Map(), mappingDraft: [], lastUnmappedSignature: "",
   language: localStorage.getItem("tescoLanguage") === "zh-CN" ? "zh-CN" : "en",
 };
 
@@ -19,6 +20,13 @@ const translations = {
     importWorktable: "Import approved worktable", importCatalogue: "Import Tesco Catalogue",
     worktableNotLoaded: "Approved worktable not loaded", catalogueNotLoaded: "Tesco Catalogue not loaded",
     eventRules: "Event rules", allowedCategories: "Allowed event categories", addCategory: "Add category",
+    categoryMapping: "Category mapping", mapTescoCategories: "Map Tesco categories to Level 1",
+    categoryMappingHelp: "Mappings apply automatically to every product with the same Tesco catalogue category.",
+    addMapping: "Add mapping", tescoCategory: "Tesco category", saveMappings: "Save mappings",
+    searchTescoCategory: "Search Tesco category",
+    mappingSummary: "{mapped} mapped · {unmapped} need mapping", removeMapping: "Remove mapping",
+    mappingRequired: "Map {count} Tesco category/categories before selecting their products.",
+    mappingsSaved: "Category mappings saved and applied", duplicateCategoryMapping: "Each Tesco category can appear only once.",
     categoryHelp: "Enter the groups Tesco specifies for this event. Limits apply to selected SKUs in each group.",
     productSelection: "Product selection", approvedCandidates: "Approved candidates", selected: "selected",
     searchPlaceholder: "Search SKU, title, brand, or category", importToBegin: "Import the approved worktable and latest Tesco Catalogue to begin.",
@@ -37,7 +45,7 @@ const translations = {
     tescoGuide: "Tesco user guide", secondStageSelection: "Second-stage selection", close: "Close",
     guideStep1: "Export the Tesco promotion worktable, enter Yes in column T for candidates, then import it here.",
     guideStep2: "Upload the latest Tesco Catalogue for the event. The latest Offer SKU file is already captured when Tesco data is first imported in the calculation tool.",
-    guideStep3: "Enter the event dates, Tesco-defined categories and limits. Assign an event category and fixed Level 1 group to each selected SKU.",
+    guideStep3: "Enter the event dates and any Tesco-defined event categories or limits. Event category may be blank; every selected SKU still needs a fixed Level 1 group.",
     guideStep4: "A Tesco SKU used in an overlapping saved event is blocked. Another Tesco SKU for the same Wooper product remains available.",
     guideStep5: "Generate the form only when the quota and required fields pass. The saved snapshot becomes the overlap record for future events.",
     guideStep6: "If a nomination was submitted outside this tool, import the completed nomination form under Saved Tesco events and confirm any unmatched Tesco SKU.",
@@ -52,7 +60,7 @@ const translations = {
     imageUnavailable: "Image unavailable", selectSku: "Select {sku}", importBoth: "Import both required files.",
     enterEvent: "Enter the event name and promotion dates.", endAfterStart: "The promotion end date must be after the start date.",
     selectCandidate: "Select at least one candidate.", totalExceeded: "Total limit exceeded by {count} SKU(s).",
-    categoryExceeded: "{category} exceeds its limit by {count}.", assignFields: "Assign event category and Level 1 for {sku}.",
+    categoryExceeded: "{category} exceeds its limit by {count}.", assignFields: "Assign Level 1 for {sku}.",
     overlapsEvent: "{sku} overlaps a saved event.", missingPrice: "{sku} is missing WAS or promotion price.",
     totalQuota: "{count} / {limit} total limit", noTotalLimit: "No total limit",
     readyToGenerate: "Ready to generate the Tesco nomination form and save this event record.",
@@ -71,6 +79,13 @@ const translations = {
     noOverallLimit: "不设总数上限", importWorktable: "导入已批准工作表", importCatalogue: "导入Tesco目录",
     worktableNotLoaded: "尚未导入已批准工作表", catalogueNotLoaded: "尚未导入Tesco目录",
     eventRules: "活动规则", allowedCategories: "允许的活动类别", addCategory: "添加类别",
+    categoryMapping: "类别映射", mapTescoCategories: "将Tesco类别映射到一级类别",
+    categoryMappingHelp: "同一Tesco目录类别的商品会自动使用已保存的映射。",
+    addMapping: "添加映射", tescoCategory: "Tesco类别", saveMappings: "保存映射",
+    searchTescoCategory: "搜索Tesco类别",
+    mappingSummary: "已映射{mapped}个 · {unmapped}个待映射", removeMapping: "删除映射",
+    mappingRequired: "请选择{count}个Tesco类别对应的一级类别，然后才选择相关商品。",
+    mappingsSaved: "类别映射已保存并应用", duplicateCategoryMapping: "每个Tesco类别只能出现一次。",
     categoryHelp: "输入Tesco为本次活动指定的类别。每个类别的上限适用于已选SKU。",
     productSelection: "产品选择", approvedCandidates: "已批准候选产品", selected: "已选",
     searchPlaceholder: "搜索SKU、标题、品牌或类别", importToBegin: "请先导入已批准工作表及最新Tesco目录。",
@@ -89,7 +104,7 @@ const translations = {
     secondStageSelection: "第二阶段选品", close: "关闭",
     guideStep1: "导出Tesco促销工作表，在候选产品的T列填入Yes，然后在此导入。",
     guideStep2: "导入本次活动最新的Tesco目录。首次在促销计算工具导入Tesco数据时，系统已保存最新Offer SKU文件。",
-    guideStep3: "输入活动日期、Tesco指定的类别及上限，并为每个已选SKU指定活动类别和固定的一级类别。",
+    guideStep3: "输入活动日期及Tesco指定的活动类别或上限。活动类别可以留空，但每个已选SKU仍需指定固定的一级类别。",
     guideStep4: "如相同Tesco SKU已用于日期重叠的已保存活动，系统会阻止选择；同一Wooper产品的其他Tesco SKU仍可使用。",
     guideStep5: "所有数量限制及必填资料通过检查后才可生成表格。保存的快照会用于检查未来活动的日期重叠。",
     guideStep6: "如提名表在本工具以外提交，请在已保存Tesco活动下导入完成的提名表，并确认所有未匹配的Tesco SKU。",
@@ -104,7 +119,7 @@ const translations = {
     imageUnavailable: "图片无法显示", selectSku: "选择{sku}", importBoth: "请导入两个必需文件。",
     enterEvent: "请输入活动名称及促销日期。", endAfterStart: "促销结束日期必须晚于开始日期。",
     selectCandidate: "请至少选择一个候选产品。", totalExceeded: "SKU总数超出上限{count}个。",
-    categoryExceeded: "{category}超出上限{count}个。", assignFields: "请为{sku}指定活动类别和一级类别。",
+    categoryExceeded: "{category}超出上限{count}个。", assignFields: "请为{sku}指定一级类别。",
     overlapsEvent: "{sku}与已保存活动日期重叠。", missingPrice: "{sku}缺少原价或促销价。",
     totalQuota: "已选{count} / 总上限{limit}", noTotalLimit: "不设总数上限",
     readyToGenerate: "资料检查完成，可以生成Tesco提名表并保存本次活动记录。",
@@ -139,6 +154,141 @@ async function fetchJson(url, options) {
   if (!response.ok) throw new Error(payload.error || t("requestFailed")); return payload;
 }
 
+function normaliseCategory(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+async function persistCategoryMappings() {
+  const payload = await fetchJson("/api/tesco/category-mappings", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mappings: [...state.categoryMappings.values()] }),
+  });
+  state.categoryMappings = new Map((payload.mappings || []).map((item) => [normaliseCategory(item.tesco_category), item]));
+}
+
+function discoveredTescoCategories() {
+  const categories = new Map();
+  state.candidates.forEach((row) => {
+    const category = String((catalogueFor(row) || {}).category_path || "").trim();
+    if (category) categories.set(normaliseCategory(category), category);
+  });
+  return categories;
+}
+
+function inferredLevel1(category) {
+  const normalized = normaliseCategory(category);
+  return state.level1.find((level) => {
+    const token = normaliseCategory(level);
+    return normalized === token || normalized.startsWith(`${token} >`) || normalized.startsWith(`${token}/`);
+  }) || "";
+}
+
+function ensureInferredCategoryMappings() {
+  let changed = false;
+  discoveredTescoCategories().forEach((category, key) => {
+    if (state.categoryMappings.has(key)) return;
+    const level1 = inferredLevel1(category);
+    if (level1) {
+      state.categoryMappings.set(key, { tesco_category: category, level_1: level1 });
+      changed = true;
+    }
+  });
+  if (changed) persistCategoryMappings().catch((error) => toast(error.message, "error"));
+}
+
+function applyCategoryMappings() {
+  ensureInferredCategoryMappings();
+  state.candidates.forEach((row) => {
+    const category = String((catalogueFor(row) || {}).category_path || "").trim();
+    const mapping = state.categoryMappings.get(normaliseCategory(category));
+    const assignment = state.assignments.get(row.tesco_sku) || { event_category: "", level_1: "" };
+    if (!assignment.level_1 && mapping && state.level1.includes(mapping.level_1)) {
+      assignment.level_1 = mapping.level_1;
+      state.assignments.set(row.tesco_sku, assignment);
+    }
+  });
+}
+
+function unresolvedTescoCategories() {
+  return [...discoveredTescoCategories()].filter(([key]) => !state.categoryMappings.has(key));
+}
+
+function maybePromptCategoryMappings() {
+  if (!state.candidates.length || !state.catalogue.size || !state.level1.length) return;
+  applyCategoryMappings();
+  const unresolved = unresolvedTescoCategories();
+  const signature = unresolved.map(([key]) => key).sort().join("|");
+  if (unresolved.length && signature !== state.lastUnmappedSignature) {
+    state.lastUnmappedSignature = signature;
+    window.setTimeout(() => openCategoryMappingModal(true), 0);
+  }
+}
+
+function mappingRowsForEditor() {
+  const rows = new Map(state.categoryMappings);
+  discoveredTescoCategories().forEach((category, key) => {
+    if (!rows.has(key)) rows.set(key, { tesco_category: category, level_1: "" });
+  });
+  return [...rows.values()].sort((left, right) => left.tesco_category.localeCompare(right.tesco_category, undefined, { sensitivity: "base" }));
+}
+
+function renderCategoryMappingEditor() {
+  const mapped = state.mappingDraft.filter((item) => item.level_1).length;
+  const unmapped = state.mappingDraft.length - mapped;
+  const query = byId("categoryMappingSearch").value.trim().toLocaleLowerCase();
+  const visible = state.mappingDraft
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => `${item.tesco_category} ${item.level_1}`.toLocaleLowerCase().includes(query));
+  byId("categoryMappingSummary").textContent = t("mappingSummary", { mapped, unmapped });
+  byId("categoryMappingRows").innerHTML = visible.map(({ item, index }) => `
+    <tr class="${item.level_1 ? "" : "mapping-unresolved"}" data-index="${index}">
+      <td><input class="mapping-category" type="text" value="${escapeHtml(item.tesco_category)}"></td>
+      <td><select class="mapping-level">${levelOptions(item.level_1)}</select></td>
+      <td><button class="mapping-remove" type="button" title="${escapeHtml(t("removeMapping"))}" aria-label="${escapeHtml(t("removeMapping"))}">×</button></td>
+    </tr>`).join("");
+  document.querySelectorAll("#categoryMappingRows tr").forEach((row) => {
+    const item = state.mappingDraft[Number(row.dataset.index)];
+    row.querySelector(".mapping-category").addEventListener("input", (event) => { item.tesco_category = event.target.value; });
+    row.querySelector(".mapping-level").addEventListener("change", (event) => {
+      item.level_1 = event.target.value; row.classList.toggle("mapping-unresolved", !item.level_1);
+      const mappedCount = state.mappingDraft.filter((entry) => entry.level_1).length;
+      byId("categoryMappingSummary").textContent = t("mappingSummary", { mapped: mappedCount, unmapped: state.mappingDraft.length - mappedCount });
+    });
+    row.querySelector(".mapping-remove").addEventListener("click", () => {
+      state.mappingDraft.splice(Number(row.dataset.index), 1); renderCategoryMappingEditor();
+    });
+  });
+}
+
+function openCategoryMappingModal(fromPrompt = false) {
+  state.mappingDraft = mappingRowsForEditor();
+  renderCategoryMappingEditor();
+  byId("categoryMappingModal").classList.add("visible");
+  if (fromPrompt) toast(t("mappingRequired", { count: unresolvedTescoCategories().length }), "error");
+}
+
+async function saveCategoryMappings() {
+  const next = new Map();
+  for (const item of state.mappingDraft) {
+    const category = String(item.tesco_category || "").trim();
+    const level1 = String(item.level_1 || "").trim();
+    if (!category || !level1) continue;
+    const key = normaliseCategory(category);
+    if (next.has(key)) { toast(t("duplicateCategoryMapping"), "error"); return; }
+    next.set(key, { tesco_category: category, level_1: level1 });
+  }
+  state.categoryMappings = next;
+  const button = byId("saveCategoryMappings"); button.disabled = true;
+  try {
+    await persistCategoryMappings();
+    state.lastUnmappedSignature = unresolvedTescoCategories().map(([key]) => key).sort().join("|");
+    applyCategoryMappings();
+    byId("categoryMappingModal").classList.remove("visible");
+    renderRows(); markDirty(); toast(t("mappingsSaved"));
+  } catch (error) { toast(error.message, "error"); }
+  finally { button.disabled = false; }
+}
+
 function applyLanguage() {
   document.documentElement.lang = state.language;
   document.title = t("pageTitle");
@@ -149,15 +299,17 @@ function applyLanguage() {
   byId("languageButton").textContent = state.language === "en" ? "中文" : "English";
   renderCategories(); updateFileStatuses(); renderRows(); renderHistory(); loadStatus().catch((error) => toast(error.message, "error"));
   if (byId("externalImportModal").classList.contains("visible")) renderExternalImport();
+  if (byId("categoryMappingModal").classList.contains("visible")) renderCategoryMappingEditor();
 }
 
 async function loadStatus() {
   const payload = await fetchJson("/api/tesco/status");
   state.events = payload.events || []; state.level1 = payload.level1 || [];
+  state.categoryMappings = new Map((payload.categoryMappings || []).map((item) => [normaliseCategory(item.tesco_category), item]));
   byId("offerStatus").textContent = payload.offerCount
     ? t("capturedOffers", { count: payload.offerCount.toLocaleString() })
     : t("offersRequired");
-  renderHistory();
+  applyCategoryMappings(); renderRows(); renderHistory(); maybePromptCategoryMappings();
 }
 
 function addCategory(name = "", limit = "") {
@@ -217,7 +369,7 @@ async function importFile(file, kind) {
       });
       state.catalogueFile = file.name;
     }
-    updateFileStatuses(); markDirty(); await checkOverlap(); renderRows(); toast(t("fileLoaded", { file: file.name }));
+    applyCategoryMappings(); updateFileStatuses(); markDirty(); await checkOverlap(); renderRows(); maybePromptCategoryMappings(); toast(t("fileLoaded", { file: file.name }));
   } catch (error) { toast(error.message, "error"); }
   finally {
     button.disabled = false; button.textContent = kind === "candidates" ? t("importWorktable") : t("importCatalogue");
@@ -271,6 +423,7 @@ function alternativeListing(row) {
 }
 
 function renderRows() {
+  applyCategoryMappings();
   const query = byId("searchInput").value.trim().toLowerCase();
   const visible = [...state.candidates].sort((left, right) => left.tesco_sku.localeCompare(right.tesco_sku, undefined, { sensitivity: "base" })).filter((row) => {
     const catalogue = catalogueFor(row) || {};
@@ -303,7 +456,16 @@ function renderRows() {
     const sku = tableRow.dataset.sku;
     tableRow.querySelector(".row-check").addEventListener("change", (event) => { event.target.checked ? state.selected.add(sku) : state.selected.delete(sku); markDirty(); validate(); });
     tableRow.querySelector(".event-category").addEventListener("change", (event) => { const item = state.assignments.get(sku) || {}; item.event_category = event.target.value; state.assignments.set(sku, item); markDirty(); validate(); });
-    tableRow.querySelector(".level-one").addEventListener("change", (event) => { const item = state.assignments.get(sku) || {}; item.level_1 = event.target.value; state.assignments.set(sku, item); markDirty(); validate(); });
+    tableRow.querySelector(".level-one").addEventListener("change", (event) => {
+      const item = state.assignments.get(sku) || {}; item.level_1 = event.target.value; state.assignments.set(sku, item);
+      const candidate = state.candidates.find((row) => row.tesco_sku === sku);
+      const category = String((candidate ? catalogueFor(candidate) : null)?.category_path || "").trim();
+      if (category && item.level_1) {
+        state.categoryMappings.set(normaliseCategory(category), { tesco_category: category, level_1: item.level_1 });
+        persistCategoryMappings().catch((error) => toast(error.message, "error"));
+      }
+      markDirty(); validate();
+    });
   });
   document.querySelectorAll(".product-cell img").forEach((image) => image.addEventListener("error", () => {
     const placeholder = document.createElement("span");
@@ -332,7 +494,7 @@ function validate() {
   });
   rows.forEach((row) => {
     const assignment = state.assignments.get(row.tesco_sku) || {};
-    if (!assignment.event_category || !assignment.level_1) errors.push(t("assignFields", { sku: row.tesco_sku }));
+    if (!assignment.level_1) errors.push(t("assignFields", { sku: row.tesco_sku }));
     if (state.conflicts[row.tesco_sku]) errors.push(t("overlapsEvent", { sku: row.tesco_sku }));
     if (!row.ca_price || !row.promo_price) errors.push(t("missingPrice", { sku: row.tesco_sku }));
   });
@@ -505,6 +667,14 @@ byId("externalNominationInput").addEventListener("change", (event) => event.targ
 byId("cancelExternalImport").addEventListener("click", () => byId("externalImportModal").classList.remove("visible"));
 byId("saveExternalImport").addEventListener("click", saveExternalImport);
 byId("addCategoryButton").addEventListener("click", () => addCategory());
+byId("categoryMappingButton").addEventListener("click", () => openCategoryMappingModal(false));
+byId("addCategoryMapping").addEventListener("click", () => {
+  byId("categoryMappingSearch").value = "";
+  state.mappingDraft.push({ tesco_category: "", level_1: "" }); renderCategoryMappingEditor();
+});
+byId("categoryMappingSearch").addEventListener("input", renderCategoryMappingEditor);
+byId("closeCategoryMapping").addEventListener("click", () => byId("categoryMappingModal").classList.remove("visible"));
+byId("saveCategoryMappings").addEventListener("click", saveCategoryMappings);
 byId("searchInput").addEventListener("input", renderRows);
 ["eventName", "sellerName", "totalLimit"].forEach((id) => byId(id).addEventListener("input", () => { markDirty(); validate(); }));
 ["startDate", "endDate"].forEach((id) => byId(id).addEventListener("change", () => { markDirty(); checkOverlap(); }));

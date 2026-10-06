@@ -35,6 +35,7 @@ LIFETIME_METRICS_PATH = BASE_DIR / "data" / "lifetime_metrics.json"
 TESCO_OFFERS_PATH = DATA_DIR / "tesco_latest_offers.json"
 TESCO_CATALOGUE_PATH = DATA_DIR / "tesco_latest_catalogue.json"
 TESCO_EVENTS_PATH = DATA_DIR / "tesco_nomination_events.json"
+TESCO_CATEGORY_MAPPINGS_PATH = DATA_DIR / "tesco_category_mappings.json"
 TESCO_NOMINATIONS_DIR = DATA_DIR / "tesco_nominations"
 PLATFORM_SETTINGS_PATH = DATA_DIR / "platform_settings.json"
 NON_EXISTING_SKU = "__NON_EXISTING__"
@@ -373,6 +374,74 @@ def save_platform_settings(payload):
             encoding="utf-8",
         )
     return platform_settings()
+
+
+def validate_tesco_category_mapping(row):
+    if not isinstance(row, dict):
+        raise ValueError("Every Tesco category mapping must be an object.")
+    tesco_category = str(row.get("tesco_category") or "").strip()
+    level_1 = str(row.get("level_1") or "").strip()
+    if not tesco_category:
+        raise ValueError("Tesco category is required.")
+    if len(tesco_category) > 500:
+        raise ValueError("Tesco category is too long.")
+    if level_1 not in TESCO_LEVEL_1:
+        raise ValueError(f"Invalid Level 1 category for {tesco_category}.")
+    return {
+        "category_key": " ".join(tesco_category.casefold().split()),
+        "tesco_category": tesco_category,
+        "level_1": level_1,
+    }
+
+
+def tesco_category_mappings():
+    if supabase_enabled():
+        rows = supabase_request(
+            "GET",
+            "promotion_tesco_category_mappings",
+            params={
+                "select": "category_key,tesco_category,level_1",
+                "order": "tesco_category.asc",
+            },
+        )
+        return [validate_tesco_category_mapping(row) for row in rows]
+    if TESCO_CATEGORY_MAPPINGS_PATH.exists():
+        rows = json.loads(TESCO_CATEGORY_MAPPINGS_PATH.read_text(encoding="utf-8"))
+        return [validate_tesco_category_mapping(row) for row in rows]
+    return []
+
+
+def save_tesco_category_mappings(payload):
+    rows = payload.get("mappings") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("Category mappings must be a list.")
+    mappings = [validate_tesco_category_mapping(row) for row in rows]
+    keys = [row["category_key"] for row in mappings]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Tesco categories must be unique.")
+    if supabase_enabled():
+        existing = tesco_category_mappings()
+        if mappings:
+            supabase_request(
+                "POST",
+                "promotion_tesco_category_mappings",
+                rows=mappings,
+                params={"on_conflict": "category_key"},
+                prefer="resolution=merge-duplicates,return=representation",
+            )
+        for row in existing:
+            if row["category_key"] not in keys:
+                supabase_request(
+                    "DELETE",
+                    "promotion_tesco_category_mappings",
+                    params={"category_key": f"eq.{row['category_key']}"},
+                )
+    else:
+        TESCO_CATEGORY_MAPPINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        TESCO_CATEGORY_MAPPINGS_PATH.write_text(
+            json.dumps(mappings, indent=2, ensure_ascii=True), encoding="utf-8"
+        )
+    return tesco_category_mappings()
 
 
 def validate_worktable_id(value):
@@ -2363,8 +2432,6 @@ def build_tesco_nomination_workbook(payload):
     if blocked:
         raise ValueError("Overlapping Tesco SKU(s): " + ", ".join(blocked))
     for row in rows:
-        if not str(row.get("event_category") or "").strip():
-            raise ValueError(f"Select an event category for {row.get('tesco_sku')}.")
         if row.get("level_1") not in TESCO_LEVEL_1:
             raise ValueError(f"Select a valid Level 1 group for {row.get('tesco_sku')}.")
 
@@ -2813,6 +2880,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "offersCapturedAt": latest_tesco_offers_captured_at(offers),
                     "events": tesco_events(),
                     "level1": TESCO_LEVEL_1,
+                    "categoryMappings": tesco_category_mappings(),
                     "storage": "supabase" if supabase_enabled() else "local",
                 }
             )
@@ -2854,6 +2922,10 @@ class Handler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/platform-settings":
                 settings = save_platform_settings(self.read_json())
                 self.send_json({"settings": settings})
+                return
+            if parsed.path == "/api/tesco/category-mappings":
+                mappings = save_tesco_category_mappings(self.read_json())
+                self.send_json({"mappings": mappings})
                 return
             if parsed.path == "/api/worktables":
                 record = create_saved_worktable(self.read_json())
@@ -3182,4 +3254,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

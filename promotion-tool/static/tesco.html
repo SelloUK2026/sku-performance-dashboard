@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-i18n="pageTitle">Tesco Promotion Selection</title>
   <link rel="stylesheet" href="/styles.css?v=20260820-tesco">
-  <link rel="stylesheet" href="/tesco.css?v=20260821-external-1">
+  <link rel="stylesheet" href="/tesco.css?v=20261006-category-mapping-demo">
 </head>
 <body class="tesco-page">
   <header class="app-header">
@@ -19,6 +19,7 @@
     <div class="header-actions">
       <span class="environment"><span></span><b id="offerStatus" data-i18n="checkingOffers">Checking Offer SKU data</b></span>
       <button class="button secondary" id="languageButton" type="button">中文</button>
+      <button class="button secondary" id="categoryMappingButton" type="button" data-i18n="categoryMapping">Category mapping</button>
       <button class="header-help" id="helpButton" title="Open user guide" aria-label="Open user guide" data-i18n-title="openGuide" data-i18n-aria="openGuide">?</button>
       <a class="button secondary" href="/" data-i18n="promotionCalculation">Promotion calculation</a>
       <button class="button primary" id="exportButton" disabled data-i18n="generateForm">Generate nomination form</button>
@@ -102,7 +103,7 @@
       <ol class="tesco-guide">
         <li data-i18n="guideStep1">Export the Tesco promotion worktable, enter Yes in column T for candidates, then import it here.</li>
         <li data-i18n="guideStep2">Upload the latest Tesco Catalogue for the event. The latest Offer SKU file is already captured when Tesco data is first imported in the calculation tool.</li>
-        <li data-i18n="guideStep3">Enter the event dates, Tesco-defined categories and limits. Assign an event category and fixed Level 1 group to each selected SKU.</li>
+        <li data-i18n="guideStep3">Enter the event dates and any Tesco-defined event categories or limits. Event category may be blank; every selected SKU still needs a fixed Level 1 group.</li>
         <li data-i18n="guideStep4">A Tesco SKU used in an overlapping saved event is blocked. Another Tesco SKU for the same Wooper product remains available.</li>
         <li data-i18n="guideStep5">Generate the form only when the quota and required fields pass. The saved snapshot becomes the overlap record for future events.</li>
         <li data-i18n="guideStep6">If a nomination was submitted outside this tool, import the completed nomination form under Saved Tesco events and confirm any unmatched Tesco SKU.</li>
@@ -123,7 +124,29 @@
       </div>
     </section>
   </div>
+  <div class="modal-backdrop" id="categoryMappingModal">
+    <section class="modal category-mapping-modal" role="dialog" aria-modal="true" aria-labelledby="categoryMappingTitle">
+      <span class="eyebrow" data-i18n="categoryMapping">Category mapping</span>
+      <h2 id="categoryMappingTitle" data-i18n="mapTescoCategories">Map Tesco categories to Level 1</h2>
+      <p data-i18n="categoryMappingHelp">Mappings apply automatically to every product with the same Tesco catalogue category.</p>
+      <div class="category-mapping-toolbar">
+        <span id="categoryMappingSummary"></span>
+        <input id="categoryMappingSearch" type="search" placeholder="Search Tesco category" aria-label="Search Tesco category" data-i18n-placeholder="searchTescoCategory" data-i18n-aria="searchTescoCategory">
+        <button class="button plain" id="addCategoryMapping" type="button" data-i18n="addMapping">Add mapping</button>
+      </div>
+      <div class="category-mapping-table-wrap">
+        <table class="category-mapping-table">
+          <thead><tr><th data-i18n="tescoCategory">Tesco category</th><th data-i18n="level1">Level 1</th><th></th></tr></thead>
+          <tbody id="categoryMappingRows"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="button secondary" id="closeCategoryMapping" type="button" data-i18n="close">Close</button>
+        <button class="button primary" id="saveCategoryMappings" type="button" data-i18n="saveMappings">Save mappings</button>
+      </div>
+    </section>
+  </div>
   <div class="toast" id="toast"></div>
-  <script src="/tesco.js?v=20260821-external-1"></script>
+  <script src="/tesco.js?v=20261006-category-mapping-demo"></script>
 </body>
 </html>

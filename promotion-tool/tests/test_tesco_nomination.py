@@ -181,6 +181,51 @@ class TescoNominationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Home SKU limit"):
             app.build_tesco_nomination_workbook(payload)
 
+    def test_generated_form_allows_blank_event_category(self):
+        payload = {
+            "event_name": "Open Category Event",
+            "start_date": "2026-11-01",
+            "end_date": "2026-11-10",
+            "rows": [{
+                "tesco_sku": "SKU-1",
+                "event_category": "",
+                "level_1": "Home",
+                "ca_price": 20,
+                "promo_price": 15,
+            }],
+        }
+        with patch.object(app, "tesco_conflicts", return_value={}):
+            data = app.build_tesco_nomination_workbook(payload)
+        workbook = load_workbook(io.BytesIO(data), data_only=False)
+        self.assertEqual(workbook["Sheet1"]["D3"].value, "Home")
+
+    def test_tesco_category_mappings_are_saved_for_local_demo(self):
+        root = Path(__file__).parent / ".tesco_category_mapping_test"
+        mappings_path = root / "mappings.json"
+        root.mkdir(exist_ok=True)
+        try:
+            with patch.object(app, "TESCO_CATEGORY_MAPPINGS_PATH", mappings_path), patch.object(
+                app, "supabase_enabled", return_value=False
+            ):
+                saved = app.save_tesco_category_mappings({"mappings": [{
+                    "tesco_category": "Home > Bedding",
+                    "level_1": "Home",
+                }]})
+            self.assertEqual(saved[0]["category_key"], "home > bedding")
+            self.assertEqual(saved[0]["level_1"], "Home")
+        finally:
+            if mappings_path.exists():
+                mappings_path.unlink()
+            if root.exists():
+                root.rmdir()
+
+    def test_tesco_category_mapping_rejects_invalid_level_1(self):
+        with self.assertRaisesRegex(ValueError, "Invalid Level 1"):
+            app.validate_tesco_category_mapping({
+                "tesco_category": "Home > Bedding",
+                "level_1": "Furniture",
+            })
+
     def test_saved_event_can_be_removed(self):
         root = Path(__file__).parent / ".tesco_event_delete_test"
         nominations = root / "nominations"
