@@ -42,7 +42,7 @@ NON_EXISTING_SKU = "__NON_EXISTING__"
 
 
 def dated_export_filename(filename, generated_on=None):
-    generated_on = generated_on or date.today()
+    generated_on = generated_on or datetime.now(ZoneInfo("Australia/Sydney")).date()
     return f"{generated_on:%Y%m%d} - {filename}"
 
 
