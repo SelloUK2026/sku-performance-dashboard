@@ -553,6 +553,7 @@ await page.locator("#includeExcludedExport").evaluate((input) => {
 const downloadPromise = page.waitForEvent("download");
 await page.locator("#exportButton").click();
 const download = await downloadPromise;
+loaded.exportFilenameHasDatePrefix = /^\d{8} - /.test(download.suggestedFilename());
 const exportCsv = await readFile(await download.path(), "utf8");
 loaded.exportHasCaPriceHeader = exportCsv.includes("CA Price - Normal Price (VAT Included)");
 loaded.exportHasInputVatHeader = exportCsv.includes("Offer Price (VAT Excluded)");

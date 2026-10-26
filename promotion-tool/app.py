@@ -39,6 +39,13 @@ TESCO_CATEGORY_MAPPINGS_PATH = DATA_DIR / "tesco_category_mappings.json"
 TESCO_NOMINATIONS_DIR = DATA_DIR / "tesco_nominations"
 PLATFORM_SETTINGS_PATH = DATA_DIR / "platform_settings.json"
 NON_EXISTING_SKU = "__NON_EXISTING__"
+
+
+def dated_export_filename(filename, generated_on=None):
+    generated_on = generated_on or date.today()
+    return f"{generated_on:%Y%m%d} - {filename}"
+
+
 WORKBOOK_PATH = Path(
     os.environ.get(
         "SKU_DATA_WORKBOOK",
@@ -3070,7 +3077,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_bytes(
                     workbook,
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    f"tesco-{slug or 'event'}-nomination.xlsx",
+                    dated_export_filename(f"tesco-{slug or 'event'}-nomination.xlsx"),
                     extra_headers={"X-Tesco-Event-Id": record["id"]},
                 )
                 return

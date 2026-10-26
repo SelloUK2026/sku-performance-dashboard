@@ -3,6 +3,7 @@ import json
 import sys
 import unittest
 import uuid
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,15 @@ import app
 
 
 class TescoNominationTests(unittest.TestCase):
+    def test_export_filename_starts_with_generation_date(self):
+        self.assertEqual(
+            app.dated_export_filename(
+                "tesco-summer-sale-nomination.xlsx",
+                date(2026, 10, 26),
+            ),
+            "20261026 - tesco-summer-sale-nomination.xlsx",
+        )
+
     def test_candidate_import_only_accepts_tesco_approval_yes(self):
         rows = [
             {"Platform": "Tesco", "Platform SKU": "ABC_1", "SKU": "ABC-UK", "Approval": "Yes", "SOH": 7},

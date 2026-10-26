@@ -14,6 +14,14 @@ const LANGUAGE_STORAGE_KEY = "promotion-nomination-language";
 const CRITERIA_STORAGE_KEY = "promotion-nomination-criteria-collapsed";
 const SKU_COLLATOR = new Intl.Collator("en-GB", { numeric: true, sensitivity: "base" });
 
+function localDateStamp(value = new Date()) {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("");
+}
+
 const UI_TEXT = {
   en: {
     appTitle: "Promotion Nomination",
@@ -2513,7 +2521,7 @@ function exportSelected() {
   const link = document.createElement("a");
   const slug = criteria.campaign_name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "promotion";
   link.href = URL.createObjectURL(blob);
-  link.download = `${criteria.platform}-${slug}-nomination.csv`;
+  link.download = `${localDateStamp()} - ${criteria.platform}-${slug}-nomination.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
   showToast(t("selectedExported", { count: rows.length }));
