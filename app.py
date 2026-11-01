@@ -15,6 +15,8 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
+from daily_data_cache import DailyDataCache, DASHBOARD_TABLES
+
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
@@ -462,11 +464,12 @@ def supabase_headers(extra=None):
     return headers
 
 
-def supabase_request(path, headers=None):
+def live_supabase_request(path, headers=None):
     if not supabase_enabled():
         raise DataSourceError("Supabase is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY in Render.")
     url = f"{SUPABASE_URL}/rest/v1/{path}"
     request = Request(url, headers=supabase_headers(headers))
+    daily_cache.source_reads += 1
     try:
         with urlopen(request, timeout=60) as response:
             body = response.read().decode("utf-8")
@@ -476,7 +479,29 @@ def supabase_request(path, headers=None):
         raise DataSourceError(f"Supabase request failed: {exc.code} {detail}") from exc
 
 
+def recover_daily_table(table):
+    offset = 0
+    while True:
+        rows = live_supabase_request(f"{table}?select=*&limit=1000&offset={offset}")
+        yield from rows
+        if len(rows) < 1000:
+            return
+        offset += 1000
+
+
+daily_cache = DailyDataCache(DASHBOARD_TABLES, recover_daily_table)
+
+
+def supabase_request(path, headers=None):
+    table, _, query = path.partition("?")
+    if daily_cache.enabled and table in daily_cache.tables:
+        return daily_cache.select(table, query)
+    return live_supabase_request(path, headers)
+
+
 def supabase_select_all(table, select="*", query=""):
+    if daily_cache.enabled and table in daily_cache.tables:
+        return daily_cache.select(table, f"select={quote(select, safe='*,()')}{query}")
     rows = []
     offset = 0
     page_size = 1000
@@ -491,6 +516,8 @@ def supabase_select_all(table, select="*", query=""):
 
 
 def supabase_count(table):
+    if daily_cache.enabled and table in daily_cache.tables:
+        return daily_cache.count(table)
     if not supabase_enabled():
         return 0
     url = f"{SUPABASE_URL}/rest/v1/{table}?select=id&limit=1"
@@ -702,6 +729,8 @@ class DataStore:
         return self.data
 
     def current_version(self):
+        if self.source_mode == "supabase" and daily_cache.enabled:
+            return daily_cache.generation()
         if self.source_mode in ("google", "supabase"):
             return int(time.time() / max(CACHE_SECONDS, 60))
         return self.workbook_path.stat().st_mtime
@@ -809,12 +838,13 @@ class DataStore:
             "meta": {
                 "source": "Supabase",
                 "workbook": SUPABASE_URL,
-                "lastUpdate": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                "lastUpdate": (datetime.fromisoformat(daily_cache.status()["refreshedAt"]).strftime("%Y-%m-%d %H:%M UTC") if daily_cache.enabled
+                               else datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
                 "dataStart": clean_value(min_date),
                 "dataEnd": clean_value(max_date),
                 "skuCount": len(sku_options),
                 "salesRows": supabase_count("sales"),
-                "cacheSeconds": CACHE_SECONDS,
+                "cacheSeconds": 0 if daily_cache.enabled else CACHE_SECONDS,
             },
             "skuOptions": sku_options,
         }
@@ -1718,6 +1748,13 @@ def calculate_price_test(price, cogs, freight, selling_cost=0.25, wms=0.08):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def do_POST(self):
+        if urlparse(self.path).path != "/api/data-refresh":
+            self.send_json({"error": "Unknown endpoint"}, status=404)
+            return
+        if daily_cache.accept_upload(self):
+            self.send_json({"ok": True, "dailyDataCache": daily_cache.status()})
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
 
@@ -1738,11 +1775,15 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        with daily_cache.lock:
+            return self.handle_GET()
+
+    def handle_GET(self):
         parsed = urlparse(self.path)
         try:
             if parsed.path == "/api/health":
                 data = store.get()
-                self.send_json({"ok": True, "meta": data["meta"]})
+                self.send_json({"ok": True, "meta": data["meta"], "dailyDataCache": daily_cache.status()})
                 return
             if parsed.path == "/api/skus":
                 data = store.get()
