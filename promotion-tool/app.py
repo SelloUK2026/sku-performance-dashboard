@@ -10,6 +10,7 @@ import os
 import re
 import time
 import uuid
+import sys
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +28,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 
 BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR.parent))
+from daily_data_cache import DailyDataCache, PROMOTION_TABLES
 STATIC_DIR = BASE_DIR / "static"
 SAMPLE_PATH = BASE_DIR / "sample_data.json"
 DATA_DIR = BASE_DIR / "data"
@@ -278,7 +281,7 @@ def supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 
-def supabase_request(method, table, rows=None, params=None, prefer=None):
+def live_supabase_request(method, table, rows=None, params=None, prefer=None):
     query = urlencode(params or {}, doseq=True)
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     if query:
@@ -292,6 +295,8 @@ def supabase_request(method, table, rows=None, params=None, prefer=None):
         headers["Prefer"] = prefer
     body = None if rows is None else json.dumps(rows).encode("utf-8")
     request = Request(url, data=body, headers=headers, method=method)
+    if method == "GET" and table in PROMOTION_TABLES:
+        daily_cache.source_reads += 1
     try:
         with urlopen(request, timeout=120) as response:
             payload = response.read()
@@ -303,7 +308,28 @@ def supabase_request(method, table, rows=None, params=None, prefer=None):
     return json.loads(payload.decode("utf-8")) if payload else []
 
 
+def recover_daily_table(table):
+    offset = 0
+    while True:
+        rows = live_supabase_request("GET", table, params={"select": "*", "limit": 1000, "offset": offset})
+        yield from rows
+        if len(rows) < 1000:
+            return
+        offset += 1000
+
+
+daily_cache = DailyDataCache(PROMOTION_TABLES, recover_daily_table)
+
+
+def supabase_request(method, table, rows=None, params=None, prefer=None):
+    if method == "GET" and daily_cache.enabled and table in daily_cache.tables:
+        return daily_cache.select(table, params)
+    return live_supabase_request(method, table, rows, params, prefer)
+
+
 def supabase_select_all(table, params=None, page_size=1000):
+    if daily_cache.enabled and table in daily_cache.tables:
+        return daily_cache.select(table, params)
     rows = []
     offset = 0
     while True:
@@ -730,6 +756,9 @@ def supabase_inventory_skus():
 def promotion_data_refreshed_at():
     if not supabase_enabled():
         return None
+    if daily_cache.enabled:
+        daily_cache.ensure()
+        return daily_cache.status().get("refreshedAt")
     rows = supabase_request(
         "GET",
         "promotion_sku_data",
@@ -2788,10 +2817,16 @@ class Handler(SimpleHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        with daily_cache.lock:
+            return self.handle_GET()
+
+    def handle_GET(self):
         parsed = urlparse(self.path)
         if not self.require_authorization(parsed.path):
             return
         if parsed.path == "/api/health":
+            if daily_cache.enabled:
+                daily_cache.ensure()
             self.send_json(
                 {
                     "ok": True,
@@ -2799,6 +2834,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "dataSource": PROMOTION_DATA_SOURCE,
                     "supabase": supabase_enabled(),
                     "authRequired": PROMOTION_REQUIRE_AUTH,
+                    "dailyDataCache": daily_cache.status(),
                 }
             )
             return
@@ -2922,7 +2958,17 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        with daily_cache.lock:
+            return self.handle_POST()
+
+    def handle_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/api/data-refresh":
+            if daily_cache.accept_upload(self):
+                _SUPABASE_PROMOTION_CACHE.update({"rows": None, "expires_at": 0.0})
+                _SUPABASE_CA_PRICE_CACHE.update({"exact": None, "canonical": None, "expires_at": 0.0})
+                self.send_json({"ok": True, "dailyDataCache": daily_cache.status()})
+            return
         if not self.require_authorization(parsed.path):
             return
         try:
