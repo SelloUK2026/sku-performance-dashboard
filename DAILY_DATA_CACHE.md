@@ -5,6 +5,13 @@ SQLite snapshot. Shared dashboard data, individual SKU history, freight,
 inventory and promotion prices do not expire or poll Supabase. The public
 health response reports generation, counts and source-read counters.
 
+Restart files use lossless XZ compression (`.sqlite3.xz`). The publisher verifies
+the SHA-256 of the decompressed file before uploading it. The server recognizes
+both XZ and older gzip copies by their file signature. `snapshotCompression` in
+the health response confirms the format actually restored or uploaded. The local
+publisher configuration selects `compression: "xz"`; missing settings retain gzip
+for safe staged rollout. Older gzip objects remain available for rollback.
+
 The local daily import publishes both snapshots only after all database writes
 and row-count checks succeed. It reuses the validated import payloads, uploads
 compressed restart copies to the private `daily-render-cache` Storage bucket,

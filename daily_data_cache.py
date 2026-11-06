@@ -9,8 +9,10 @@ from __future__ import annotations
 from contextlib import closing
 from datetime import datetime, timezone
 import gzip
+import hashlib
 import hmac
 import json
+import lzma
 import os
 from pathlib import Path
 import re
@@ -30,6 +32,49 @@ PROMOTION_TABLES = (
 IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]*$")
 MAX_UPLOAD = 64 * 1024 * 1024
 MAX_DATABASE = 512 * 1024 * 1024
+
+
+def compressed_reader(source):
+    """Detect the transport format so older gzip restart copies remain usable."""
+    source.seek(0)
+    magic = source.read(6)
+    source.seek(0)
+    if magic == b"\xfd7zXZ\x00":
+        return lzma.LZMAFile(source, "rb"), "xz"
+    if magic[:2] == b"\x1f\x8b":
+        return gzip.GzipFile(fileobj=source), "gzip"
+    raise ValueError("Unsupported daily data compression")
+
+
+def unpack_database(source, target_path):
+    reader, compression = compressed_reader(source)
+    total = 0
+    with reader, Path(target_path).open("wb") as target:
+        while chunk := reader.read(1024 * 1024):
+            total += len(chunk)
+            if total > MAX_DATABASE:
+                raise ValueError("Daily data file is too large")
+            target.write(chunk)
+    return compression
+
+
+def pack_database(source_path, target_path, compression="xz"):
+    if compression not in {"gzip", "xz"}:
+        raise ValueError("Unsupported daily data compression")
+    original_hash = hashlib.sha256()
+    opener = lzma.open if compression == "xz" else gzip.open
+    options = {"preset": 6} if compression == "xz" else {"compresslevel": 5}
+    with Path(source_path).open("rb") as source, opener(target_path, "wb", **options) as target:
+        while chunk := source.read(1024 * 1024):
+            original_hash.update(chunk)
+            target.write(chunk)
+    with Path(target_path).open("rb") as source:
+        reader, _ = compressed_reader(source)
+        with reader:
+            restored_hash = hashlib.file_digest(reader, "sha256").hexdigest()
+    if original_hash.hexdigest() != restored_hash:
+        raise ValueError("Compressed daily data integrity check failed")
+    return restored_hash
 
 
 def identifier(value):
@@ -77,6 +122,7 @@ class DailyDataCache:
         self.source_reads = 0
         self.snapshot_downloads = 0
         self.snapshot_bytes = 0
+        self.snapshot_compression = None
 
     def _read_metadata(self, path, check=False):
         with closing(sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)) as db:
@@ -120,13 +166,7 @@ class DailyDataCache:
                                     raise ValueError("Saved daily data is too large")
                                 packed.write(chunk)
                             packed.seek(0)
-                            with gzip.GzipFile(fileobj=packed) as unpacked, temporary.open("wb") as target:
-                                size = 0
-                                while chunk := unpacked.read(1024 * 1024):
-                                    size += len(chunk)
-                                    if size > MAX_DATABASE:
-                                        raise ValueError("Saved daily data is too large")
-                                    target.write(chunk)
+                            compression = unpack_database(packed, temporary)
                         metadata = self._read_metadata(temporary, check=True)
                     except Exception:
                         raise RuntimeError("Unable to restore saved daily data; retry or publish-cache") from None
@@ -134,6 +174,7 @@ class DailyDataCache:
                     self._metadata = metadata
                     self.snapshot_downloads += 1
                     self.snapshot_bytes += total
+                    self.snapshot_compression = compression
                     return
                 timestamp = datetime.now(timezone.utc).isoformat()
                 metadata = build_database(temporary, {t: self.loader(t) for t in self.tables}, {
@@ -156,7 +197,8 @@ class DailyDataCache:
                         ready=self._metadata is not None, refreshPolicy="after-successful-import",
                         sourceReadsSinceStart=self.source_reads,
                         snapshotDownloadsSinceStart=self.snapshot_downloads,
-                        snapshotBytesSinceStart=self.snapshot_bytes)
+                        snapshotBytesSinceStart=self.snapshot_bytes,
+                        snapshotCompression=self.snapshot_compression)
 
     def count(self, table):
         with self.lock:
@@ -240,13 +282,7 @@ class DailyDataCache:
                     compressed.write(chunk)
                     remaining -= len(chunk)
                 compressed.seek(0)
-                total = 0
-                with gzip.GzipFile(fileobj=compressed) as source, temporary.open("wb") as target:
-                    while chunk := source.read(1024 * 1024):
-                        total += len(chunk)
-                        if total > MAX_DATABASE:
-                            raise ValueError("Daily data file is too large")
-                        target.write(chunk)
+                compression = unpack_database(compressed, temporary)
             metadata = self._read_metadata(temporary, check=True)
             with self.lock:
                 current = self.status()
@@ -255,8 +291,9 @@ class DailyDataCache:
                     raise ValueError("An older daily refresh cannot replace newer data")
                 os.replace(temporary, self.path)
                 self._metadata = metadata
+                self.snapshot_compression = compression
             return True
-        except (ValueError, OSError, sqlite3.Error, EOFError, KeyError, TypeError):
+        except (ValueError, OSError, sqlite3.Error, EOFError, KeyError, TypeError, lzma.LZMAError):
             handler.send_json({"error": "Daily data upload rejected; existing data retained"}, status=400)
             return False
         finally:
