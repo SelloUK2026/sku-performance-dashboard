@@ -1,13 +1,15 @@
 import gzip
 import io
 import json
+import hashlib
+import lzma
 import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from daily_data_cache import DailyDataCache, build_database
+from daily_data_cache import DailyDataCache, build_database, pack_database
 
 
 class Handler:
@@ -91,6 +93,39 @@ class DailyCacheTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Unable to restore"):
                 self.cache.select("sales")
         self.assertFalse(self.cache.path.exists())
+
+    def test_xz_upload_and_cold_restore_keep_all_records_and_reject_corruption(self):
+        body = lzma.compress(gzip.decompress(self.package()), preset=6)
+        with patch.dict(os.environ, {"DATA_REFRESH_TOKEN": "test-token"}):
+            self.assertTrue(self.cache.accept_upload(Handler(body)))
+            self.assertEqual(self.cache.select("sales"), self.rows)
+            self.assertEqual(self.cache.status()["snapshotCompression"], "xz")
+            self.assertFalse(self.cache.accept_upload(Handler(body[:-16])))
+            self.assertEqual(self.cache.select("sales"), self.rows)
+        restarted = DailyDataCache(("sales",), lambda table: self.fail("Unexpected raw download"),
+                                   self.root / "cold.sqlite3", enabled=True)
+        with patch.dict(os.environ, {"DAILY_DATA_SNAPSHOT_URL": "https://example.test/private"}), \
+                patch("daily_data_cache.urlopen", return_value=io.BytesIO(body)):
+            self.assertEqual(restarted.select("sales"), self.rows)
+            self.assertEqual(restarted.status()["snapshotCompression"], "xz")
+            self.assertEqual(restarted.status()["snapshotBytesSinceStart"], len(body))
+
+    def test_both_compression_formats_restore_the_exact_original_database(self):
+        source = self.root / "original.sqlite3"
+        build_database(source, {"sales": self.rows}, {"generation": "2026-11-06"})
+        expected = hashlib.sha256(source.read_bytes()).hexdigest()
+        for compression, decoder in (("xz", lzma.decompress), ("gzip", gzip.decompress)):
+            packed = self.root / ("packed." + compression)
+            self.assertEqual(pack_database(source, packed, compression), expected)
+            self.assertEqual(decoder(packed.read_bytes()), source.read_bytes())
+
+    def test_xz_output_size_limit_keeps_previous_data(self):
+        with patch.dict(os.environ, {"DATA_REFRESH_TOKEN": "test-token"}):
+            self.assertTrue(self.cache.accept_upload(Handler(self.package())))
+            body = lzma.compress(gzip.decompress(self.package()))
+            with patch("daily_data_cache.MAX_DATABASE", 10):
+                self.assertFalse(self.cache.accept_upload(Handler(body)))
+            self.assertEqual(self.cache.select("sales"), self.rows)
 
     def test_invalid_query_does_not_access_arbitrary_tables_or_sql(self):
         with self.assertRaises(ValueError):
