@@ -39,7 +39,7 @@ if SUPABASE_URL.endswith("/rest/v1"):
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 DASHBOARD_AUTH_USERNAME = os.environ.get("DASHBOARD_AUTH_USERNAME", "").strip()
 DASHBOARD_AUTH_PASSWORD = os.environ.get("DASHBOARD_AUTH_PASSWORD", "")
-DASHBOARD_REQUIRE_AUTH = os.environ.get("DASHBOARD_REQUIRE_AUTH", "false").strip().lower() in {"1", "true", "yes", "on"}
+DASHBOARD_REQUIRE_AUTH = os.environ.get("DASHBOARD_REQUIRE_AUTH", "true" if os.environ.get("RENDER") else "false").strip().lower() in {"1", "true", "yes", "on"}
 
 DEFAULT_GOOGLE_GIDS = {
     "Sheet1": "1716425068",
