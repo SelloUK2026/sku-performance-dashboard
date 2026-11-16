@@ -2825,6 +2825,13 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.require_authorization(parsed.path):
             return
         if parsed.path == "/api/health":
+            authorization = self.headers.get("Authorization", "")
+            refresh_token = os.environ.get("DATA_REFRESH_TOKEN", "")
+            if not (valid_basic_authorization(authorization) or (
+                refresh_token and hmac.compare_digest(authorization, "Bearer " + refresh_token)
+            )):
+                self.send_json({"ok": True})
+                return
             if daily_cache.enabled:
                 daily_cache.ensure()
             self.send_json(
