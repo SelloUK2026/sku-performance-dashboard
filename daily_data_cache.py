@@ -155,8 +155,10 @@ class DailyDataCache:
                 snapshot_url = os.environ.get("DAILY_DATA_SNAPSHOT_URL", "")
                 if snapshot_url:
                     key = os.environ.get("DAILY_DATA_STORAGE_KEY", "") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-                    request = Request(snapshot_url, headers={"apikey": key, "Authorization": "Bearer " + key,
-                                                            "Cache-Control": "no-cache"})
+                    headers = {"apikey": key, "Cache-Control": "no-cache"}
+                    if not key.startswith("sb_secret_"):
+                        headers["Authorization"] = "Bearer " + key
+                    request = Request(snapshot_url, headers=headers)
                     try:
                         with urlopen(request, timeout=180) as source, tempfile.TemporaryFile(dir=self.path.parent) as packed:
                             total = 0

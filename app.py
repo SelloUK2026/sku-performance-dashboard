@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hmac
 import json
 import io
 import math
@@ -34,7 +36,10 @@ CACHE_SECONDS = int(os.environ.get("SKU_APP_CACHE_SECONDS", "900"))
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 if SUPABASE_URL.endswith("/rest/v1"):
     SUPABASE_URL = SUPABASE_URL[:-8].rstrip("/")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+DASHBOARD_AUTH_USERNAME = os.environ.get("DASHBOARD_AUTH_USERNAME", "").strip()
+DASHBOARD_AUTH_PASSWORD = os.environ.get("DASHBOARD_AUTH_PASSWORD", "")
+DASHBOARD_REQUIRE_AUTH = os.environ.get("DASHBOARD_REQUIRE_AUTH", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 DEFAULT_GOOGLE_GIDS = {
     "Sheet1": "1716425068",
@@ -450,15 +455,16 @@ def load_upcoming_stock_file(path=UPCOMING_STOCK_FILE):
 
 
 def supabase_enabled():
-    return bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+    return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 
 def supabase_headers(extra=None):
     headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Accept": "application/json",
     }
+    if not SUPABASE_SERVICE_ROLE_KEY.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
     if extra:
         headers.update(extra)
     return headers
@@ -466,7 +472,7 @@ def supabase_headers(extra=None):
 
 def live_supabase_request(path, headers=None):
     if not supabase_enabled():
-        raise DataSourceError("Supabase is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY in Render.")
+        raise DataSourceError("Supabase is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Render.")
     url = f"{SUPABASE_URL}/rest/v1/{path}"
     request = Request(url, headers=supabase_headers(headers))
     daily_cache.source_reads += 1
@@ -1747,9 +1753,35 @@ def calculate_price_test(price, cogs, freight, selling_cost=0.25, wms=0.08):
     }
 
 
+def valid_basic_authorization(header_value):
+    if not header_value or not header_value.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(header_value.split(" ", 1)[1], validate=True).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return False
+    username, separator, password = decoded.partition(":")
+    return bool(separator) and hmac.compare_digest(username, DASHBOARD_AUTH_USERNAME) and hmac.compare_digest(password, DASHBOARD_AUTH_PASSWORD)
+
+
 class Handler(SimpleHTTPRequestHandler):
+    def require_authorization(self, path):
+        if path == "/api/health" or not DASHBOARD_REQUIRE_AUTH:
+            return True
+        if valid_basic_authorization(self.headers.get("Authorization")):
+            return True
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="SKU Performance"')
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return False
+
     def do_POST(self):
-        if urlparse(self.path).path != "/api/data-refresh":
+        path = urlparse(self.path).path
+        if path != "/api/data-refresh":
+            if not self.require_authorization(path):
+                return
             self.send_json({"error": "Unknown endpoint"}, status=404)
             return
         if daily_cache.accept_upload(self):
@@ -1780,6 +1812,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_GET(self):
         parsed = urlparse(self.path)
+        if not self.require_authorization(parsed.path):
+            return
         try:
             if parsed.path == "/api/health":
                 data = store.get()
@@ -1832,7 +1866,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     if SOURCE_MODE == "supabase" and not supabase_enabled():
-        raise SystemExit("Supabase mode needs SUPABASE_URL and SUPABASE_ANON_KEY.")
+        raise SystemExit("Supabase mode needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
+    if DASHBOARD_REQUIRE_AUTH and not (DASHBOARD_AUTH_USERNAME and DASHBOARD_AUTH_PASSWORD):
+        raise SystemExit("DASHBOARD_REQUIRE_AUTH is enabled but the username or password is missing.")
     if SOURCE_MODE not in ("google", "supabase") and not WORKBOOK_PATH.exists():
         raise SystemExit(f"Workbook not found: {WORKBOOK_PATH}")
     port = int(os.environ.get("PORT", "8765"))
