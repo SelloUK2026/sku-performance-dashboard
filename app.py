@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import hmac
 import json
 import io
@@ -18,6 +17,7 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
 from daily_data_cache import DailyDataCache, DASHBOARD_TABLES
+from form_auth import PasswordLogin
 
 
 ROOT = Path(__file__).resolve().parent
@@ -40,6 +40,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 DASHBOARD_AUTH_USERNAME = os.environ.get("DASHBOARD_AUTH_USERNAME", "").strip()
 DASHBOARD_AUTH_PASSWORD = os.environ.get("DASHBOARD_AUTH_PASSWORD", "")
 DASHBOARD_REQUIRE_AUTH = os.environ.get("DASHBOARD_REQUIRE_AUTH", "true" if os.environ.get("RENDER") else "false").strip().lower() in {"1", "true", "yes", "on"}
+LOGIN = PasswordLogin(DASHBOARD_AUTH_USERNAME, DASHBOARD_AUTH_PASSWORD, "SKU Performance", "sku_dashboard_session", bool(os.environ.get("RENDER")))
 
 DEFAULT_GOOGLE_GIDS = {
     "Sheet1": "1716425068",
@@ -1753,36 +1754,31 @@ def calculate_price_test(price, cogs, freight, selling_cost=0.25, wms=0.08):
     }
 
 
-def valid_basic_authorization(header_value):
-    if not header_value or not header_value.startswith("Basic "):
-        return False
-    try:
-        decoded = base64.b64decode(header_value.split(" ", 1)[1], validate=True).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return False
-    username, separator, password = decoded.partition(":")
-    return bool(separator) and hmac.compare_digest(username, DASHBOARD_AUTH_USERNAME) and hmac.compare_digest(password, DASHBOARD_AUTH_PASSWORD)
-
-
 class Handler(SimpleHTTPRequestHandler):
     def require_authorization(self, path):
         if path == "/api/health" or not DASHBOARD_REQUIRE_AUTH:
             return True
         authorization = self.headers.get("Authorization", "")
-        if valid_basic_authorization(authorization):
+        if LOGIN.authenticated(self.headers):
             return True
         refresh_token = os.environ.get("DATA_REFRESH_TOKEN", "")
         if path == "/api/sku" and refresh_token and hmac.compare_digest(authorization, "Bearer " + refresh_token):
             return True
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="SKU Performance"')
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+        if path.startswith("/api/"):
+            self.send_json({"error": "Sign in required"}, status=401)
+        else:
+            self.send_response(303)
+            self.send_header("Location", "/login")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
         return False
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/login":
+            LOGIN.submit_login(self)
+            return
         if path != "/api/data-refresh":
             if not self.require_authorization(path):
                 return
@@ -1816,13 +1812,19 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/login":
+            LOGIN.show_login(self)
+            return
+        if parsed.path == "/logout":
+            LOGIN.logout(self)
+            return
         if not self.require_authorization(parsed.path):
             return
         try:
             if parsed.path == "/api/health":
                 authorization = self.headers.get("Authorization", "")
                 refresh_token = os.environ.get("DATA_REFRESH_TOKEN", "")
-                if not (valid_basic_authorization(authorization) or (
+                if not (LOGIN.authenticated(self.headers) or (
                     refresh_token and hmac.compare_digest(authorization, "Bearer " + refresh_token)
                 )):
                     self.send_json({"ok": True})
