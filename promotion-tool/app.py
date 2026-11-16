@@ -30,6 +30,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR.parent))
 from daily_data_cache import DailyDataCache, PROMOTION_TABLES
+from form_auth import PasswordLogin
 STATIC_DIR = BASE_DIR / "static"
 SAMPLE_PATH = BASE_DIR / "sample_data.json"
 DATA_DIR = BASE_DIR / "data"
@@ -72,6 +73,7 @@ PROMOTION_REQUIRE_AUTH = (
     os.environ.get("PROMOTION_REQUIRE_AUTH", "true" if os.environ.get("RENDER") else "false").strip().lower()
     in {"1", "true", "yes", "on"}
 )
+LOGIN = PasswordLogin(PROMOTION_AUTH_USERNAME, PROMOTION_AUTH_PASSWORD, "Promotion Nomination Tool", "promotion_session", bool(os.environ.get("RENDER")))
 _INVENTORY_CACHE = {"path": None, "mtime_ns": None, "rows": None}
 _FIRST_ARRIVAL_CACHE = {"path": None, "mtime_ns": None, "rows": None}
 _FREIGHT_CACHE = {"path": None, "mtime_ns": None, "rows": None}
@@ -2807,13 +2809,16 @@ class Handler(SimpleHTTPRequestHandler):
     def require_authorization(self, path):
         if path == "/api/health" or not PROMOTION_REQUIRE_AUTH:
             return True
-        if valid_basic_authorization(self.headers.get("Authorization")):
+        if LOGIN.authenticated(self.headers):
             return True
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="Promotion Tool"')
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+        if path.startswith("/api/"):
+            self.send_json({"error": "Sign in required"}, status=401)
+        else:
+            self.send_response(303)
+            self.send_header("Location", "/login")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
         return False
 
     def do_GET(self):
@@ -2822,12 +2827,18 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/login":
+            LOGIN.show_login(self)
+            return
+        if parsed.path == "/logout":
+            LOGIN.logout(self)
+            return
         if not self.require_authorization(parsed.path):
             return
         if parsed.path == "/api/health":
             authorization = self.headers.get("Authorization", "")
             refresh_token = os.environ.get("DATA_REFRESH_TOKEN", "")
-            if not (valid_basic_authorization(authorization) or (
+            if not (LOGIN.authenticated(self.headers) or (
                 refresh_token and hmac.compare_digest(authorization, "Bearer " + refresh_token)
             )):
                 self.send_json({"ok": True})
@@ -2970,6 +2981,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def handle_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/login":
+            LOGIN.submit_login(self)
+            return
         if parsed.path == "/api/data-refresh":
             if daily_cache.accept_upload(self):
                 _SUPABASE_PROMOTION_CACHE.update({"rows": None, "expires_at": 0.0})
