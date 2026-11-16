@@ -1768,7 +1768,11 @@ class Handler(SimpleHTTPRequestHandler):
     def require_authorization(self, path):
         if path == "/api/health" or not DASHBOARD_REQUIRE_AUTH:
             return True
-        if valid_basic_authorization(self.headers.get("Authorization")):
+        authorization = self.headers.get("Authorization", "")
+        if valid_basic_authorization(authorization):
+            return True
+        refresh_token = os.environ.get("DATA_REFRESH_TOKEN", "")
+        if path == "/api/sku" and refresh_token and hmac.compare_digest(authorization, "Bearer " + refresh_token):
             return True
         self.send_response(401)
         self.send_header("WWW-Authenticate", 'Basic realm="SKU Performance"')
