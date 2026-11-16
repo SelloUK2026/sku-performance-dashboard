@@ -1867,6 +1867,8 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     if SOURCE_MODE == "supabase" and not supabase_enabled():
         raise SystemExit("Supabase mode needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
+    if SOURCE_MODE == "supabase":
+        live_supabase_request("sku_master?select=sku&limit=1")
     if DASHBOARD_REQUIRE_AUTH and not (DASHBOARD_AUTH_USERNAME and DASHBOARD_AUTH_PASSWORD):
         raise SystemExit("DASHBOARD_REQUIRE_AUTH is enabled but the username or password is missing.")
     if SOURCE_MODE not in ("google", "supabase") and not WORKBOOK_PATH.exists():
