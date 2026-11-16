@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 from http.server import ThreadingHTTPServer
 from threading import Thread
@@ -52,6 +53,15 @@ class DashboardAuthTests(unittest.TestCase):
     def test_health_and_refresh_token_remain_separate(self):
         self.assertEqual(self.request_status("/api/data-refresh", method="POST"), 401)
         self.assertEqual(self.request_status("/api/data-refresh", "team:example-password", method="POST"), 401)
+
+    def test_public_health_omits_business_metadata(self):
+        with urlopen(self.base + "/api/health") as response:
+            self.assertEqual(json.load(response), {"ok": True})
+        with patch.dict(os.environ, {"DATA_REFRESH_TOKEN": "machine-only"}):
+            with patch.object(app.store, "get", return_value={"meta": {"skuCount": 1}}):
+                request = Request(self.base + "/api/health", headers={"Authorization": "Bearer machine-only"})
+                with urlopen(request) as response:
+                    self.assertEqual(json.load(response)["meta"]["skuCount"], 1)
 
     def test_refresh_token_can_verify_api_but_cannot_open_page(self):
         with patch.dict(os.environ, {"DATA_REFRESH_TOKEN": "machine-only"}):
