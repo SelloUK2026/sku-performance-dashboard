@@ -69,7 +69,7 @@ PROMOTION_CACHE_SECONDS = int(os.environ.get("PROMOTION_CACHE_SECONDS", "300"))
 PROMOTION_AUTH_USERNAME = os.environ.get("PROMOTION_AUTH_USERNAME", "").strip()
 PROMOTION_AUTH_PASSWORD = os.environ.get("PROMOTION_AUTH_PASSWORD", "")
 PROMOTION_REQUIRE_AUTH = (
-    os.environ.get("PROMOTION_REQUIRE_AUTH", "false").strip().lower()
+    os.environ.get("PROMOTION_REQUIRE_AUTH", "true" if os.environ.get("RENDER") else "false").strip().lower()
     in {"1", "true", "yes", "on"}
 )
 _INVENTORY_CACHE = {"path": None, "mtime_ns": None, "rows": None}
